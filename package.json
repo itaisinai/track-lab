@@ -1,0 +1,18 @@
+{
+  "name": "track-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "demo:track-profile": "npm run demo:track-profile --workspace @track-lab/api",
+    "dev": "npm run dev --workspace @track-lab/api",
+    "start": "npm run start --workspace @track-lab/api",
+    "test": "npm run test --workspaces"
+  }
+}
