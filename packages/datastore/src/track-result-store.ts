@@ -61,6 +61,18 @@ export class TrackResultStore {
     return row ? mapRowToTrackResult(row) : null;
   }
 
+  findByTrack(title: string, artists: string): TrackResult | null {
+    const row = this.db
+      .prepare(
+        "SELECT * FROM track_results WHERE title_key = ? AND artists_key = ?",
+      )
+      .get(normalizeUniqueKey(title), normalizeUniqueKey(artists)) as
+      | TrackResultRow
+      | undefined;
+
+    return row ? mapRowToTrackResult(row) : null;
+  }
+
   saveResult(input: SaveTrackResultInput): TrackResult {
     const normalized = normalizeTrackResult(input);
     const now = new Date().toISOString();

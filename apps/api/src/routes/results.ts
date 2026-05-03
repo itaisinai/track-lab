@@ -1,5 +1,4 @@
-import { HumanMessage } from "@langchain/core/messages";
-import { agent } from "@track-lab/agent";
+import { invokeTrackMetadataAgent } from "@track-lab/agent";
 import { extractAgentResponse, type TrackResultStore } from "@track-lab/datastore";
 import { Router, type Request, type Response } from "express";
 import { createTrackPrompt } from "../lib/track-prompt.ts";
@@ -44,11 +43,12 @@ export function createResultsRouter(store: TrackResultStore) {
     }
 
     try {
-      const result = await agent.invoke({
-        messages: [new HumanMessage(createTrackPrompt(saved.title, saved.artists))],
-      });
-      const lastMessage = result.messages[result.messages.length - 1];
-      res.json(lastMessage);
+      res.json(
+        await invokeTrackMetadataAgent(
+          createTrackPrompt(saved.title, saved.artists),
+          { preferDatastore: false },
+        ),
+      );
     } catch (error) {
       console.error("Error re-enriching result:", error);
       res

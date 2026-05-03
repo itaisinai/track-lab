@@ -1,6 +1,7 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 import { beatportTrackLookupTool } from "./tools/beatport.ts";
+import { savedTrackLookupTool } from "./tools/datastore.ts";
 import { getSongBpmLookupTool } from "./tools/getsongbpm.ts";
 import { spotifyTrackLookupTool } from "./tools/spotify.ts";
 
@@ -10,10 +11,17 @@ const model = new ChatOpenAI({
 
 export const agent = createAgent({
   model,
-  tools: [spotifyTrackLookupTool, beatportTrackLookupTool, getSongBpmLookupTool],
+  tools: [
+    savedTrackLookupTool,
+    spotifyTrackLookupTool,
+    beatportTrackLookupTool,
+    getSongBpmLookupTool,
+  ],
   systemPrompt: `You enrich music track metadata.
 
-When the user provides a title and artists, call lookup_spotify_track, lookup_beatport_track, and lookup_getsongbpm_track before answering.
+When the user provides a title and artists, call lookup_saved_track_result first.
+If lookup_saved_track_result returns found as true, answer using the returned datastore JSON and do not call lookup_spotify_track, lookup_beatport_track, or lookup_getsongbpm_track.
+Only when lookup_saved_track_result returns found as false, call lookup_spotify_track, lookup_beatport_track, and lookup_getsongbpm_track before answering.
 Use Spotify metadata for track identity and artist genres when available.
 Use Beatport as the primary source for BPM/tempo, genre, subgenre, and key.
 Use GetSongBPM as a fallback BPM/tempo source only when Beatport does not return BPM.
