@@ -1,58 +1,80 @@
 # Track Lab
 
-Node monorepo scaffold for TrackLab experiments.
+Track Lab enriches music track metadata with an agent, stores saved results in a
+local SQLite database, and reuses saved results before calling external providers.
 
-## Apps
+## Structure
 
-- `apps/api` contains the Node service.
+- `apps/api` - Express API.
+- `apps/web` - React/Vite UI.
+- `packages/agent` - LangChain metadata agent.
+- `packages/datastore` - SQLite result store.
 
-## Scripts
+## Run
 
-- `yarn dev` starts the API service.
-- `yarn dev:web` starts the React web app.
-- `yarn test` runs the test suite.
+```sh
+yarn install
+yarn dev
+yarn dev:web
+```
 
-## Spotify API
+Useful checks:
 
-The API service can use Spotify public metadata through a LangChain tool.
+```sh
+yarn typecheck
+yarn workspace @track-lab/web build
+```
 
-Set these optional environment variables before running `yarn dev`:
+## Environment
 
-- `SPOTIFY_CLIENT_ID`
-- `SPOTIFY_CLIENT_SECRET`
+Create `.env` in the repo root.
 
-Create them from the Spotify Developer Dashboard. The backend uses Spotify's Client Credentials flow, so keep the client secret server-side only.
+```sh
+OPENAI_API_KEY=
+SPOTIFY_CLIENT_ID=
+SPOTIFY_CLIENT_SECRET=
+GETSONGBPM_API_KEY=
+BEATPORT_CLIENT_ID=
+BEATPORT_CLIENT_SECRET=
+```
 
-## GetSongBPM API
+Provider credentials are optional for local wiring, but real enrichment quality
+depends on them.
 
-The API service uses GetSongBPM for BPM/tempo lookup. This is required for real BPM values.
+## Persistence
 
-Set this environment variable before running `yarn dev`:
+Saved results are stored in:
 
-- `GETSONGBPM_API_KEY`
+```sh
+data/track-lab.sqlite
+```
 
-GetSongBPM requires a real API key and backlink attribution. See https://getsongbpm.com/api.
+Override with:
 
-BPM data provided by [GetSongBPM](https://getsongbpm.com).
+```sh
+TRACK_LAB_DB_PATH=/path/to/track-lab.sqlite
+```
 
-## Beatport API
+Saved tracks are unique by returned `Title + Artists`.
 
-The API service can use Beatport as the primary EDM metadata source for BPM, key, genre, and subgenre.
+## Behavior
 
-Set these optional environment variables before running `yarn dev`:
+- The agent returns `Title`, `Artists`, `Album`, `BPM`, `Genre`, `SubGenre`,
+  `Key`, summary, provider status, provider URLs, and errors.
+- By default, the agent checks saved results first.
+- The UI can skip saved results to force a fresh enrichment.
+- Saved results can be viewed, re-enriched, saved again, or removed.
 
-- `BEATPORT_CLIENT_ID`
-- `BEATPORT_CLIENT_SECRET`
+## API
 
-The backend uses Beatport's OAuth client credentials flow.
+- `POST /agent` - run enrichment.
+- `GET /results` - list saved results.
+- `GET /results/:id` - get one saved result.
+- `POST /results` - save an agent response.
+- `POST /results/:id/enrich` - fresh enrichment for a saved result.
+- `DELETE /results/:id` - remove a saved result.
 
-## Endpoint
+## Notes
 
-- `GET /noop` returns `204 No Content`.
-- `POST /tools/create_track_profile` creates a rule-based track metadata profile.
-
-## Track Profile POC
-
-The `create_track_profile` tool accepts track metadata and returns a structured profile with normalized metadata, energy classification, tags, DJ usage, production notes, and recommendations.
-
-The `TrackProfileAgent` calls the local tool endpoint. If `OPENAI_API_KEY` is set and the optional `openai` package is installed, the agent asks the LLM to enrich `djUsage`, `productionNotes`, and `recommendedNotes`. Without an API key, it returns the rule-based profile.
+The web action icons use inline SVGs from [Heroicons](https://heroicons.com/),
+which is MIT licensed.
