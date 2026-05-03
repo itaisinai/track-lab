@@ -1,6 +1,7 @@
 .results-view {
   display: grid;
   gap: 14px;
+  animation: results-enter 420ms ease both;
 }
 
 .section-header {
@@ -16,15 +17,16 @@
 }
 
 .error-text {
-  color: #b42318;
+  color: #ff8b82;
   font-weight: 700;
 }
 
 .table-wrap {
   overflow-x: auto;
-  border: 1px solid #d8dde7;
+  border: 1px solid #30434a;
   border-radius: 8px;
-  background: #ffffff;
+  background: rgb(13 23 29 / 88%);
+  box-shadow: 0 20px 54px rgb(0 0 0 / 28%);
 }
 
 table {
@@ -36,17 +38,32 @@ table {
 th,
 td {
   padding: 11px 12px;
-  border-bottom: 1px solid #e6eaf0;
+  border-bottom: 1px solid #24343b;
   text-align: left;
   vertical-align: top;
   font-size: 13px;
 }
 
 th {
-  color: #667085;
+  color: #91a4aa;
   font-size: 12px;
   text-transform: uppercase;
-  background: #f9fafb;
+  background: #101b21;
+}
+
+td {
+  color: #e8f1ef;
+}
+
+tbody tr {
+  transition:
+    background 140ms ease,
+    transform 140ms ease;
+}
+
+tbody tr:hover {
+  background: rgb(233 196 106 / 9%);
+  transform: translateX(2px);
 }
 
 tr:last-child td {
@@ -65,24 +82,36 @@ tr:last-child td {
 }
 
 .pill.complete {
-  color: #166534;
-  background: #dcfce7;
+  color: #b8ffe9;
+  background: rgb(42 157 143 / 24%);
 }
 
 .pill.partial {
-  color: #92400e;
-  background: #fef3c7;
+  color: #ffe4a3;
+  background: rgb(233 196 106 / 22%);
 }
 
 .pill.failed {
-  color: #991b1b;
-  background: #fee2e2;
+  color: #ffb5ae;
+  background: rgb(231 111 81 / 22%);
 }
 
 .row-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+@keyframes results-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @media (max-width: 680px) {

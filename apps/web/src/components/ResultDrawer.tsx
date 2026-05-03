@@ -5,12 +5,20 @@ import "./ResultDrawer.css";
 
 type ResultDrawerProps = {
   result: SavedTrackResult;
+  state: "opening" | "open" | "closing";
   onClose: () => void;
 };
 
-export function ResultDrawer({ result, onClose }: ResultDrawerProps) {
+export function ResultDrawer({
+  result,
+  state,
+  onClose,
+}: ResultDrawerProps) {
   return (
-    <aside className="drawer" aria-label="Result details">
+    <aside
+      className={`drawer ${state}`}
+      aria-label="Result details"
+    >
       <div className="drawer-panel">
         <div className="drawer-header">
           <div>

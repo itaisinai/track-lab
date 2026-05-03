@@ -1,18 +1,49 @@
 .drawer {
   position: fixed;
   inset: 0;
+  z-index: 40;
   display: flex;
   justify-content: flex-end;
-  background: rgb(15 23 42 / 32%);
+  min-height: 100dvh;
+  background: rgb(0 0 0 / 58%);
+  opacity: 0;
+  transition: opacity 260ms ease;
+}
+
+.drawer.open {
+  opacity: 1;
 }
 
 .drawer-panel {
   width: min(640px, 100%);
-  height: 100%;
+  height: 100dvh;
+  min-height: 100dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 24px;
-  background: #ffffff;
-  box-shadow: -16px 0 30px rgb(15 23 42 / 18%);
+  background:
+    linear-gradient(180deg, rgb(16 27 33 / 98%), rgb(9 16 20 / 98%)),
+    #101b21;
+  box-shadow: -16px 0 34px rgb(0 0 0 / 36%);
+  transform: translateX(100%);
+  transition:
+    opacity 260ms ease,
+    transform 260ms cubic-bezier(0.22, 1, 0.36, 1);
+  opacity: 0.7;
+}
+
+.drawer.open .drawer-panel {
+  transform: translateX(0);
+  opacity: 1;
+}
+
+.drawer.closing {
+  opacity: 0;
+}
+
+.drawer.closing .drawer-panel {
+  transform: translateX(100%);
+  opacity: 0.7;
 }
 
 .drawer-header {
@@ -31,10 +62,22 @@
 
 .drawer-header p {
   margin-top: 4px;
-  color: #667085;
+  color: #91a4aa;
 }
 
 .drawer-panel h3 {
   margin-bottom: 10px;
   font-size: 16px;
+}
+
+@media (max-width: 680px) {
+  .drawer-panel {
+    width: 100%;
+    padding: 24px 16px;
+  }
+
+  .drawer-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
 }

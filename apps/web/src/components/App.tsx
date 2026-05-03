@@ -30,6 +30,9 @@ export function App() {
   const [selectedResult, setSelectedResult] = useState<SavedTrackResult | null>(
     null,
   );
+  const [drawerState, setDrawerState] = useState<
+    "opening" | "open" | "closing"
+  >("opening");
   const [reenrichingId, setReenrichingId] = useState<number | null>(null);
   const trackDetails = response ? parseTrackDetails(response) : null;
 
@@ -110,7 +113,7 @@ export function App() {
       setLastAgentResponse(data);
       setResponse(formatAgentResponse(data));
       setView("enrich");
-      setSelectedResult(null);
+      closeDrawer();
     } catch (caughtError) {
       setResultsError(getErrorMessage(caughtError, "Could not enrich result"));
     } finally {
@@ -118,66 +121,93 @@ export function App() {
     }
   }
 
-  return (
-    <main className="page">
-      <header className="topbar">
-        <h1>Track Lab Agent</h1>
-        <nav className="tabs" aria-label="Views">
-          <button
-            className={view === "enrich" ? "tab active" : "tab"}
-            type="button"
-            onClick={() => setView("enrich")}
-          >
-            Enrich
-          </button>
-          <button
-            className={view === "results" ? "tab active" : "tab"}
-            type="button"
-            onClick={() => {
-              setView("results");
-              void loadSavedResults();
-            }}
-          >
-            Saved Results
-          </button>
-        </nav>
-      </header>
+  function openDrawer(result: SavedTrackResult) {
+    setDrawerState("opening");
+    setSelectedResult(result);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => {
+        setDrawerState("open");
+      });
+    });
+  }
 
-      {view === "enrich" ? (
-        <EnrichView
-          title={title}
-          artists={artists}
-          response={response}
-          error={error}
-          saveMessage={saveMessage}
-          isLoading={isLoading}
-          isSaving={isSaving}
-          canSave={Boolean(lastAgentResponse)}
-          trackDetails={trackDetails}
-          onTitleChange={setTitle}
-          onArtistsChange={setArtists}
-          onSubmit={submitPrompt}
-          onSave={() => void saveCurrentResponse()}
-        />
-      ) : (
-        <ResultsView
-          results={results}
-          error={resultsError}
-          isLoading={isResultsLoading}
-          reenrichingId={reenrichingId}
-          onRefresh={() => void loadSavedResults()}
-          onMore={setSelectedResult}
-          onReenrich={(result) => void reenrichResult(result)}
-        />
-      )}
+  function closeDrawer() {
+    if (!selectedResult || drawerState === "closing") {
+      return;
+    }
+
+    setDrawerState("closing");
+    window.setTimeout(() => {
+      setSelectedResult(null);
+      setDrawerState("opening");
+    }, 260);
+  }
+
+  return (
+    <>
+      <div className="page">
+        <main className="page-content">
+          <header className="topbar">
+            <h1>Track Lab Agent</h1>
+            <nav className="tabs" aria-label="Views">
+              <button
+                className={view === "enrich" ? "tab active" : "tab"}
+                type="button"
+                onClick={() => setView("enrich")}
+              >
+                Enrich
+              </button>
+              <button
+                className={view === "results" ? "tab active" : "tab"}
+                type="button"
+                onClick={() => {
+                  setView("results");
+                  void loadSavedResults();
+                }}
+              >
+                Saved Results
+              </button>
+            </nav>
+          </header>
+
+          {view === "enrich" ? (
+            <EnrichView
+              title={title}
+              artists={artists}
+              response={response}
+              error={error}
+              saveMessage={saveMessage}
+              isLoading={isLoading}
+              isSaving={isSaving}
+              canSave={Boolean(lastAgentResponse)}
+              trackDetails={trackDetails}
+              onTitleChange={setTitle}
+              onArtistsChange={setArtists}
+              onSubmit={submitPrompt}
+              onSave={() => void saveCurrentResponse()}
+            />
+          ) : (
+            <ResultsView
+              results={results}
+              error={resultsError}
+              isLoading={isResultsLoading}
+              reenrichingId={reenrichingId}
+              onRefresh={() => void loadSavedResults()}
+              onMore={openDrawer}
+              onReenrich={(result) => void reenrichResult(result)}
+            />
+          )}
+        </main>
+      </div>
 
       {selectedResult && (
         <ResultDrawer
           result={selectedResult}
-          onClose={() => setSelectedResult(null)}
+          state={drawerState}
+          onClose={closeDrawer}
         />
       )}
-    </main>
+    </>
   );
 }
 

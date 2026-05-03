@@ -7,17 +7,29 @@
 
 .detail,
 .summary {
-  border: 1px solid #d8dde7;
+  border: 1px solid #30434a;
   border-radius: 8px;
   padding: 14px;
-  background: #ffffff;
+  background: rgb(13 23 29 / 86%);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 20%);
+  transition:
+    border-color 160ms ease,
+    box-shadow 160ms ease,
+    transform 160ms ease;
+}
+
+.detail:hover,
+.summary:hover {
+  border-color: #3f756f;
+  box-shadow: 0 18px 42px rgb(42 157 143 / 12%);
+  transform: translateY(-2px);
 }
 
 .detail span,
 .summary span {
   display: block;
   margin-bottom: 6px;
-  color: #667085;
+  color: #91a4aa;
   font-size: 12px;
   font-weight: 700;
   text-transform: uppercase;
@@ -25,8 +37,24 @@
 
 .detail strong {
   display: block;
-  color: #172033;
+  color: #f4faf8;
   font-size: 22px;
+}
+
+.detail:nth-child(1) strong {
+  color: #2a9d8f;
+}
+
+.detail:nth-child(2) strong {
+  color: #176b87;
+}
+
+.detail:nth-child(3) strong {
+  color: #c76f2b;
+}
+
+.detail:nth-child(4) strong {
+  color: #7c3f98;
 }
 
 .summary {
@@ -35,25 +63,32 @@
 
 .summary p {
   margin: 0;
+  color: #d8e5e2;
   line-height: 1.5;
 }
 
 .tool-list {
   margin: 0;
   padding-left: 18px;
+  color: #d8e5e2;
   line-height: 1.5;
 }
 
 .spotify-link {
   display: inline-block;
   margin-top: 14px;
-  color: #176b87;
+  color: #83e7d8;
   font-weight: 700;
   text-decoration: none;
+  transition:
+    color 160ms ease,
+    transform 160ms ease;
 }
 
 .spotify-link:hover {
+  color: #f4d27a;
   text-decoration: underline;
+  transform: translateX(2px);
 }
 
 @media (max-width: 680px) {

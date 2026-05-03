@@ -2,9 +2,17 @@
   display: grid;
   width: min(760px, 100%);
   gap: 12px;
+  padding: 20px;
+  border: 1px solid rgb(69 91 99 / 76%);
+  border-radius: 8px;
+  background: rgb(13 23 29 / 78%);
+  box-shadow: 0 20px 54px rgb(0 0 0 / 28%);
+  backdrop-filter: blur(14px);
+  animation: panel-rise 420ms ease both;
 }
 
 .panel label {
+  color: #cbd9d6;
   font-size: 14px;
   font-weight: 700;
 }
@@ -16,18 +24,44 @@
 }
 
 .status-note {
-  color: #166534;
+  color: #83e7d8;
   font-weight: 700;
+  animation: status-pop 260ms ease both;
 }
 
 .response {
   width: min(880px, 100%);
   margin-top: 28px;
+  animation: panel-rise 420ms ease both;
 }
 
 .response h2 {
   margin: 0 0 10px;
   font-size: 16px;
+}
+
+@keyframes panel-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes status-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @media (max-width: 680px) {
