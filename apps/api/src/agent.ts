@@ -1,11 +1,11 @@
-import { ChatOpenAI } from '@langchain/openai'
+import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
 
 const model = new ChatOpenAI({
-    model: "gpt-5-nano"
-})
+  model: "gpt-5-nano",
+});
 
 export const agent = createAgent({
-    llm: model,
-    tools: []
-})
+  model,
+  tools: [],
+});

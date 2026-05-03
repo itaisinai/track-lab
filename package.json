@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
+  "packageManager": "yarn@4.9.2",
   "workspaces": [
     "apps/*"
   ],
@@ -10,9 +11,9 @@
     "node": ">=22"
   },
   "scripts": {
-    "demo:track-profile": "npm run demo:track-profile --workspace @track-lab/api",
-    "dev": "npm run dev --workspace @track-lab/api",
-    "start": "npm run start --workspace @track-lab/api",
-    "test": "npm run test --workspaces"
+    "dev": "yarn workspace @track-lab/api dev",
+    "dev:web": "yarn workspace @track-lab/web dev",
+    "start": "yarn workspace @track-lab/api start",
+    "test": "yarn workspaces foreach --all run test"
   }
 }

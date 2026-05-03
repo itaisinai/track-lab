@@ -8,9 +8,9 @@ Node monorepo scaffold for TrackLab experiments.
 
 ## Scripts
 
-- `npm run dev` starts the API service in watch mode.
-- `npm run demo:track-profile` runs the Track Profile Agent demo.
-- `npm test` runs the test suite.
+- `yarn dev` starts the API service.
+- `yarn dev:web` starts the React web app.
+- `yarn test` runs the test suite.
 
 ## Endpoint
 
