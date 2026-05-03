@@ -1,9 +1,10 @@
 import { HumanMessage } from 'langchain';
 import { agent } from './agent.ts';
+import { config } from './config.ts';
 import express from 'express';
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = config.port;
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

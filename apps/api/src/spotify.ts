@@ -1,4 +1,5 @@
-import { tool } from "langchain";
+import { config } from "./config.ts";
+import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
@@ -49,7 +50,7 @@ let cachedToken: SpotifyToken | null = null;
 
 export const spotifyTrackLookupTool = tool(
   async ({ title, artists }) => {
-    if (!process.env.SPOTIFY_CLIENT_ID || !process.env.SPOTIFY_CLIENT_SECRET) {
+    if (!config.spotify.clientId || !config.spotify.clientSecret) {
       return JSON.stringify({
         found: false,
         source: "spotify",
@@ -139,8 +140,8 @@ async function getSpotifyAccessToken() {
     return cachedToken.accessToken;
   }
 
-  const clientId = process.env.SPOTIFY_CLIENT_ID;
-  const clientSecret = process.env.SPOTIFY_CLIENT_SECRET;
+  const clientId = config.spotify.clientId;
+  const clientSecret = config.spotify.clientSecret;
 
   if (!clientId || !clientSecret) {
     throw new Error(
@@ -226,8 +227,7 @@ async function parseSpotifyResponse<T>(response: Response, step: string) {
   if (!response.ok) {
     const retryAfter = response.headers.get("retry-after");
     throw new Error(
-      `Spotify ${step} API error ${response.status}: ${JSON.stringify(data)}${
-        retryAfter ? ` Retry after ${retryAfter}s.` : ""
+      `Spotify ${step} API error ${response.status}: ${JSON.stringify(data)}${retryAfter ? ` Retry after ${retryAfter}s.` : ""
       }`,
     );
   }

@@ -7,7 +7,10 @@ const API_URL = "http://localhost:3000/agent";
 type TrackDetails = {
   bpm?: string;
   genre?: string;
+  subGenre?: string;
+  key?: string;
   summary?: string;
+  spotifyUrl?: string;
 };
 
 function App() {
@@ -99,9 +102,27 @@ function App() {
                 <span>Genre</span>
                 <strong>{trackDetails.genre ?? "Unknown"}</strong>
               </div>
+              <div className="detail">
+                <span>Subgenre</span>
+                <strong>{trackDetails.subGenre ?? "Unknown"}</strong>
+              </div>
+              <div className="detail">
+                <span>Key</span>
+                <strong>{trackDetails.key ?? "Unknown"}</strong>
+              </div>
               <div className="summary">
                 <span>Summary</span>
                 <p>{trackDetails.summary ?? "No summary returned."}</p>
+                {trackDetails.spotifyUrl && (
+                  <a
+                    className="spotify-link"
+                    href={trackDetails.spotifyUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                  >
+                    Open in Spotify
+                  </a>
+                )}
               </div>
             </div>
           )}
@@ -120,7 +141,7 @@ Title: ${title}
 Artist: ${artists}
 
 I want you to send back object with:
-BPM, Genre, AI-generated summary, Spotify matched status and Spotify URL, GetSongBPM matched status and GetSongBPM URL`;
+BPM, Genre, SubGenre, Key, AI-generated summary, Spotify matched status and Spotify URL, Beatport matched status and Beatport URL, GetSongBPM matched status and GetSongBPM URL`;
 }
 
 function formatAgentResponse(data: unknown) {
@@ -159,10 +180,15 @@ function parseTrackDetails(response: string): TrackDetails | null {
   const details = {
     bpm: matchLabeledValue(response, "BPM"),
     genre: matchLabeledValue(response, "Genre"),
+    subGenre:
+      matchLabeledValue(response, "SubGenre") ??
+      matchLabeledValue(response, "Sub Genre"),
+    key: matchLabeledValue(response, "Key"),
     summary:
       matchLabeledValue(response, "AI-generated summary") ??
       matchLabeledValue(response, "AI generated summary") ??
       matchLabeledValue(response, "Summary"),
+    spotifyUrl: matchUrl(response, "open.spotify.com"),
   };
 
   return hasTrackDetails(details) ? details : null;
@@ -172,6 +198,8 @@ function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
   return {
     bpm: valueToString(findValue(record, ["bpm"])),
     genre: valueToString(findValue(record, ["genre"])),
+    subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
+    key: valueToString(findValue(record, ["key"])),
     summary: valueToString(
       findValue(record, [
         "ai-generated summary",
@@ -181,6 +209,9 @@ function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
         "ai_generated_summary",
       ]),
     ),
+    spotifyUrl:
+      valueToString(findValue(record, ["spotifyUrl", "spotify_url"])) ??
+      findNestedProviderUrl(record, "spotify"),
   };
 }
 
@@ -261,8 +292,35 @@ function matchLabeledValue(response: string, label: string) {
   return match?.[1].trim();
 }
 
+function matchUrl(response: string, domain: string) {
+  return response.match(new RegExp(`https?://[^\\s"']*${domain}[^\\s"']*`, "i"))
+    ?.[0];
+}
+
+function findNestedProviderUrl(
+  record: Record<string, unknown>,
+  provider: string,
+) {
+  const value = Object.entries(record).find(
+    ([key]) => normalizeKey(key) === provider,
+  )?.[1];
+
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  return valueToString(findValue(value as Record<string, unknown>, ["url"]));
+}
+
 function hasTrackDetails(details: TrackDetails) {
-  return Boolean(details.bpm || details.genre || details.summary);
+  return Boolean(
+    details.bpm ||
+      details.genre ||
+      details.subGenre ||
+      details.key ||
+      details.summary ||
+      details.spotifyUrl,
+  );
 }
 
 createRoot(document.getElementById("root")!).render(

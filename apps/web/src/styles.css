@@ -108,6 +108,18 @@ button:disabled {
   line-height: 1.5;
 }
 
+.spotify-link {
+  display: inline-block;
+  margin-top: 14px;
+  color: #2563eb;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.spotify-link:hover {
+  text-decoration: underline;
+}
+
 .response h2 {
   margin: 0 0 10px;
   font-size: 16px;

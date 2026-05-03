@@ -35,6 +35,17 @@ GetSongBPM requires a real API key and backlink attribution. See https://getsong
 
 BPM data provided by [GetSongBPM](https://getsongbpm.com).
 
+## Beatport API
+
+The API service can use Beatport as the primary EDM metadata source for BPM, key, genre, and subgenre.
+
+Set these optional environment variables before running `yarn dev`:
+
+- `BEATPORT_CLIENT_ID`
+- `BEATPORT_CLIENT_SECRET`
+
+The backend uses Beatport's OAuth client credentials flow.
+
 ## Endpoint
 
 - `GET /noop` returns `204 No Content`.
