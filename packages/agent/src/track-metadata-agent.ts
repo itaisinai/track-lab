@@ -1,9 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
-import { beatportTrackLookupTool } from "./tools/beatport.ts";
-import { savedTrackLookupTool } from "./tools/datastore.ts";
-import { getSongBpmLookupTool } from "./tools/getsongbpm.ts";
-import { spotifyTrackLookupTool } from "./tools/spotify.ts";
+import { enrichTrackMetadataTool } from "./tools/enrich-track-metadata.ts";
 
 const model = new ChatOpenAI({
   model: "gpt-5-nano",
@@ -11,47 +8,30 @@ const model = new ChatOpenAI({
 
 export const agent = createAgent({
   model,
-  tools: [
-    savedTrackLookupTool,
-    spotifyTrackLookupTool,
-    beatportTrackLookupTool,
-    getSongBpmLookupTool,
-  ],
+  tools: [enrichTrackMetadataTool],
   systemPrompt: `You enrich music track metadata.
 
-When the user provides a title and artists, call lookup_saved_track_result first.
-If lookup_saved_track_result returns found as true, answer using the returned datastore JSON and do not call lookup_spotify_track, lookup_beatport_track, or lookup_getsongbpm_track.
-Only when lookup_saved_track_result returns found as false, call lookup_spotify_track, lookup_beatport_track, and lookup_getsongbpm_track before answering.
-Use Spotify metadata for track identity and artist genres when available.
-Use Spotify track.album.name as the primary source for Album when available. If Spotify has no album name, return Album as null.
-Use Beatport as the primary source for BPM/tempo, genre, subgenre, and key.
-Use GetSongBPM as a fallback BPM/tempo source only when Beatport does not return BPM.
-Do not invent BPM. If Beatport and GetSongBPM both return bpm as null, return BPM as null.
+When the user provides a track name and optional artist, call enrich_track_metadata.
+Do not call provider-specific lookup tools directly.
+Do not invent BPM or genre.
 
-Always return only a JSON object with these exact keys:
+Always return only the JSON object produced by enrich_track_metadata:
 {
-  "Title": string,
-  "Artists": string,
-  "Album": string | null,
-  "BPM": number | null,
-  "Genre": string | null,
-  "SubGenre": string | null,
-  "Key": string | null,
-  "AI_generated_summary": string,
-  "Spotify": {
-    "matched": boolean,
-    "url": string | null,
-    "error": string | null
+  "trackName": string,
+  "artist"?: string,
+  "album"?: string | null,
+  "spotifyUrl"?: string | null,
+  "bpm": number | null,
+  "genre": string | null,
+  "key"?: string | null,
+  "sources": {
+    "bpm"?: "local_db" | "rekordbox_xml" | "audio_analysis" | "spotify" | "getsongbpm" | "lastfm" | "unknown",
+    "genre"?: "local_db" | "rekordbox_xml" | "spotify" | "getsongbpm" | "lastfm" | "unknown",
+    "album"?: "local_db" | "spotify" | "getsongbpm" | "unknown",
+    "key"?: "local_db" | "rekordbox_xml" | "unknown"
   },
-  "Beatport": {
-    "matched": boolean,
-    "url": string | null,
-    "error": string | null
-  },
-  "GetSongBPM": {
-    "matched": boolean,
-    "url": string | null,
-    "error": string | null
-  }
+  "confidence": object,
+  "status": "complete" | "partial" | "missing",
+  "errors"?: string[]
 }`,
 });

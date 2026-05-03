@@ -17,7 +17,9 @@ export function normalizeTrackResult(
   input: SaveTrackResultInput,
 ): NormalizedTrackResult {
   const record = assertRecord(input.json);
-  const title = valueToString(findValue(record, ["title", "trackTitle", "track_title"]));
+  const title = valueToString(
+    findValue(record, ["title", "trackTitle", "track_title", "trackName"]),
+  );
   const artists =
     valueToString(findValue(record, ["artists", "artist", "artistNames", "artist_names"])) ??
     stringifyArtistList(findValue(record, ["artistList", "artist_list"]));
@@ -27,9 +29,12 @@ export function normalizeTrackResult(
   }
 
   const toolsUsed = extractToolStatuses(record);
-  const errors = toolsUsed
-    .filter((tool) => tool.error)
-    .map((tool) => ({ source: tool.name, message: tool.error as string }));
+  const errors = [
+    ...extractResponseErrors(record),
+    ...toolsUsed
+      .filter((tool) => tool.error)
+      .map((tool) => ({ source: tool.name, message: tool.error as string })),
+  ];
 
   const summary = valueToString(
     findValue(record, [
@@ -53,7 +58,7 @@ export function normalizeTrackResult(
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
     summary,
-    status: determineStatus(toolsUsed, errors),
+    status: determineStatus(record, toolsUsed, errors),
     toolsUsed,
     errors,
   };
@@ -88,7 +93,13 @@ function findNestedAlbum(record: Record<string, unknown>) {
 }
 
 function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
-  return ["Spotify", "Beatport", "GetSongBPM"]
+  const explicitStatuses = extractExplicitToolStatuses(record);
+
+  if (explicitStatuses.length > 0) {
+    return explicitStatuses;
+  }
+
+  const providerStatuses = ["Spotify", "Beatport", "GetSongBPM"]
     .map((name) => {
       const value = findValue(record, [name]);
 
@@ -106,12 +117,53 @@ function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
       };
     })
     .filter((tool): tool is ToolStatus => Boolean(tool));
+
+  return providerStatuses.length > 0
+    ? providerStatuses
+    : extractSourceStatuses(record);
+}
+
+function extractExplicitToolStatuses(record: Record<string, unknown>): ToolStatus[] {
+  const toolsUsed = findValue(record, ["toolsUsed", "tools_used"]);
+
+  if (!Array.isArray(toolsUsed)) {
+    return [];
+  }
+
+  return toolsUsed
+    .map((tool) => {
+      if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
+        return null;
+      }
+
+      const toolRecord = tool as Record<string, unknown>;
+      const name = valueToString(findValue(toolRecord, ["name"]));
+
+      if (!name) {
+        return null;
+      }
+
+      return {
+        name,
+        matched: valueToBoolean(findValue(toolRecord, ["matched"])),
+        url: valueToString(findValue(toolRecord, ["url"])),
+        error: valueToString(findValue(toolRecord, ["error"])),
+      };
+    })
+    .filter((tool): tool is ToolStatus => Boolean(tool));
 }
 
 function determineStatus(
+  record: Record<string, unknown>,
   toolsUsed: ToolStatus[],
   errors: ResultError[],
 ): ResultStatus {
+  const enrichedStatus = valueToString(findValue(record, ["status"]));
+
+  if (enrichedStatus === "complete" || enrichedStatus === "partial") {
+    return enrichedStatus;
+  }
+
   if (toolsUsed.length === 0 || toolsUsed.every((tool) => tool.error)) {
     return "failed";
   }
@@ -121,6 +173,53 @@ function determineStatus(
   }
 
   return "complete";
+}
+
+function extractSourceStatuses(record: Record<string, unknown>): ToolStatus[] {
+  const sources = findValue(record, ["sources"]);
+
+  if (!sources || typeof sources !== "object" || Array.isArray(sources)) {
+    return [];
+  }
+
+  return Array.from(
+    new Set(
+      Object.values(sources as Record<string, unknown>)
+        .filter((source): source is string => typeof source === "string")
+        .filter((source) => source !== "unknown"),
+    ),
+  ).map((source) => ({
+    name: formatSourceName(source),
+    matched: source !== "audio_analysis",
+    url: null,
+    error: null,
+  }));
+}
+
+function extractResponseErrors(record: Record<string, unknown>): ResultError[] {
+  const errors = findValue(record, ["errors"]);
+
+  if (!Array.isArray(errors)) {
+    return [];
+  }
+
+  return errors
+    .map((error) => valueToString(error))
+    .filter((error): error is string => Boolean(error))
+    .map((message) => ({ source: "Agent", message }));
+}
+
+function formatSourceName(source: string) {
+  const names: Record<string, string> = {
+    local_db: "Local DB",
+    rekordbox_xml: "Rekordbox XML",
+    audio_analysis: "Audio Analysis",
+    spotify: "Spotify",
+    getsongbpm: "GetSongBPM",
+    lastfm: "Last.fm",
+  };
+
+  return names[source] ?? source;
 }
 
 function stringifyArtistList(value: unknown) {

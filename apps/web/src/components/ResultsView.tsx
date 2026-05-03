@@ -1,5 +1,6 @@
 import type { SavedTrackResult } from "../types";
 import { formatDate, formatTools } from "../lib/format";
+import { ArtistHoverChips } from "./ArtistHoverChips";
 import { ArrowPathIcon } from "./icons/ArrowPathIcon";
 import { EyeIcon } from "./icons/EyeIcon";
 import { TrashIcon } from "./icons/TrashIcon";
@@ -59,7 +60,9 @@ export function ResultsView({
             {results.map((result) => (
               <tr key={result.id}>
                 <td>{result.title}</td>
-                <td>{result.artists}</td>
+                <td>
+                  <ArtistHoverChips artists={result.artists} />
+                </td>
                 <td>{result.album ?? "Unknown"}</td>
                 <td>{result.bpm ?? "Unknown"}</td>
                 <td>{result.genre ?? "Unknown"}</td>
