@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { createAgent } from "langchain";
 import { beatportTrackLookupTool } from "./beatport.ts";
+import { createAgent } from "langchain";
 import { getSongBpmLookupTool } from "./getsongbpm.ts";
 import { spotifyTrackLookupTool } from "./spotify.ts";
 
@@ -9,7 +9,7 @@ const model = new ChatOpenAI({
 });
 
 export const agent = createAgent({
-  model,
+  model: model,
   tools: [spotifyTrackLookupTool, beatportTrackLookupTool, getSongBpmLookupTool],
   systemPrompt: `You enrich music track metadata.
 

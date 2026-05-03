@@ -1,5 +1,5 @@
-import { HumanMessage } from 'langchain';
-import { agent } from './agent.ts';
+import { HumanMessage } from '@langchain/core/messages';
+import { agent } from '@track-lab/agent';
 import { config } from './config.ts';
 import express from 'express';
 

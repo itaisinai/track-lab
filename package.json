@@ -5,7 +5,8 @@
   "type": "module",
   "packageManager": "yarn@4.9.2",
   "workspaces": [
-    "apps/*"
+    "apps/*",
+    "packages/*"
   ],
   "engines": {
     "node": ">=22"
@@ -14,6 +15,7 @@
     "dev": "yarn workspace @track-lab/api dev",
     "dev:web": "yarn workspace @track-lab/web dev",
     "start": "yarn workspace @track-lab/api start",
-    "test": "yarn workspaces foreach --all run test"
+    "test": "yarn workspaces foreach --all run test",
+    "typecheck": "yarn workspaces foreach --all --topological-dev run typecheck"
   }
 }
