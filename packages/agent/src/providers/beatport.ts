@@ -1,6 +1,7 @@
-import { config } from "./config.ts";
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
+import { normalize, parseNumericValue } from "./utils.ts";
+
+import { config } from "../config.ts";
 
 const BEATPORT_TOKEN_URL = "https://api.beatport.com/v4/auth/o/token/";
 const BEATPORT_API_URL = "https://api.beatport.com/v4";
@@ -12,9 +13,6 @@ type BeatportToken = {
 
 type BeatportTrackResponse = {
   results?: BeatportTrack[];
-  count?: number;
-  next?: string | null;
-  previous?: string | null;
 };
 
 type BeatportTrack = {
@@ -30,10 +28,7 @@ type BeatportTrack = {
   sub_genre?: BeatportNamedField | null;
   sub_genre_name?: string | null;
   artists?: BeatportArtist[];
-  release?: BeatportNamedField & {
-    release_date?: string | null;
-    publish_date?: string | null;
-  };
+  release?: BeatportNamedField;
   release_name?: string | null;
   label?: BeatportNamedField | null;
   label_name?: string | null;
@@ -53,81 +48,73 @@ type BeatportArtist = BeatportNamedField & {
 
 let cachedToken: BeatportToken | null = null;
 
-export const beatportTrackLookupTool = tool(
-  async ({ title, artists }) => {
-    if (!config.beatport.clientId || !config.beatport.clientSecret) {
-      return JSON.stringify({ 
+export async function lookupBeatportTrack({
+  title,
+  artists,
+}: TrackLookupInput): Promise<ProviderTrackLookupResult> {
+  if (!config.beatport.clientId || !config.beatport.clientSecret) {
+    return {
+      found: false,
+      source: "beatport",
+      bpm: null,
+      genre: null,
+      key: null,
+      url: null,
+      error: "Missing BEATPORT_CLIENT_ID or BEATPORT_CLIENT_SECRET.",
+    };
+  }
+
+  try {
+    const token = await getBeatportAccessToken();
+    const tracks = await searchBeatportTracks(token, title, artists);
+    const match =
+      findBestBeatportMatch(tracks, title, artists) ?? tracks[0] ?? null;
+
+    if (!match) {
+      return {
         found: false,
         source: "beatport",
         bpm: null,
         genre: null,
         key: null,
         url: null,
-        error: "Missing BEATPORT_CLIENT_ID or BEATPORT_CLIENT_SECRET.",
-      });
-    }
-
-    try {
-      const token = await getBeatportAccessToken();
-      const tracks = await searchBeatportTracks(token, title, artists);
-      const match =
-        findBestBeatportMatch(tracks, title, artists) ?? tracks[0] ?? null;
-
-      if (!match) {
-        return JSON.stringify({
-          found: false,
-          source: "beatport",
-          bpm: null,
-          genre: null,
-          key: null,
-          url: null,
-          error: null,
-          note: "No matching Beatport track found.",
-          candidates: tracks.slice(0, 5).map(toBeatportSummary),
-        });
-      }
-
-      return JSON.stringify({
-        found: true,
-        source: "beatport",
-        bpm: parseBpm(match.bpm),
-        genre: getName(match.genre) ?? match.genre_name ?? null,
-        subGenre: getName(match.sub_genre) ?? match.sub_genre_name ?? null,
-        key: getName(match.key) ?? match.key_name ?? null,
-        url: getBeatportUrl(match),
-        track: {
-          id: match.id,
-          title: getTrackName(match),
-          mixName: match.mix_name ?? null,
-          artists: getArtistNames(match),
-          release: getName(match.release) ?? match.release_name ?? null,
-          label: getName(match.label) ?? match.label_name ?? null,
-        },
         error: null,
+        note: "No matching Beatport track found.",
         candidates: tracks.slice(0, 5).map(toBeatportSummary),
-      });
-    } catch (error) {
-      return JSON.stringify({
-        found: false,
-        source: "beatport",
-        bpm: null,
-        genre: null,
-        key: null,
-        url: null,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      };
     }
-  },
-  {
-    name: "lookup_beatport_track",
-    description:
-      "Search Beatport catalog tracks by title and artist. Returns EDM-focused metadata including BPM, genre, subgenre, key, label, release, and URL when available.",
-    schema: z.object({
-      title: z.string().describe("The track title to search for."),
-      artists: z.string().describe("Comma-separated artist names."),
-    }),
-  },
-);
+
+    return {
+      found: true,
+      source: "beatport",
+      bpm: parseNumericValue(match.bpm),
+      genre: getName(match.genre) ?? match.genre_name ?? null,
+      subGenre: getName(match.sub_genre) ?? match.sub_genre_name ?? null,
+      key: getName(match.key) ?? match.key_name ?? null,
+      url: getBeatportUrl(match),
+      track: {
+        id: match.id,
+        title: getTrackName(match),
+        mixName: match.mix_name ?? null,
+        artists: getArtistNames(match),
+        release: getName(match.release) ?? match.release_name ?? null,
+        label: getName(match.label) ?? match.label_name ?? null,
+      },
+      error: null,
+      candidates: tracks.slice(0, 5).map(toBeatportSummary),
+    };
+  } catch (error) {
+    return {
+      found: false,
+      source: "beatport",
+      bpm: null,
+      genre: null,
+      key: null,
+      url: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 async function getBeatportAccessToken() {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
@@ -185,7 +172,7 @@ async function searchBeatportTracks(
   return data.results ?? [];
 }
 
-async function beatportFetch(token: string, path: string) {
+function beatportFetch(token: string, path: string) {
   return fetch(`${BEATPORT_API_URL}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -230,7 +217,7 @@ function toBeatportSummary(track: BeatportTrack) {
     id: track.id,
     title: getTrackName(track),
     artists: getArtistNames(track),
-    bpm: parseBpm(track.bpm),
+    bpm: parseNumericValue(track.bpm),
     genre: getName(track.genre) ?? track.genre_name ?? null,
     subGenre: getName(track.sub_genre) ?? track.sub_genre_name ?? null,
     key: getName(track.key) ?? track.key_name ?? null,
@@ -243,11 +230,9 @@ function getTrackName(track: BeatportTrack) {
 }
 
 function getArtistNames(track: BeatportTrack) {
-  return (
-    track.artists?.
-      map((artist) => artist.name)
-      .filter((name): name is string => Boolean(name)) ?? []
-  );
+  return track.artists
+    ?.map((artist) => artist.name)
+    .filter((name): name is string => Boolean(name)) ?? [];
 }
 
 function getName(field: BeatportNamedField | null | undefined) {
@@ -264,21 +249,4 @@ function getBeatportUrl(track: BeatportTrack) {
   }
 
   return `https://www.beatport.com/track/${track.id}`;
-}
-
-function parseBpm(bpm: BeatportTrack["bpm"]) {
-  if (typeof bpm === "number") {
-    return bpm;
-  }
-
-  if (typeof bpm === "string") {
-    const parsed = Number.parseInt(bpm, 10);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
-  return null;
-}
-
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

@@ -1,6 +1,6 @@
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
-import { config } from "./config.ts";
+import { config } from "../config.ts";
+import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
+import { normalize, parseNumericValue } from "./utils.ts";
 
 const GETSONGBPM_API_URL = "https://api.getsong.co";
 
@@ -31,101 +31,91 @@ type GetSongBpmArtist = {
   name?: string;
   uri?: string;
   genres?: string[];
-  from?: string;
-  mbid?: string;
 };
 
-export const getSongBpmLookupTool = tool(
-  async ({ title, artists }) => {
-    const apiKey = config.getSongBpm.apiKey;
+export async function lookupGetSongBpmTrack({
+  title,
+  artists,
+}: TrackLookupInput): Promise<ProviderTrackLookupResult> {
+  const apiKey = config.getSongBpm.apiKey;
 
-    if (!apiKey) {
-      return JSON.stringify({
-        found: false,
-        source: "getsongbpm",
-        bpm: null,
-        genre: null,
-        genres: [],
-        url: null,
-        error: "Missing GETSONGBPM_API_KEY environment variable.",
-      });
-    }
-
-    let search: GetSongBpmSearchResponse;
-
-    try {
-      search = await getSongBpmFetch<GetSongBpmSearchResponse>("/search/", {
-        api_key: apiKey,
-        type: "both",
-        lookup: `song:${title} artist:${artists}`,
-        limit: "10",
-      });
-    } catch (error) {
-      return JSON.stringify({
-        found: false,
-        source: "getsongbpm",
-        bpm: null,
-        genre: null,
-        genres: [],
-        url: null,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    const tracks = normalizeTracks(search.search);
-    const match = findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
-
-    if (!match) {
-      return JSON.stringify({
-        found: false,
-        source: "getsongbpm",
-        bpm: null,
-        genre: null,
-        genres: [],
-        url: null,
-        error: null,
-        note: "No matching GetSongBPM track found.",
-        candidates: tracks.slice(0, 5).map(toTrackSummary),
-      });
-    }
-
-    const track = match;
-    const artist = firstArtist(track.artist);
-
-    return JSON.stringify({
-      found: true,
+  if (!apiKey) {
+    return {
+      found: false,
       source: "getsongbpm",
-      bpm: parseTempo(track.tempo),
-      genre: artist?.genres?.[0] ?? null,
-      genres: artist?.genres ?? [],
-      url: track.uri ?? null,
-      error: null,
-      track: {
-        id: track.id,
-        title: track.title,
-        uri: track.uri ?? null,
-        artist: artist?.name ?? null,
-        album: track.album?.title ?? null,
-        albumYear: track.album?.year ?? null,
-        timeSignature: track.time_sig ?? null,
-        key: track.key_of ?? null,
-        openKey: track.open_key ?? null,
-        danceability: track.danceability ?? null,
-        acousticness: track.acousticness ?? null,
-      },
-      candidates: tracks.slice(0, 5).map(toTrackSummary),
+      bpm: null,
+      genre: null,
+      genres: [],
+      url: null,
+      error: "Missing GETSONGBPM_API_KEY environment variable.",
+    };
+  }
+
+  let search: GetSongBpmSearchResponse;
+
+  try {
+    search = await getSongBpmFetch<GetSongBpmSearchResponse>("/search/", {
+      api_key: apiKey,
+      type: "both",
+      lookup: `song:${title} artist:${artists}`,
+      limit: "10",
     });
-  },
-  {
-    name: "lookup_getsongbpm_track",
-    description:
-      "Look up BPM/tempo and related song metadata from GetSongBPM by track title and artists.",
-    schema: z.object({
-      title: z.string().describe("The track title to search for."),
-      artists: z.string().describe("Comma-separated artist names."),
-    }),
-  },
-);
+  } catch (error) {
+    return {
+      found: false,
+      source: "getsongbpm",
+      bpm: null,
+      genre: null,
+      genres: [],
+      url: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  const tracks = normalizeTracks(search.search);
+  const match = findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
+
+  if (!match) {
+    return {
+      found: false,
+      source: "getsongbpm",
+      bpm: null,
+      genre: null,
+      genres: [],
+      url: null,
+      error: null,
+      note: "No matching GetSongBPM track found.",
+      candidates: tracks.slice(0, 5).map(toTrackSummary),
+    };
+  }
+
+  const artist = firstArtist(match.artist);
+
+  return {
+    found: true,
+    source: "getsongbpm",
+    bpm: parseNumericValue(match.tempo),
+    genre: artist?.genres?.[0] ?? null,
+    genres: artist?.genres ?? [],
+    key: match.key_of ?? null,
+    url: match.uri ?? null,
+    error: null,
+    track: {
+      id: match.id,
+      title: match.title,
+      uri: match.uri ?? null,
+      artist: artist?.name ?? null,
+      album: match.album?.title ?? null,
+      albumYear: match.album?.year ?? null,
+      timeSignature: match.time_sig ?? null,
+      key: match.key_of ?? null,
+      openKey: match.open_key ?? null,
+      danceability: match.danceability ?? null,
+      acousticness: match.acousticness ?? null,
+    },
+    candidates: tracks.slice(0, 5).map(toTrackSummary),
+  };
+}
 
 async function getSongBpmFetch<T>(
   path: string,
@@ -231,21 +221,4 @@ function findBestTrackMatch(
 
 function firstArtist(artist: GetSongBpmTrack["artist"]) {
   return Array.isArray(artist) ? artist[0] : artist;
-}
-
-function parseTempo(tempo: GetSongBpmTrack["tempo"]) {
-  if (typeof tempo === "number") {
-    return tempo;
-  }
-
-  if (typeof tempo === "string") {
-    const parsed = Number.parseInt(tempo, 10);
-    return Number.isNaN(parsed) ? null : parsed;
-  }
-
-  return null;
-}
-
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }

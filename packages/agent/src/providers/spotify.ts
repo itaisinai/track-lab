@@ -1,6 +1,6 @@
-import { config } from "./config.ts";
-import { tool } from "@langchain/core/tools";
-import { z } from "zod";
+import { config } from "../config.ts";
+import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
+import { normalize, unique } from "./utils.ts";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
@@ -48,92 +48,86 @@ type SpotifyArtistsResponse = {
 
 let cachedToken: SpotifyToken | null = null;
 
-export const spotifyTrackLookupTool = tool(
-  async ({ title, artists }) => {
-    if (!config.spotify.clientId || !config.spotify.clientSecret) {
-      return JSON.stringify({
-        found: false,
-        source: "spotify",
-        bpm: null,
-        genre: null,
-        genres: [],
-        track: null,
-        note: "Spotify credentials are not configured.",
-      });
-    }
-
-    let token: string;
-    let track: SpotifyTrack | null;
-
-    try {
-      token = await getSpotifyAccessToken();
-      track = await searchTrack(token, title, artists);
-    } catch (error) {
-      return JSON.stringify({
-        found: false,
-        source: "spotify",
-        bpm: null,
-        genre: null,
-        genres: [],
-        track: null,
-        error: error instanceof Error ? error.message : String(error),
-      });
-    }
-
-    if (!track) {
-      return JSON.stringify({
-        found: false,
-        bpm: null,
-        genre: null,
-        summarySource: "spotify",
-        note: "No matching Spotify track found.",
-      });
-    }
-
-    let genres: string[] = [];
-
-    try {
-      const artistDetails = await getArtists(
-        token,
-        track.artists.map((artist) => artist.id),
-      );
-      genres = unique(
-        artistDetails.flatMap((artist) => artist.genres ?? []).filter(Boolean),
-      );
-    } catch (error) {
-      genres = [];
-    }
-
-    return JSON.stringify({
-      found: true,
+export async function lookupSpotifyTrack({
+  title,
+  artists,
+}: TrackLookupInput): Promise<ProviderTrackLookupResult> {
+  if (!config.spotify.clientId || !config.spotify.clientSecret) {
+    return {
+      found: false,
       source: "spotify",
       bpm: null,
-      bpmReason:
-        "Spotify's documented audio-features/audio-analysis endpoints that expose tempo/BPM are deprecated for new integrations.",
-      genre: genres[0] ?? null,
-      genres,
-      track: {
-        id: track.id,
-        title: track.name,
-        artists: track.artists.map((artist) => artist.name),
-        album: track.album?.name ?? null,
-        releaseDate: track.album?.release_date ?? null,
-        spotifyUrl: track.external_urls?.spotify ?? null,
-        uri: track.uri,
-        imageUrl: track.album?.images?.[0]?.url ?? null,
-      },
-    });
-  },
-  {
-    name: "lookup_spotify_track",
-    description:
-      "Search Spotify for public track metadata by title and artists. Returns the matched track, artist genres, Spotify URL, and null BPM because Spotify BPM endpoints are deprecated.",
-    schema: z.object({
-      title: z.string().describe("The track title to search for."),
-      artists: z.string().describe("Comma-separated artist names."),
-    }),
-  },
-);
+      genre: null,
+      genres: [],
+      url: null,
+      track: null,
+      note: "Spotify credentials are not configured.",
+    };
+  }
+
+  let token: string;
+  let track: SpotifyTrack | null;
+
+  try {
+    token = await getSpotifyAccessToken();
+    track = await searchTrack(token, title, artists);
+  } catch (error) {
+    return {
+      found: false,
+      source: "spotify",
+      bpm: null,
+      genre: null,
+      genres: [],
+      url: null,
+      track: null,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+
+  if (!track) {
+    return {
+      found: false,
+      source: "spotify",
+      bpm: null,
+      genre: null,
+      url: null,
+      note: "No matching Spotify track found.",
+    };
+  }
+
+  let genres: string[] = [];
+
+  try {
+    const artistDetails = await getArtists(
+      token,
+      track.artists.map((artist) => artist.id),
+    );
+    genres = unique(
+      artistDetails.flatMap((artist) => artist.genres ?? []).filter(Boolean),
+    );
+  } catch {
+    genres = [];
+  }
+
+  return {
+    found: true,
+    source: "spotify",
+    bpm: null,
+    genre: genres[0] ?? null,
+    genres,
+    url: track.external_urls?.spotify ?? null,
+    track: {
+      id: track.id,
+      title: track.name,
+      artists: track.artists.map((artist) => artist.name),
+      album: track.album?.name ?? null,
+      releaseDate: track.album?.release_date ?? null,
+      spotifyUrl: track.external_urls?.spotify ?? null,
+      uri: track.uri,
+      imageUrl: track.album?.images?.[0]?.url ?? null,
+    },
+  };
+}
 
 async function getSpotifyAccessToken() {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
@@ -159,7 +153,6 @@ async function getSpotifyAccessToken() {
       grant_type: "client_credentials",
     }),
   });
-
   const data = await parseSpotifyResponse<{
     access_token: string;
     expires_in: number;
@@ -212,7 +205,7 @@ async function getArtists(token: string, artistIds: string[]) {
   return data.artists ?? [];
 }
 
-async function spotifyFetch(token: string, path: string) {
+function spotifyFetch(token: string, path: string) {
   return fetch(`${SPOTIFY_API_URL}${path}`, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -227,7 +220,8 @@ async function parseSpotifyResponse<T>(response: Response, step: string) {
   if (!response.ok) {
     const retryAfter = response.headers.get("retry-after");
     throw new Error(
-      `Spotify ${step} API error ${response.status}: ${JSON.stringify(data)}${retryAfter ? ` Retry after ${retryAfter}s.` : ""
+      `Spotify ${step} API error ${response.status}: ${JSON.stringify(data)}${
+        retryAfter ? ` Retry after ${retryAfter}s.` : ""
       }`,
     );
   }
@@ -252,12 +246,4 @@ function findBestTrackMatch(
 
     return titleMatches && artistMatches;
   });
-}
-
-function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
-}
-
-function unique<T>(values: T[]) {
-  return [...new Set(values)];
 }

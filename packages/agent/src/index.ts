@@ -1,15 +1,15 @@
 import { ChatOpenAI } from "@langchain/openai";
-import { beatportTrackLookupTool } from "./beatport.ts";
+import { beatportTrackLookupTool } from "./tools/beatport.ts";
 import { createAgent } from "langchain";
-import { getSongBpmLookupTool } from "./getsongbpm.ts";
-import { spotifyTrackLookupTool } from "./spotify.ts";
+import { getSongBpmLookupTool } from "./tools/getsongbpm.ts";
+import { spotifyTrackLookupTool } from "./tools/spotify.ts";
 
 const model = new ChatOpenAI({
   model: "gpt-5-nano",
 });
 
 export const agent = createAgent({
-  model: model,
+  model,
   tools: [spotifyTrackLookupTool, beatportTrackLookupTool, getSongBpmLookupTool],
   systemPrompt: `You enrich music track metadata.
 
