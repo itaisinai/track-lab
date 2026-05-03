@@ -481,8 +481,8 @@ __metadata:
   linkType: hard
 
 "@langchain/langgraph-sdk@npm:~1.8.9":
-  version: 1.8.9
-  resolution: "@langchain/langgraph-sdk@npm:1.8.9"
+  version: 1.8.10
+  resolution: "@langchain/langgraph-sdk@npm:1.8.10"
   dependencies:
     "@types/json-schema": "npm:^7.0.15"
     p-queue: "npm:^9.0.1"
@@ -505,7 +505,7 @@ __metadata:
       optional: true
     vue:
       optional: true
-  checksum: 10c0/589829a03e41d972ff7d9305a69c6288a38165cb862083d5f3a4fcff8282453ea69d51c1c925f0c9ebc9508c4016ef2cffd6442bad080b929a6d66293197b7c7
+  checksum: 10c0/beae1749b29e3d06758915a0928e28a4fb0cf7338797c90e139e8629f327b05e1f61d9f5286b3dd01f2d858e0759488273d4f908c14f874abf3ec0386aa15eeb
   languageName: node
   linkType: hard
 
@@ -750,6 +750,7 @@ __metadata:
   dependencies:
     "@langchain/core": "npm:1.1.42"
     "@track-lab/agent": "workspace:*"
+    "@track-lab/datastore": "workspace:*"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.6.0"
     express: "npm:^5.2.1"
@@ -758,6 +759,15 @@ __metadata:
   dependenciesMeta:
     openai:
       optional: true
+  languageName: unknown
+  linkType: soft
+
+"@track-lab/datastore@workspace:*, @track-lab/datastore@workspace:packages/datastore":
+  version: 0.0.0-use.local
+  resolution: "@track-lab/datastore@workspace:packages/datastore"
+  dependencies:
+    "@types/node": "npm:^25.6.0"
+    typescript: "npm:^5.9.3"
   languageName: unknown
   linkType: soft
 
@@ -889,21 +899,21 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@types/node@npm:*, @types/node@npm:^18.11.18":
-  version: 18.19.130
-  resolution: "@types/node@npm:18.19.130"
-  dependencies:
-    undici-types: "npm:~5.26.4"
-  checksum: 10c0/22ba2bc9f8863101a7e90a56aaeba1eb3ebdc51e847cef4a6d188967ab1acbce9b4f92251372fd0329ecb924bbf610509e122c3dfe346c04dbad04013d4ad7d0
-  languageName: node
-  linkType: hard
-
-"@types/node@npm:^25.6.0":
+"@types/node@npm:*, @types/node@npm:^25.6.0":
   version: 25.6.0
   resolution: "@types/node@npm:25.6.0"
   dependencies:
     undici-types: "npm:~7.19.0"
   checksum: 10c0/d2d2015630ff098a201407f55f5077a20270ae4f465c739b40865cd9933b91b9c5d2b85568eadaf3db0801b91e267333ca7eb39f007428b173d1cdab4b339ac5
+  languageName: node
+  linkType: hard
+
+"@types/node@npm:^18.11.18":
+  version: 18.19.130
+  resolution: "@types/node@npm:18.19.130"
+  dependencies:
+    undici-types: "npm:~5.26.4"
+  checksum: 10c0/22ba2bc9f8863101a7e90a56aaeba1eb3ebdc51e847cef4a6d188967ab1acbce9b4f92251372fd0329ecb924bbf610509e122c3dfe346c04dbad04013d4ad7d0
   languageName: node
   linkType: hard
 
@@ -1013,6 +1023,20 @@ __metadata:
   version: 5.2.0
   resolution: "ansi-styles@npm:5.2.0"
   checksum: 10c0/9c4ca80eb3c2fb7b33841c210d2f20807f40865d27008d7c3f707b7f95cab7d67462a565e2388ac3285b71cb3d9bb2173de8da37c57692a362885ec34d6e27df
+  languageName: node
+  linkType: hard
+
+"async-function@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "async-function@npm:1.0.0"
+  checksum: 10c0/669a32c2cb7e45091330c680e92eaeb791bc1d4132d827591e499cd1f776ff5a873e77e5f92d0ce795a8d60f10761dec9ddfe7225a5de680f5d357f67b1aac73
+  languageName: node
+  linkType: hard
+
+"async-generator-function@npm:^1.0.0":
+  version: 1.0.0
+  resolution: "async-generator-function@npm:1.0.0"
+  checksum: 10c0/2c50ef856c543ad500d8d8777d347e3c1ba623b93e99c9263ecc5f965c1b12d2a140e2ab6e43c3d0b85366110696f28114649411cbcd10b452a92a2318394186
   languageName: node
   linkType: hard
 
@@ -1547,6 +1571,13 @@ __metadata:
   languageName: node
   linkType: hard
 
+"generator-function@npm:^2.0.0":
+  version: 2.0.1
+  resolution: "generator-function@npm:2.0.1"
+  checksum: 10c0/8a9f59df0f01cfefafdb3b451b80555e5cf6d76487095db91ac461a0e682e4ff7a9dbce15f4ecec191e53586d59eece01949e05a4b4492879600bbbe8e28d6b8
+  languageName: node
+  linkType: hard
+
 "gensync@npm:^1.0.0-beta.2":
   version: 1.0.0-beta.2
   resolution: "gensync@npm:1.0.0-beta.2"
@@ -1555,20 +1586,23 @@ __metadata:
   linkType: hard
 
 "get-intrinsic@npm:^1.2.5, get-intrinsic@npm:^1.2.6, get-intrinsic@npm:^1.3.0":
-  version: 1.3.0
-  resolution: "get-intrinsic@npm:1.3.0"
+  version: 1.3.1
+  resolution: "get-intrinsic@npm:1.3.1"
   dependencies:
+    async-function: "npm:^1.0.0"
+    async-generator-function: "npm:^1.0.0"
     call-bind-apply-helpers: "npm:^1.0.2"
     es-define-property: "npm:^1.0.1"
     es-errors: "npm:^1.3.0"
     es-object-atoms: "npm:^1.1.1"
     function-bind: "npm:^1.1.2"
+    generator-function: "npm:^2.0.0"
     get-proto: "npm:^1.0.1"
     gopd: "npm:^1.2.0"
     has-symbols: "npm:^1.1.0"
     hasown: "npm:^2.0.2"
     math-intrinsics: "npm:^1.1.0"
-  checksum: 10c0/52c81808af9a8130f581e6a6a83e1ba4a9f703359e7a438d1369a5267a25412322f03dcbd7c549edaef0b6214a0630a28511d7df0130c93cfd380f4fa0b5b66a
+  checksum: 10c0/9f4ab0cf7efe0fd2c8185f52e6f637e708f3a112610c88869f8f041bb9ecc2ce44bf285dfdbdc6f4f7c277a5b88d8e94a432374d97cca22f3de7fc63795deb5d
   languageName: node
   linkType: hard
 
@@ -1736,8 +1770,8 @@ __metadata:
   linkType: hard
 
 "langsmith@npm:>=0.5.0 <1.0.0":
-  version: 0.5.26
-  resolution: "langsmith@npm:0.5.26"
+  version: 0.6.0
+  resolution: "langsmith@npm:0.6.0"
   dependencies:
     p-queue: "npm:6.6.2"
   peerDependencies:
@@ -1757,7 +1791,7 @@ __metadata:
       optional: true
     ws:
       optional: true
-  checksum: 10c0/7260bb3b7f0a8432ab8ad5e05eb8a8e9f76a7714721e1878008e53ea544c7641cf6351c49d9d94a31e494dd9c8bfd8788bb5cc38e38194ee3fc9d3b65e25b507
+  checksum: 10c0/ee5d0d07ec04f403ed8f5f29545af12b41adc01ac82a5ed1ac9f88bb7c57f724acf4724cfcbf3dc60e64d724e905f0f459debc02e0adf9d6cf2d54fe5f73a671
   languageName: node
   linkType: hard
 
@@ -2645,9 +2679,16 @@ __metadata:
   languageName: node
   linkType: hard
 
-"zod@npm:^3.25.32, zod@npm:^3.25.76 || ^4":
+"zod@npm:^3.25.32":
   version: 3.25.76
   resolution: "zod@npm:3.25.76"
   checksum: 10c0/5718ec35e3c40b600316c5b4c5e4976f7fee68151bc8f8d90ec18a469be9571f072e1bbaace10f1e85cf8892ea12d90821b200e980ab46916a6166a4260a983c
+  languageName: node
+  linkType: hard
+
+"zod@npm:^3.25.76 || ^4":
+  version: 4.4.2
+  resolution: "zod@npm:4.4.2"
+  checksum: 10c0/aa5097464c41cf22d715cbc29873ae6feaaf56e687b81d140458d7c01201e7b9de1ee46c8567b5458ee3c0068b8a82b2652535b5d39589fcb5562d861c83ded3
   languageName: node
   linkType: hard

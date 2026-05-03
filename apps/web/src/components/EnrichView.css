@@ -1,0 +1,37 @@
+.panel {
+  display: grid;
+  width: min(760px, 100%);
+  gap: 12px;
+}
+
+.panel label {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.status-note {
+  color: #166534;
+  font-weight: 700;
+}
+
+.response {
+  width: min(880px, 100%);
+  margin-top: 28px;
+}
+
+.response h2 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+@media (max-width: 680px) {
+  .actions {
+    flex-wrap: wrap;
+  }
+}
