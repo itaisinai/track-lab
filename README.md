@@ -12,6 +12,29 @@ Node monorepo scaffold for TrackLab experiments.
 - `yarn dev:web` starts the React web app.
 - `yarn test` runs the test suite.
 
+## Spotify API
+
+The API service can use Spotify public metadata through a LangChain tool.
+
+Set these optional environment variables before running `yarn dev`:
+
+- `SPOTIFY_CLIENT_ID`
+- `SPOTIFY_CLIENT_SECRET`
+
+Create them from the Spotify Developer Dashboard. The backend uses Spotify's Client Credentials flow, so keep the client secret server-side only.
+
+## GetSongBPM API
+
+The API service uses GetSongBPM for BPM/tempo lookup. This is required for real BPM values.
+
+Set this environment variable before running `yarn dev`:
+
+- `GETSONGBPM_API_KEY`
+
+GetSongBPM requires a real API key and backlink attribution. See https://getsongbpm.com/api.
+
+BPM data provided by [GetSongBPM](https://getsongbpm.com).
+
 ## Endpoint
 
 - `GET /noop` returns `204 No Content`.

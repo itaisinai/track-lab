@@ -120,7 +120,7 @@ Title: ${title}
 Artist: ${artists}
 
 I want you to send back object with:
-BPM, Genre, AI-generated summary`;
+BPM, Genre, AI-generated summary, Spotify matched status and Spotify URL, GetSongBPM matched status and GetSongBPM URL`;
 }
 
 function formatAgentResponse(data: unknown) {

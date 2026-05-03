@@ -4,8 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node src/index.ts",
-    "start": "node src/index.ts"
+    "dev": "node --env-file=../../.env src/index.ts",
+    "start": "node --env-file=../../.env src/index.ts"
   },
   "optionalDependencies": {
     "openai": "^4.104.0"
