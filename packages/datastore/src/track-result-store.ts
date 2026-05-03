@@ -26,6 +26,7 @@ export class TrackResultStore {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         artists TEXT NOT NULL,
+        album TEXT,
         title_key TEXT NOT NULL,
         artists_key TEXT NOT NULL,
         bpm REAL,
@@ -43,6 +44,7 @@ export class TrackResultStore {
         UNIQUE(title_key, artists_key)
       )
     `);
+    this.migrate();
   }
 
   listResults(): TrackResult[] {
@@ -73,6 +75,14 @@ export class TrackResultStore {
     return row ? mapRowToTrackResult(row) : null;
   }
 
+  deleteResult(id: number): boolean {
+    const result = this.db
+      .prepare("DELETE FROM track_results WHERE id = ?")
+      .run(id);
+
+    return result.changes > 0;
+  }
+
   saveResult(input: SaveTrackResultInput): TrackResult {
     const normalized = normalizeTrackResult(input);
     const now = new Date().toISOString();
@@ -82,6 +92,7 @@ export class TrackResultStore {
         INSERT INTO track_results (
           title,
           artists,
+          album,
           title_key,
           artists_key,
           bpm,
@@ -96,10 +107,11 @@ export class TrackResultStore {
           raw_response,
           created_at,
           updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(title_key, artists_key) DO UPDATE SET
           title = excluded.title,
           artists = excluded.artists,
+          album = excluded.album,
           bpm = excluded.bpm,
           genre = excluded.genre,
           sub_genre = excluded.sub_genre,
@@ -115,6 +127,7 @@ export class TrackResultStore {
       .run(
         normalized.title,
         normalized.artists,
+        normalized.album,
         normalizeUniqueKey(normalized.title),
         normalizeUniqueKey(normalized.artists),
         normalized.bpm,
@@ -146,6 +159,17 @@ export class TrackResultStore {
 
     return mapRowToTrackResult(saved);
   }
+
+  private migrate() {
+    const columns = this.db
+      .prepare("PRAGMA table_info(track_results)")
+      .all() as Array<{ name: string }>;
+    const columnNames = new Set(columns.map((column) => column.name));
+
+    if (!columnNames.has("album")) {
+      this.db.exec("ALTER TABLE track_results ADD COLUMN album TEXT");
+    }
+  }
 }
 
 function mapRowToTrackResult(row: TrackResultRow): TrackResult {
@@ -153,6 +177,7 @@ function mapRowToTrackResult(row: TrackResultRow): TrackResult {
     id: row.id,
     title: row.title,
     artists: row.artists,
+    album: row.album,
     bpm: row.bpm,
     genre: row.genre,
     subGenre: row.sub_genre,

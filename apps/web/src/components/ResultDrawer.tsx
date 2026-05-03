@@ -7,33 +7,46 @@ type ResultDrawerProps = {
   result: SavedTrackResult;
   state: "opening" | "open" | "closing";
   onClose: () => void;
+  onDelete: (result: SavedTrackResult) => void;
 };
 
 export function ResultDrawer({
   result,
   state,
   onClose,
+  onDelete,
 }: ResultDrawerProps) {
   return (
     <aside
       className={`drawer ${state}`}
       aria-label="Result details"
+      onClick={onClose}
     >
-      <div className="drawer-panel">
+      <div className="drawer-panel" onClick={(event) => event.stopPropagation()}>
         <div className="drawer-header">
           <div>
             <h2>{result.title}</h2>
             <p>{result.artists}</p>
           </div>
-          <button className="secondary compact" type="button" onClick={onClose}>
-            Close
-          </button>
+          <div className="drawer-actions">
+            <button
+              className="danger compact"
+              type="button"
+              onClick={() => onDelete(result)}
+            >
+              Remove
+            </button>
+            <button className="secondary compact" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
 
         <TrackDetailsView
           details={{
             title: result.title,
             artists: result.artists,
+            album: result.album ?? undefined,
             bpm: valueToString(result.bpm),
             genre: result.genre ?? undefined,
             subGenre: result.subGenre ?? undefined,

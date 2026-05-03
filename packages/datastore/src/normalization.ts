@@ -31,26 +31,60 @@ export function normalizeTrackResult(
     .filter((tool) => tool.error)
     .map((tool) => ({ source: tool.name, message: tool.error as string }));
 
+  const summary = valueToString(
+    findValue(record, [
+      "ai-generated summary",
+      "ai generated summary",
+      "aiSummary",
+      "ai_generated_summary",
+      "summary",
+    ]),
+  );
+
   return {
     title,
     artists,
+    album:
+      valueToString(findValue(record, ["album", "albumName", "album_name"])) ??
+      findNestedAlbum(record) ??
+      inferAlbumFromSummary(summary),
     bpm: valueToNumber(findValue(record, ["bpm"])),
     genre: valueToString(findValue(record, ["genre"])),
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
-    summary: valueToString(
-      findValue(record, [
-        "ai-generated summary",
-        "ai generated summary",
-        "aiSummary",
-        "ai_generated_summary",
-        "summary",
-      ]),
-    ),
+    summary,
     status: determineStatus(toolsUsed, errors),
     toolsUsed,
     errors,
   };
+}
+
+function inferAlbumFromSummary(summary: string | null) {
+  if (!summary) {
+    return null;
+  }
+
+  const match = summary.match(
+    /\bfrom\s+(?:the\s+)?(.+?)\s+album\b/i,
+  );
+
+  return match?.[1]?.trim().replace(/[,.!?;:]+$/, "") || null;
+}
+
+function findNestedAlbum(record: Record<string, unknown>) {
+  const spotify = findValue(record, ["spotify"]);
+
+  if (!spotify || typeof spotify !== "object" || Array.isArray(spotify)) {
+    return null;
+  }
+
+  const track = findValue(spotify as Record<string, unknown>, ["track"]);
+
+  if (!track || typeof track !== "object" || Array.isArray(track)) {
+    return null;
+  }
+
+  return valueToString(findValue(track as Record<string, unknown>, ["album"]));
 }
 
 function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {

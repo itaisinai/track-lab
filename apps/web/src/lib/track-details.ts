@@ -21,17 +21,23 @@ export function parseTrackDetails(response: string): TrackDetails | null {
     }
   }
 
+  const summary =
+    matchLabeledValue(response, "AI-generated summary") ??
+    matchLabeledValue(response, "AI generated summary") ??
+    matchLabeledValue(response, "Summary");
   const details = {
+    title: matchLabeledValue(response, "Title"),
+    artists:
+      matchLabeledValue(response, "Artists") ??
+      matchLabeledValue(response, "Artist"),
+    album: matchLabeledValue(response, "Album") ?? inferAlbumFromSummary(summary),
     bpm: matchLabeledValue(response, "BPM"),
     genre: matchLabeledValue(response, "Genre"),
     subGenre:
       matchLabeledValue(response, "SubGenre") ??
       matchLabeledValue(response, "Sub Genre"),
     key: matchLabeledValue(response, "Key"),
-    summary:
-      matchLabeledValue(response, "AI-generated summary") ??
-      matchLabeledValue(response, "AI generated summary") ??
-      matchLabeledValue(response, "Summary"),
+    summary,
     spotifyUrl: matchUrl(response, "open.spotify.com"),
   };
 
@@ -40,23 +46,28 @@ export function parseTrackDetails(response: string): TrackDetails | null {
 
 function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
   const toolsUsed = extractToolStatuses(record);
+  const summary = valueToString(
+    findValue(record, [
+      "ai-generated summary",
+      "ai generated summary",
+      "summary",
+      "aiSummary",
+      "ai_generated_summary",
+    ]),
+  );
 
   return {
     title: valueToString(findValue(record, ["title", "trackTitle", "track_title"])),
     artists: valueToString(findValue(record, ["artists", "artist", "artistNames"])),
+    album:
+      valueToString(findValue(record, ["album", "albumName", "album_name"])) ??
+      findNestedAlbum(record) ??
+      inferAlbumFromSummary(summary),
     bpm: valueToString(findValue(record, ["bpm"])),
     genre: valueToString(findValue(record, ["genre"])),
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
-    summary: valueToString(
-      findValue(record, [
-        "ai-generated summary",
-        "ai generated summary",
-        "summary",
-        "aiSummary",
-        "ai_generated_summary",
-      ]),
-    ),
+    summary,
     spotifyUrl:
       valueToString(findValue(record, ["spotifyUrl", "spotify_url"])) ??
       findNestedProviderUrl(record, "spotify"),
@@ -177,9 +188,40 @@ function findNestedProviderUrl(
   return valueToString(findValue(value as Record<string, unknown>, ["url"]));
 }
 
+function findNestedAlbum(record: Record<string, unknown>) {
+  const spotify = findValue(record, ["spotify"]);
+
+  if (!spotify || typeof spotify !== "object" || Array.isArray(spotify)) {
+    return undefined;
+  }
+
+  const track = findValue(spotify as Record<string, unknown>, ["track"]);
+
+  if (!track || typeof track !== "object" || Array.isArray(track)) {
+    return undefined;
+  }
+
+  return valueToString(findValue(track as Record<string, unknown>, ["album"]));
+}
+
+function inferAlbumFromSummary(summary: string | undefined) {
+  if (!summary) {
+    return undefined;
+  }
+
+  const match = summary.match(
+    /\bfrom\s+(?:the\s+)?(.+?)\s+album\b/i,
+  );
+
+  return match?.[1]?.trim().replace(/[,.!?;:]+$/, "") || undefined;
+}
+
 function hasTrackDetails(details: TrackDetails) {
   return Boolean(
     details.bpm ||
+      details.title ||
+      details.artists ||
+      details.album ||
       details.genre ||
       details.subGenre ||
       details.key ||

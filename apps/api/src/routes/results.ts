@@ -34,6 +34,17 @@ export function createResultsRouter(store: TrackResultStore) {
     }
   });
 
+  router.delete("/results/:id", (req: Request, res: Response) => {
+    const deleted = store.deleteResult(Number(req.params.id));
+
+    if (!deleted) {
+      res.status(404).json({ error: "Result not found." });
+      return;
+    }
+
+    res.sendStatus(204);
+  });
+
   router.post("/results/:id/enrich", async (req: Request, res: Response) => {
     const saved = store.getResult(Number(req.params.id));
 

@@ -15,6 +15,7 @@ export type ResultError = {
 export type TrackDetails = {
   title?: string;
   artists?: string;
+  album?: string;
   bpm?: string;
   genre?: string;
   subGenre?: string;
@@ -29,6 +30,7 @@ export type SavedTrackResult = {
   id: number;
   title: string;
   artists: string;
+  album: string | null;
   bpm: number | null;
   genre: string | null;
   subGenre: string | null;

@@ -54,6 +54,12 @@
   margin-bottom: 20px;
 }
 
+.drawer-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
 .drawer-header h2,
 .drawer-header p,
 .drawer-panel h3 {
@@ -79,5 +85,9 @@
   .drawer-header {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .drawer-actions {
+    flex-wrap: wrap;
   }
 }

@@ -2,10 +2,17 @@ import type { SavedTrackResult } from "../types";
 
 const API_BASE_URL = "http://localhost:3000";
 
-export async function runAgent(message: string) {
+export type RunAgentOptions = {
+  skipPersistedResults?: boolean;
+};
+
+export async function runAgent(message: string, options: RunAgentOptions = {}) {
   return request<unknown>("/agent", {
     method: "POST",
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({
+      message,
+      skipPersistedResults: options.skipPersistedResults ?? false,
+    }),
   });
 }
 
@@ -29,6 +36,12 @@ export async function reenrichSavedResult(id: number) {
   });
 }
 
+export async function deleteSavedResult(id: number) {
+  await request<void>(`/results/${id}`, {
+    method: "DELETE",
+  });
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     ...init,
@@ -37,7 +50,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       ...init?.headers,
     },
   });
-  const data = await response.json();
+  const data = response.status === 204 ? null : await response.json();
 
   if (!response.ok) {
     throw new Error(data.error ?? "Request failed");

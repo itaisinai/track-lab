@@ -1,5 +1,8 @@
 import type { SavedTrackResult } from "../types";
 import { formatDate, formatTools } from "../lib/format";
+import { ArrowPathIcon } from "./icons/ArrowPathIcon";
+import { EyeIcon } from "./icons/EyeIcon";
+import { TrashIcon } from "./icons/TrashIcon";
 import "./ResultsView.css";
 
 type ResultsViewProps = {
@@ -10,6 +13,7 @@ type ResultsViewProps = {
   onRefresh: () => void;
   onMore: (result: SavedTrackResult) => void;
   onReenrich: (result: SavedTrackResult) => void;
+  onDelete: (result: SavedTrackResult) => void;
 };
 
 export function ResultsView({
@@ -20,6 +24,7 @@ export function ResultsView({
   onRefresh,
   onMore,
   onReenrich,
+  onDelete,
 }: ResultsViewProps) {
   return (
     <section className="results-view">
@@ -38,6 +43,7 @@ export function ResultsView({
             <tr>
               <th>Title</th>
               <th>Artists</th>
+              <th>Album</th>
               <th>BPM</th>
               <th>Genre</th>
               <th>Subgenre</th>
@@ -54,6 +60,7 @@ export function ResultsView({
               <tr key={result.id}>
                 <td>{result.title}</td>
                 <td>{result.artists}</td>
+                <td>{result.album ?? "Unknown"}</td>
                 <td>{result.bpm ?? "Unknown"}</td>
                 <td>{result.genre ?? "Unknown"}</td>
                 <td>{result.subGenre ?? "Unknown"}</td>
@@ -67,19 +74,38 @@ export function ResultsView({
                 <td>
                   <div className="row-actions">
                     <button
-                      className="secondary compact"
+                      className="icon-button secondary"
                       type="button"
+                      aria-label={`View ${result.title}`}
+                      title="View details"
                       onClick={() => onMore(result)}
                     >
-                      More
+                      <EyeIcon className="button-icon" />
                     </button>
                     <button
-                      className="compact"
+                      className="icon-button"
                       type="button"
+                      aria-label={`Enrich ${result.title} again`}
+                      title="Enrich again"
                       disabled={reenrichingId === result.id}
                       onClick={() => onReenrich(result)}
                     >
-                      {reenrichingId === result.id ? "Running..." : "Enrich"}
+                      <ArrowPathIcon
+                        className={
+                          reenrichingId === result.id
+                            ? "button-icon spinning"
+                            : "button-icon"
+                        }
+                      />
+                    </button>
+                    <button
+                      className="icon-button danger"
+                      type="button"
+                      aria-label={`Remove ${result.title}`}
+                      title="Remove"
+                      onClick={() => onDelete(result)}
+                    >
+                      <TrashIcon className="button-icon" />
                     </button>
                   </div>
                 </td>
@@ -87,7 +113,7 @@ export function ResultsView({
             ))}
             {!isLoading && results.length === 0 && (
               <tr>
-                <td colSpan={11}>No saved results yet.</td>
+                <td colSpan={12}>No saved results yet.</td>
               </tr>
             )}
           </tbody>

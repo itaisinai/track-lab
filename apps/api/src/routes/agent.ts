@@ -6,7 +6,11 @@ export function createAgentRouter() {
 
   router.post("/agent", async (req: Request, res: Response) => {
     try {
-      res.json(await invokeTrackMetadataAgent(req.body.message));
+      res.json(
+        await invokeTrackMetadataAgent(req.body.message, {
+          preferDatastore: req.body.skipPersistedResults !== true,
+        }),
+      );
     } catch (error) {
       console.error("Error invoking agent:", error);
       res

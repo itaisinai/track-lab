@@ -12,6 +12,7 @@ export type SavedTrackLookupResponse =
       result: {
         title: string;
         artists: string;
+        album: string | null;
         status: TrackResult["status"];
         toolsUsed: TrackResult["toolsUsed"];
         errors: TrackResult["errors"];
@@ -38,6 +39,7 @@ export function createSavedTrackLookupResponse(
     result: {
       title: result.title,
       artists: result.artists,
+      album: result.album,
       status: result.status,
       toolsUsed: result.toolsUsed,
       errors: result.errors,

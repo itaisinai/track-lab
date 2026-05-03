@@ -17,6 +17,41 @@
   font-weight: 700;
 }
 
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 10px 12px;
+  border: 1px solid #30434a;
+  border-radius: 8px;
+  background: rgb(11 19 24 / 58%);
+  cursor: pointer;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #2a9d8f;
+}
+
+.toggle span {
+  display: grid;
+  gap: 2px;
+}
+
+.toggle strong {
+  color: #f4faf8;
+  font-size: 14px;
+}
+
+.toggle small {
+  color: #91a4aa;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .actions {
   display: flex;
   align-items: center;

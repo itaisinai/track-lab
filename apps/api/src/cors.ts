@@ -14,7 +14,7 @@ export function createCorsMiddleware(): RequestHandler {
     }
 
     res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-    res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+    res.setHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS");
 
     if (req.method === "OPTIONS") {
       res.sendStatus(204);

@@ -99,10 +99,48 @@ button:disabled {
   box-shadow: 0 8px 18px rgb(233 196 106 / 16%);
 }
 
+.danger {
+  border: 1px solid rgb(231 111 81 / 44%);
+  color: #ffb5ae;
+  background: rgb(231 111 81 / 16%);
+  box-shadow: none;
+}
+
+.danger:hover:not(:disabled) {
+  color: #ffffff;
+  background: rgb(231 111 81 / 34%);
+  box-shadow: 0 8px 18px rgb(231 111 81 / 18%);
+}
+
 .compact {
   min-height: 32px;
   padding: 6px 10px;
   font-size: 13px;
+}
+
+.icon-button {
+  display: inline-grid;
+  place-items: center;
+  width: 36px;
+  min-width: 36px;
+  height: 36px;
+  min-height: 36px;
+  padding: 0;
+}
+
+.button-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.spinning {
+  animation: icon-spin 900ms linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 pre {

@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
+  deleteSavedResult,
   listResults,
   reenrichSavedResult,
   runAgent,
@@ -18,6 +19,7 @@ export function App() {
   const [view, setView] = useState<View>("enrich");
   const [title, setTitle] = useState("");
   const [artists, setArtists] = useState("");
+  const [skipPersistedResults, setSkipPersistedResults] = useState(false);
   const [response, setResponse] = useState("");
   const [lastAgentResponse, setLastAgentResponse] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -47,10 +49,15 @@ export function App() {
       return;
     }
 
-    await enrichWithMessage(createTrackPrompt(title.trim(), artists.trim()));
+    await enrichWithMessage(createTrackPrompt(title.trim(), artists.trim()), {
+      skipPersistedResults,
+    });
   }
 
-  async function enrichWithMessage(message: string) {
+  async function enrichWithMessage(
+    message: string,
+    options: { skipPersistedResults?: boolean } = {},
+  ) {
     setIsLoading(true);
     setError("");
     setResponse("");
@@ -58,7 +65,7 @@ export function App() {
     setLastAgentResponse(null);
 
     try {
-      const data = await runAgent(message);
+      const data = await runAgent(message, options);
       setLastAgentResponse(data);
       setResponse(formatAgentResponse(data));
     } catch (caughtError) {
@@ -121,6 +128,31 @@ export function App() {
     }
   }
 
+  async function deleteResult(result: SavedTrackResult) {
+    const shouldDelete = window.confirm(
+      `Remove "${result.title}" by ${result.artists}?`,
+    );
+
+    if (!shouldDelete) {
+      return;
+    }
+
+    setResultsError("");
+
+    try {
+      await deleteSavedResult(result.id);
+      setResults((currentResults) =>
+        currentResults.filter((currentResult) => currentResult.id !== result.id),
+      );
+
+      if (selectedResult?.id === result.id) {
+        closeDrawer();
+      }
+    } catch (caughtError) {
+      setResultsError(getErrorMessage(caughtError, "Could not remove result"));
+    }
+  }
+
   function openDrawer(result: SavedTrackResult) {
     setDrawerState("opening");
     setSelectedResult(result);
@@ -180,9 +212,11 @@ export function App() {
               isLoading={isLoading}
               isSaving={isSaving}
               canSave={Boolean(lastAgentResponse)}
+              skipPersistedResults={skipPersistedResults}
               trackDetails={trackDetails}
               onTitleChange={setTitle}
               onArtistsChange={setArtists}
+              onSkipPersistedResultsChange={setSkipPersistedResults}
               onSubmit={submitPrompt}
               onSave={() => void saveCurrentResponse()}
             />
@@ -195,6 +229,7 @@ export function App() {
               onRefresh={() => void loadSavedResults()}
               onMore={openDrawer}
               onReenrich={(result) => void reenrichResult(result)}
+              onDelete={(result) => void deleteResult(result)}
             />
           )}
         </main>
@@ -205,6 +240,7 @@ export function App() {
           result={selectedResult}
           state={drawerState}
           onClose={closeDrawer}
+          onDelete={(result) => void deleteResult(result)}
         />
       )}
     </>

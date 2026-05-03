@@ -4,6 +4,15 @@ import "./TrackDetailsView.css";
 export function TrackDetailsView({ details }: { details: TrackDetails }) {
   return (
     <div className="details">
+      <section className="matched-track">
+        <span>Matched Track</span>
+        <strong>{details.title ?? "Unknown title"}</strong>
+        <p>{details.artists ?? "Unknown artists"}</p>
+      </section>
+      <div className="detail">
+        <span>Album</span>
+        <strong>{details.album ?? "Unknown"}</strong>
+      </div>
       <div className="detail">
         <span>BPM</span>
         <strong>{details.bpm ?? "Unknown"}</strong>

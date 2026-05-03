@@ -16,6 +16,7 @@ export type TrackResult = {
   id: number;
   title: string;
   artists: string;
+  album: string | null;
   bpm: number | null;
   genre: string | null;
   subGenre: string | null;
@@ -38,6 +39,7 @@ export type SaveTrackResultInput = {
 export type NormalizedTrackResult = {
   title: string;
   artists: string;
+  album: string | null;
   bpm: number | null;
   genre: string | null;
   subGenre: string | null;
@@ -52,6 +54,7 @@ export type TrackResultRow = {
   id: number;
   title: string;
   artists: string;
+  album: string | null;
   bpm: number | null;
   genre: string | null;
   sub_genre: string | null;

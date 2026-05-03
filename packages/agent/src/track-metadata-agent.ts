@@ -23,6 +23,7 @@ When the user provides a title and artists, call lookup_saved_track_result first
 If lookup_saved_track_result returns found as true, answer using the returned datastore JSON and do not call lookup_spotify_track, lookup_beatport_track, or lookup_getsongbpm_track.
 Only when lookup_saved_track_result returns found as false, call lookup_spotify_track, lookup_beatport_track, and lookup_getsongbpm_track before answering.
 Use Spotify metadata for track identity and artist genres when available.
+Use Spotify track.album.name as the primary source for Album when available. If Spotify has no album name, return Album as null.
 Use Beatport as the primary source for BPM/tempo, genre, subgenre, and key.
 Use GetSongBPM as a fallback BPM/tempo source only when Beatport does not return BPM.
 Do not invent BPM. If Beatport and GetSongBPM both return bpm as null, return BPM as null.
@@ -31,6 +32,7 @@ Always return only a JSON object with these exact keys:
 {
   "Title": string,
   "Artists": string,
+  "Album": string | null,
   "BPM": number | null,
   "Genre": string | null,
   "SubGenre": string | null,
