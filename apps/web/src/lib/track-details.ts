@@ -74,6 +74,8 @@ function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
       valueToString(findValue(record, ["spotifyUrl", "spotify_url"])) ??
       findNestedProviderUrl(record, "spotify"),
     toolsUsed,
+    reviewNotes: extractStringList(record, ["reviewNotes", "review_notes"]),
+    conflicts: extractStringList(record, ["conflicts"]),
     errors: [
       ...extractResponseErrors(record),
       ...toolsUsed
@@ -81,6 +83,20 @@ function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
         .map((tool) => ({ source: tool.name, message: tool.error as string })),
     ],
   };
+}
+
+function extractStringList(record: Record<string, unknown>, names: string[]) {
+  const value = findValue(record, names);
+
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const values = value
+    .map((item) => valueToString(item))
+    .filter((item): item is string => Boolean(item));
+
+  return values.length > 0 ? values : undefined;
 }
 
 function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {

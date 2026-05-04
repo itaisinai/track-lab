@@ -12,12 +12,11 @@ type EnrichViewProps = {
   isLoading: boolean;
   isSaving: boolean;
   canSave: boolean;
-  skipPersistedResults: boolean;
   trackDetails: TrackDetails | null;
   onTitleChange: (value: string) => void;
   onArtistsChange: (value: string) => void;
-  onSkipPersistedResultsChange: (value: boolean) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  onEnrich: () => void;
   onSave: () => void;
 };
 
@@ -30,14 +29,15 @@ export function EnrichView({
   isLoading,
   isSaving,
   canSave,
-  skipPersistedResults,
   trackDetails,
   onTitleChange,
   onArtistsChange,
-  onSkipPersistedResultsChange,
   onSubmit,
+  onEnrich,
   onSave,
 }: EnrichViewProps) {
+  const hasTrack = Boolean(title.trim() && artists.trim());
+
   return (
     <>
       <form className="panel" onSubmit={onSubmit}>
@@ -56,22 +56,9 @@ export function EnrichView({
           onChange={(event) => onArtistsChange(event.target.value)}
           placeholder="LIAD MEIR, Eden Derso"
         />
-        <label className="toggle">
-          <input
-            type="checkbox"
-            checked={skipPersistedResults}
-            onChange={(event) =>
-              onSkipPersistedResultsChange(event.target.checked)
-            }
-          />
-          <span>
-            <strong>Skip saved results</strong>
-            <small>Force fresh enrichment from external sources.</small>
-          </span>
-        </label>
         <div className="actions">
-          <button type="submit" disabled={isLoading || !title.trim() || !artists.trim()}>
-            {isLoading ? "Sending..." : "Send"}
+          <button type="submit" disabled={isLoading || !hasTrack}>
+            {isLoading ? "Analyzing..." : "Analyze"}
           </button>
           <button
             className="secondary"
@@ -87,7 +74,21 @@ export function EnrichView({
 
       {(response || error) && (
         <section className="response" aria-live="polite">
-          {trackDetails && !error && <TrackDetailsView details={trackDetails} />}
+          {trackDetails && !error && (
+            <>
+              <TrackDetailsView details={trackDetails} />
+              <div className="actions response-actions">
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={isLoading}
+                  onClick={onEnrich}
+                >
+                  {isLoading ? "Enriching..." : "Enrich"}
+                </button>
+              </div>
+            </>
+          )}
 
           <h2>Full Response</h2>
           <pre>{error || response}</pre>

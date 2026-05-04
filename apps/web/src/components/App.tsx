@@ -19,7 +19,6 @@ export function App() {
   const [view, setView] = useState<View>("enrich");
   const [title, setTitle] = useState("");
   const [artists, setArtists] = useState("");
-  const [skipPersistedResults, setSkipPersistedResults] = useState(false);
   const [response, setResponse] = useState("");
   const [lastAgentResponse, setLastAgentResponse] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -49,15 +48,14 @@ export function App() {
       return;
     }
 
-    await enrichWithMessage(createTrackPrompt(title.trim(), artists.trim()), {
-      skipPersistedResults,
-    });
+    await runTrackAnalysis("analyze");
   }
 
-  async function enrichWithMessage(
-    message: string,
-    options: { skipPersistedResults?: boolean } = {},
-  ) {
+  async function runTrackAnalysis(operation: "analyze" | "enrich") {
+    if (!title.trim() || !artists.trim() || isLoading) {
+      return;
+    }
+
     setIsLoading(true);
     setError("");
     setResponse("");
@@ -65,7 +63,21 @@ export function App() {
     setLastAgentResponse(null);
 
     try {
-      const data = await runAgent(message, options);
+      const data = await runAgent(createTrackPrompt(title.trim(), artists.trim()), {
+        operation,
+        skipPersistedResults: operation === "enrich",
+        knownMetadata:
+          operation === "enrich" && trackDetails
+            ? {
+                album: trackDetails.album ?? null,
+                bpm: trackDetails.bpm ? Number(trackDetails.bpm) : null,
+                genre: trackDetails.genre ?? null,
+                subGenre: trackDetails.subGenre ?? null,
+                key: trackDetails.key ?? null,
+                spotifyUrl: trackDetails.spotifyUrl ?? null,
+              }
+            : undefined,
+      });
       setLastAgentResponse(data);
       setResponse(formatAgentResponse(data));
     } catch (caughtError) {
@@ -212,12 +224,11 @@ export function App() {
               isLoading={isLoading}
               isSaving={isSaving}
               canSave={Boolean(lastAgentResponse)}
-              skipPersistedResults={skipPersistedResults}
               trackDetails={trackDetails}
               onTitleChange={setTitle}
               onArtistsChange={setArtists}
-              onSkipPersistedResultsChange={setSkipPersistedResults}
               onSubmit={submitPrompt}
+              onEnrich={() => void runTrackAnalysis("enrich")}
               onSave={() => void saveCurrentResponse()}
             />
           ) : (
@@ -239,7 +250,9 @@ export function App() {
         <ResultDrawer
           result={selectedResult}
           state={drawerState}
+          isEnriching={reenrichingId === selectedResult.id}
           onClose={closeDrawer}
+          onEnrich={(result) => void reenrichResult(result)}
           onDelete={(result) => void deleteResult(result)}
         />
       )}

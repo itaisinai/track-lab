@@ -75,6 +75,10 @@
   font-size: 16px;
 }
 
+.response-actions {
+  margin: 14px 0 22px;
+}
+
 @keyframes panel-rise {
   from {
     opacity: 0;

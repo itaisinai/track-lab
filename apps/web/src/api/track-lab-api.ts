@@ -3,7 +3,9 @@ import type { SavedTrackResult } from "../types";
 const API_BASE_URL = "http://localhost:3000";
 
 export type RunAgentOptions = {
+  operation?: "analyze" | "enrich";
   skipPersistedResults?: boolean;
+  knownMetadata?: unknown;
 };
 
 export async function runAgent(message: string, options: RunAgentOptions = {}) {
@@ -11,7 +13,9 @@ export async function runAgent(message: string, options: RunAgentOptions = {}) {
     method: "POST",
     body: JSON.stringify({
       message,
+      operation: options.operation ?? "analyze",
       skipPersistedResults: options.skipPersistedResults ?? false,
+      knownMetadata: options.knownMetadata,
     }),
   });
 }

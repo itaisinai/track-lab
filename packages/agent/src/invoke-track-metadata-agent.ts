@@ -6,7 +6,16 @@ import { enrichTrackMetadata } from "./enrichment/track-metadata-enrichment.ts";
 import { parseTrackRequest } from "./input/track-request.ts";
 
 export type TrackMetadataAgentOptions = {
+  operation?: "analyze" | "enrich";
   preferDatastore?: boolean;
+  knownMetadata?: Partial<{
+    album: string | null;
+    bpm: number | null;
+    genre: string | null;
+    subGenre: string | null;
+    key: string | null;
+    spotifyUrl: string | null;
+  }>;
 };
 
 export async function invokeTrackMetadataAgent(
@@ -19,13 +28,13 @@ export async function invokeTrackMetadataAgent(
   if (request) {
     const result = await enrichTrackMetadata(
       {
+        operation: options.operation ?? "analyze",
         trackName: request.title,
         artist: request.artists,
-        rekordboxXmlPath: request.rekordboxXmlPath,
-        filePath: request.filePath,
+        knownMetadata: options.knownMetadata,
       },
       {
-        store: preferDatastore
+        store: preferDatastore && options.operation !== "enrich"
           ? createDatastoreEnrichmentStore(agentTrackResultStore)
           : undefined,
       },

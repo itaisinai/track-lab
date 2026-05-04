@@ -6,14 +6,18 @@ import "./ResultDrawer.css";
 type ResultDrawerProps = {
   result: SavedTrackResult;
   state: "opening" | "open" | "closing";
+  isEnriching: boolean;
   onClose: () => void;
+  onEnrich: (result: SavedTrackResult) => void;
   onDelete: (result: SavedTrackResult) => void;
 };
 
 export function ResultDrawer({
   result,
   state,
+  isEnriching,
   onClose,
+  onEnrich,
   onDelete,
 }: ResultDrawerProps) {
   return (
@@ -29,6 +33,14 @@ export function ResultDrawer({
             <p>{result.artists}</p>
           </div>
           <div className="drawer-actions">
+            <button
+              className="secondary compact"
+              type="button"
+              disabled={isEnriching}
+              onClick={() => onEnrich(result)}
+            >
+              {isEnriching ? "Enriching..." : "Enrich"}
+            </button>
             <button
               className="danger compact"
               type="button"

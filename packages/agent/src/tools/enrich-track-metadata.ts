@@ -16,16 +16,23 @@ export const enrichTrackMetadataTool = tool(
     description:
       "Enrich track BPM, genre, and key using datastore, Rekordbox XML, optional audio-analysis placeholder, and provider fallbacks.",
     schema: z.object({
+      operation: z
+        .enum(["analyze", "enrich"])
+        .optional()
+        .describe("Analyze may reuse saved data. Enrich skips saved data and refreshes providers."),
       trackName: z.string().describe("Track title/name."),
       artist: z.string().optional().describe("Artist name when available."),
-      rekordboxXmlPath: z
-        .string()
+      knownMetadata: z
+        .object({
+          album: z.string().nullable().optional(),
+          bpm: z.number().nullable().optional(),
+          genre: z.string().nullable().optional(),
+          subGenre: z.string().nullable().optional(),
+          key: z.string().nullable().optional(),
+          spotifyUrl: z.string().nullable().optional(),
+        })
         .optional()
-        .describe("Local path to a rekordbox.xml export."),
-      filePath: z
-        .string()
-        .optional()
-        .describe("Local audio file path for future audio analysis."),
+        .describe("Existing user-reviewed or saved metadata for enrich operations."),
     }),
   },
 );

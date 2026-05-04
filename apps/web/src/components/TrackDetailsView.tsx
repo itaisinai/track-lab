@@ -57,6 +57,26 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
           </ul>
         </div>
       )}
+      {details.reviewNotes && details.reviewNotes.length > 0 && (
+        <div className="summary">
+          <span>Review Notes</span>
+          <ul className="tool-list">
+            {details.reviewNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {details.conflicts && details.conflicts.length > 0 && (
+        <div className="summary">
+          <span>Conflicts</span>
+          <ul className="tool-list">
+            {details.conflicts.map((conflict) => (
+              <li key={conflict}>{conflict}</li>
+            ))}
+          </ul>
+        </div>
+      )}
       {details.errors && details.errors.length > 0 && (
         <div className="summary">
           <span>Errors</span>

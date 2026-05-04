@@ -1,24 +1,31 @@
 export type EnrichTrackMetadataInput = {
+  operation?: "analyze" | "enrich";
   trackName: string;
   artist?: string;
-  rekordboxXmlPath?: string;
-  filePath?: string;
+  knownMetadata?: Partial<{
+    album: string | null;
+    bpm: number | null;
+    genre: string | null;
+    subGenre: string | null;
+    key: string | null;
+    spotifyUrl: string | null;
+  }>;
 };
 
 export type EnrichmentSource =
   | "local_db"
-  | "rekordbox_xml"
-  | "audio_analysis"
   | "spotify"
   | "getsongbpm"
   | "lastfm"
   | "unknown";
 
 export type EnrichedTrackMetadata = {
+  operation?: "analyze" | "enrich";
   trackName: string;
   artist?: string;
   album?: string | null;
   spotifyUrl?: string | null;
+  summary?: string | null;
   bpm: number | null;
   genre: string | null;
   key?: string | null;
@@ -29,7 +36,7 @@ export type EnrichedTrackMetadata = {
       EnrichmentSource,
       "local_db" | "spotify" | "getsongbpm" | "unknown"
     >;
-    key?: Extract<EnrichmentSource, "local_db" | "rekordbox_xml" | "unknown">;
+    key?: Extract<EnrichmentSource, "local_db" | "unknown">;
   };
   confidence: {
     bpm?: number;
@@ -43,6 +50,8 @@ export type EnrichedTrackMetadata = {
     url: string | null;
     error: string | null;
   }>;
+  reviewNotes?: string[];
+  conflicts?: string[];
   status: "complete" | "partial" | "missing";
   errors?: string[];
 };

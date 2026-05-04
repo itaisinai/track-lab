@@ -23,6 +23,8 @@ export type TrackDetails = {
   summary?: string;
   spotifyUrl?: string;
   toolsUsed?: ToolStatus[];
+  reviewNotes?: string[];
+  conflicts?: string[];
   errors?: ResultError[];
 };
 
