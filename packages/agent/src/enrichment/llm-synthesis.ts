@@ -34,6 +34,8 @@ Avoid generic genre values such as electronic, dance, pop, or edm when track/art
 If your summary infers a specific scene or energy such as bass-heavy, dubstep, trap, techno, house, afro house, melodic house, drum and bass, hip hop, or similar, keep the structured genre/subGenre consistent with that same inference.
 For example, a bass-heavy Excision track should not be tagged only as electronic; use dubstep, bass, or heavy bass when supported by the evidence.
 The summary must include one practical DJ set-context sentence: what kind of party, room, or crowd the track likely fits, and whether it is better for opening, warmup, peak-time, transition, or closing.
+When track-level genre is missing but the artist or matched track is found, use available artist context from provider evidence, such as Spotify artist genres, artist name, album, track title, BPM, and key, to infer a likely vibe. Make it clear in the summary or reviewNotes that this is inferred from artist/provider context.
+If provider evidence contains artist genre/context data, do not return a null summary only because the track genre field is missing.
 Base set-context advice only on the provided BPM, genre, artist/track metadata, and provider evidence. Do not claim online/forum reputation unless it is present in provider evidence.
 Prefer concrete provider values over broad artist genres.
 Keep null when evidence is missing.`),
@@ -134,13 +136,29 @@ function parseJsonObject(value: string | null) {
     return null;
   }
 
+  const fencedJson = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1];
+  const candidate = fencedJson ?? value;
+
   try {
-    const parsed = JSON.parse(value);
+    const parsed = JSON.parse(candidate);
     return parsed && typeof parsed === "object" && !Array.isArray(parsed)
       ? (parsed as Record<string, unknown>)
       : null;
   } catch {
-    return null;
+    const objectText = candidate.match(/\{[\s\S]*\}/)?.[0];
+
+    if (!objectText) {
+      return null;
+    }
+
+    try {
+      const parsed = JSON.parse(objectText);
+      return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+        ? (parsed as Record<string, unknown>)
+        : null;
+    } catch {
+      return null;
+    }
   }
 }
 
