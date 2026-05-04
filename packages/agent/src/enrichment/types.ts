@@ -28,6 +28,7 @@ export type EnrichedTrackMetadata = {
   summary?: string | null;
   bpm: number | null;
   genre: string | null;
+  subGenre?: string | null;
   key?: string | null;
   sources: {
     bpm?: EnrichmentSource;
@@ -50,6 +51,7 @@ export type EnrichedTrackMetadata = {
     url: string | null;
     error: string | null;
   }>;
+  changedFields?: Array<"album" | "bpm" | "genre" | "subGenre" | "key" | "spotifyUrl">;
   reviewNotes?: string[];
   conflicts?: string[];
   status: "complete" | "partial" | "missing";

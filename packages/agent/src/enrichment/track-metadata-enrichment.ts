@@ -48,6 +48,7 @@ export async function enrichTrackMetadata(
     summary: null,
     bpm: null,
     genre: null,
+    subGenre: input.knownMetadata?.subGenre ?? null,
     key: input.knownMetadata?.key ?? null,
     sources: {},
     confidence: {},
@@ -79,10 +80,18 @@ export async function enrichTrackMetadata(
   }
 
   if (result.operation === "enrich" || hasProviderEvidence(providerEvidence)) {
-    return (dependencies.synthesize ?? synthesizeEnrichedTrackMetadata)({
+    const synthesized = await (dependencies.synthesize ?? synthesizeEnrichedTrackMetadata)({
       baseResult: result,
       providerEvidence,
     });
+
+    return {
+      ...synthesized,
+      changedFields:
+        result.operation === "enrich"
+          ? getChangedFields(input.knownMetadata, synthesized)
+          : undefined,
+    };
   }
 
   return result;
@@ -282,6 +291,44 @@ function shouldCallProviders(
 
 function hasProviderEvidence(providerEvidence: ProviderEvidence) {
   return Boolean(providerEvidence.spotify || providerEvidence.getSongBpm);
+}
+
+function getChangedFields(
+  knownMetadata: EnrichTrackMetadataInput["knownMetadata"],
+  result: EnrichedTrackMetadata,
+): EnrichedTrackMetadata["changedFields"] {
+  if (!knownMetadata) {
+    return [];
+  }
+
+  return (["album", "bpm", "genre", "subGenre", "key", "spotifyUrl"] as const)
+    .filter((field) => {
+      if (!(field in knownMetadata)) {
+        return false;
+      }
+
+      return normalizeComparableValue(knownMetadata[field]) !==
+        normalizeComparableValue(getResultFieldValue(result, field));
+    });
+}
+
+function getResultFieldValue(
+  result: EnrichedTrackMetadata,
+  field: NonNullable<EnrichedTrackMetadata["changedFields"]>[number],
+) {
+  return result[field];
+}
+
+function normalizeComparableValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return String(value).trim().toLowerCase();
 }
 
 function applyProviderIdentity(

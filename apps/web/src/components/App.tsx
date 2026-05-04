@@ -20,6 +20,7 @@ export function App() {
   const [title, setTitle] = useState("");
   const [artists, setArtists] = useState("");
   const [response, setResponse] = useState("");
+  const [showSearchForm, setShowSearchForm] = useState(true);
   const [lastAgentResponse, setLastAgentResponse] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -57,6 +58,9 @@ export function App() {
     }
 
     setIsLoading(true);
+    if (operation === "analyze") {
+      setShowSearchForm(true);
+    }
     setError("");
     setResponse("");
     setSaveMessage("");
@@ -124,6 +128,7 @@ export function App() {
     setReenrichingId(result.id);
     setError("");
     setSaveMessage("");
+    setShowSearchForm(false);
 
     try {
       const data = await reenrichSavedResult(result.id);
@@ -195,14 +200,17 @@ export function App() {
             <h1>Track Lab Agent</h1>
             <nav className="tabs" aria-label="Views">
               <button
-                className={view === "enrich" ? "tab active" : "tab"}
+                className={view === "enrich" ? "nav-tab active" : "nav-tab"}
                 type="button"
-                onClick={() => setView("enrich")}
+                onClick={() => {
+                  setView("enrich");
+                  setShowSearchForm(true);
+                }}
               >
-                Enrich
+                Analyze
               </button>
               <button
-                className={view === "results" ? "tab active" : "tab"}
+                className={view === "results" ? "nav-tab active" : "nav-tab"}
                 type="button"
                 onClick={() => {
                   setView("results");
@@ -224,6 +232,7 @@ export function App() {
               isLoading={isLoading}
               isSaving={isSaving}
               canSave={Boolean(lastAgentResponse)}
+              showSearchForm={showSearchForm}
               trackDetails={trackDetails}
               onTitleChange={setTitle}
               onArtistsChange={setArtists}

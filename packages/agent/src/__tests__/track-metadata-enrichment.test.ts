@@ -40,9 +40,11 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
       trackName: "HUMBLE.",
       artist: "Kendrick Lamar",
       knownMetadata: {
+        album: null,
         bpm: 76,
         genre: "Hip Hop",
         key: "A Minor",
+        spotifyUrl: null,
       },
     },
     {
@@ -81,6 +83,7 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
   assert.equal(result.album, "DAMN.");
   assert.equal(result.spotifyUrl, "https://open.spotify.com/track/demo");
   assert.equal(result.toolsUsed?.length, 2);
+  assert.deepEqual(result.changedFields, ["album", "spotifyUrl"]);
 });
 
 test("provider data completes missing analyze results", async () => {

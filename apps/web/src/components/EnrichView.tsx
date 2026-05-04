@@ -12,6 +12,7 @@ type EnrichViewProps = {
   isLoading: boolean;
   isSaving: boolean;
   canSave: boolean;
+  showSearchForm: boolean;
   trackDetails: TrackDetails | null;
   onTitleChange: (value: string) => void;
   onArtistsChange: (value: string) => void;
@@ -29,6 +30,7 @@ export function EnrichView({
   isLoading,
   isSaving,
   canSave,
+  showSearchForm,
   trackDetails,
   onTitleChange,
   onArtistsChange,
@@ -40,37 +42,39 @@ export function EnrichView({
 
   return (
     <>
-      <form className="panel" onSubmit={onSubmit}>
-        <label htmlFor="title">Title</label>
-        <input
-          id="title"
-          value={title}
-          onChange={(event) => onTitleChange(event.target.value)}
-          placeholder="Hot Honey"
-        />
+      {showSearchForm && (
+        <form className="panel" onSubmit={onSubmit}>
+          <label htmlFor="title">Title</label>
+          <input
+            id="title"
+            value={title}
+            onChange={(event) => onTitleChange(event.target.value)}
+            placeholder="Hot Honey"
+          />
 
-        <label htmlFor="artists">Artists</label>
-        <input
-          id="artists"
-          value={artists}
-          onChange={(event) => onArtistsChange(event.target.value)}
-          placeholder="LIAD MEIR, Eden Derso"
-        />
-        <div className="actions">
-          <button type="submit" disabled={isLoading || !hasTrack}>
-            {isLoading ? "Analyzing..." : "Analyze"}
-          </button>
-          <button
-            className="secondary"
-            type="button"
-            disabled={!canSave || isSaving}
-            onClick={onSave}
-          >
-            {isSaving ? "Saving..." : "Save"}
-          </button>
-          {saveMessage && <span className="status-note">{saveMessage}</span>}
-        </div>
-      </form>
+          <label htmlFor="artists">Artists</label>
+          <input
+            id="artists"
+            value={artists}
+            onChange={(event) => onArtistsChange(event.target.value)}
+            placeholder="LIAD MEIR, Eden Derso"
+          />
+          <div className="actions">
+            <button type="submit" disabled={isLoading || !hasTrack}>
+              {isLoading ? "Analyzing..." : "Analyze"}
+            </button>
+            <button
+              className="secondary"
+              type="button"
+              disabled={!canSave || isSaving}
+              onClick={onSave}
+            >
+              {isSaving ? "Saving..." : "Save"}
+            </button>
+            {saveMessage && <span className="status-note">{saveMessage}</span>}
+          </div>
+        </form>
+      )}
 
       {(response || error) && (
         <section className="response" aria-live="polite">
@@ -86,6 +90,18 @@ export function EnrichView({
                 >
                   {isLoading ? "Enriching..." : "Enrich"}
                 </button>
+                {!showSearchForm && (
+                  <button
+                    type="button"
+                    disabled={!canSave || isSaving}
+                    onClick={onSave}
+                  >
+                    {isSaving ? "Saving..." : "Save"}
+                  </button>
+                )}
+                {!showSearchForm && saveMessage && (
+                  <span className="status-note">{saveMessage}</span>
+                )}
               </div>
             </>
           )}

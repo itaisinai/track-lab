@@ -29,6 +29,12 @@ export async function synthesizeEnrichedTrackMetadata({
       new SystemMessage(`You refine music track metadata from provider evidence.
 Return only strict JSON. Do not invent BPM, key, album, URLs, or provider matches.
 You may normalize genre/subGenre, write concise review notes, and identify conflicts.
+Genre and subGenre are for DJ library tagging, not broad catalog taxonomy.
+Avoid generic genre values such as electronic, dance, pop, or edm when track/artist evidence supports a more specific style.
+If your summary infers a specific scene or energy such as bass-heavy, dubstep, trap, techno, house, afro house, melodic house, drum and bass, hip hop, or similar, keep the structured genre/subGenre consistent with that same inference.
+For example, a bass-heavy Excision track should not be tagged only as electronic; use dubstep, bass, or heavy bass when supported by the evidence.
+The summary must include one practical DJ set-context sentence: what kind of party, room, or crowd the track likely fits, and whether it is better for opening, warmup, peak-time, transition, or closing.
+Base set-context advice only on the provided BPM, genre, artist/track metadata, and provider evidence. Do not claim online/forum reputation unless it is present in provider evidence.
 Prefer concrete provider values over broad artist genres.
 Keep null when evidence is missing.`),
       new HumanMessage(
@@ -41,9 +47,11 @@ Keep null when evidence is missing.`),
             artist: "string",
             album: "string | null",
             spotifyUrl: "string | null",
-            summary: "short user-facing string | null",
+            summary:
+              "short user-facing string with one DJ set-context sentence | null",
             bpm: "number | null",
             genre: "string | null",
+            subGenre: "string | null",
             key: "string | null",
             sources: "same object as currentResult.sources",
             confidence: "same object as currentResult.confidence",
@@ -87,6 +95,7 @@ function mergeSynthesis(
     summary: getNullableString(parsed.summary) ?? baseResult.summary,
     bpm: getNullableNumber(parsed.bpm) ?? baseResult.bpm,
     genre: getNullableString(parsed.genre) ?? baseResult.genre,
+    subGenre: getNullableString(parsed.subGenre) ?? baseResult.subGenre,
     key: getNullableString(parsed.key) ?? baseResult.key,
     reviewNotes: getStringArray(parsed.reviewNotes) ?? baseResult.reviewNotes,
     conflicts: getStringArray(parsed.conflicts) ?? baseResult.conflicts,

@@ -26,6 +26,7 @@ Always return only the JSON object produced by enrich_track_metadata:
   "spotifyUrl"?: string | null,
   "bpm": number | null,
   "genre": string | null,
+  "subGenre"?: string | null,
   "key"?: string | null,
   "sources": {
     "bpm"?: "local_db" | "spotify" | "getsongbpm" | "lastfm" | "unknown",
