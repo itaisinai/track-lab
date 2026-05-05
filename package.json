@@ -15,7 +15,12 @@
     "dev": "yarn workspace @track-lab/api dev",
     "dev:web": "yarn workspace @track-lab/web dev",
     "start": "yarn workspace @track-lab/api start",
+    "affected": "nx affected",
+    "affected:check": "nx affected -t test,typecheck",
     "test": "yarn workspaces foreach --all run test",
     "typecheck": "yarn workspaces foreach --all --topological-dev run typecheck"
+  },
+  "devDependencies": {
+    "nx": "^22.7.1"
   }
 }

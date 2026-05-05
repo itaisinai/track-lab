@@ -1,5 +1,6 @@
 node_modules
 .yarn/
+.nx/
 dist
 .env
 .DS_Store
