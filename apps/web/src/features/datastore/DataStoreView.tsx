@@ -1,9 +1,9 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import { formatDate } from "../lib/format";
-import type { SavedTrackResult, TrackAnalysisJob } from "../types";
-import { DataTable } from "./DataTable";
-import "./ResultsView.css";
+import { formatDate } from "../../lib/format";
+import type { SavedTrackResult, TrackAnalysisJob } from "../../types";
+import { DataTable } from "../../shared/components/DataTable";
+import "../results/ResultsView.css";
 
 type DataStoreViewProps = {
   jobs: TrackAnalysisJob[];

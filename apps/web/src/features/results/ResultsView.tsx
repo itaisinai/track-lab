@@ -1,12 +1,13 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { SavedTrackResult, TrackAnalysisJob } from "../types";
-import { formatDate, formatTools } from "../lib/format";
-import { ArtistHoverChips } from "./ArtistHoverChips";
-import { ArrowPathIcon } from "./icons/ArrowPathIcon";
-import { DataTable } from "./DataTable";
-import { EyeIcon } from "./icons/EyeIcon";
-import { TrashIcon } from "./icons/TrashIcon";
+import type { SavedTrackResult, TrackAnalysisJob } from "../../types";
+import { formatDate, formatProviders } from "../../lib/format";
+import { ArtistHoverChips } from "../../shared/components/ArtistHoverChips";
+import { ArrowPathIcon } from "../../shared/icons/ArrowPathIcon";
+import { DataTable } from "../../shared/components/DataTable";
+import { EyeIcon } from "../../shared/icons/EyeIcon";
+import { ProviderIconLink } from "../enrichment/ProviderIconLink";
+import { TrashIcon } from "../../shared/icons/TrashIcon";
 import "./ResultsView.css";
 
 type ResultsViewProps = {
@@ -79,9 +80,10 @@ export function ResultsView({
         },
       },
       {
-        id: "tools",
-        header: "Tools",
-        accessorFn: (result) => formatTools(result.toolsUsed),
+        id: "providers",
+        header: "Providers",
+        accessorFn: (result) => formatProviders(result.toolsUsed),
+        cell: ({ row }) => <ProviderIconsCell result={row.original} />,
       },
       {
         id: "errors",
@@ -163,6 +165,20 @@ export function ResultsView({
         searchPlaceholder="Search saved results"
       />
     </section>
+  );
+}
+
+function ProviderIconsCell({ result }: { result: SavedTrackResult }) {
+  if (result.toolsUsed.length === 0) {
+    return "N/A";
+  }
+
+  return (
+    <div className="provider-icons-cell">
+      {result.toolsUsed.map((provider) => (
+        <ProviderIconLink key={provider.name} provider={provider} />
+      ))}
+    </div>
   );
 }
 

@@ -1,6 +1,6 @@
 export type View = "enrich" | "results" | "review" | "datastore";
 
-export type ToolStatus = {
+export type ProviderStatus = {
   name: string;
   matched: boolean | null;
   url: string | null;
@@ -22,7 +22,7 @@ export type TrackDetails = {
   key?: string;
   summary?: string;
   spotifyUrl?: string;
-  toolsUsed?: ToolStatus[];
+  toolsUsed?: ProviderStatus[];
   changedFields?: Array<"album" | "bpm" | "genre" | "subGenre" | "key" | "spotifyUrl">;
   reviewNotes?: string[];
   conflicts?: string[];
@@ -40,7 +40,7 @@ export type SavedTrackResult = {
   key: string | null;
   summary: string | null;
   status: "complete" | "partial" | "failed";
-  toolsUsed: ToolStatus[];
+  toolsUsed: ProviderStatus[];
   errors: ResultError[];
   json: unknown;
   rawResponse: string;

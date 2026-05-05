@@ -59,9 +59,10 @@
   align-items: center;
   justify-content: flex-start;
   min-height: auto;
-  padding: 0;
+  padding: 3px 8px;
   gap: 5px;
   border: 0;
+  border-radius: 999px;
   background: transparent;
   color: inherit;
   font: inherit;
@@ -71,7 +72,7 @@
 .table-sort:hover,
 .table-sort:focus-visible {
   color: #83e7d8;
-  background: transparent;
+  background: rgb(42 157 143 / 22%);
   box-shadow: none;
 }
 
@@ -87,7 +88,7 @@ table {
 
 th,
 td {
-  padding: 11px 12px;
+  padding: 11px 14px;
   border-bottom: 1px solid #24343b;
   text-align: left;
   vertical-align: top;
@@ -161,6 +162,24 @@ tr:last-child td {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.provider-icons-cell {
+  display: inline-flex;
+  flex-wrap: nowrap;
+  gap: 7px;
+  min-width: max-content;
+  white-space: nowrap;
+}
+
+.provider-icons-cell .provider-link {
+  width: 26px;
+  height: 26px;
+}
+
+.provider-icons-cell .provider-link svg {
+  width: 16px;
+  height: 16px;
 }
 
 .notification-list {
