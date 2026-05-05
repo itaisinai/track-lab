@@ -4,6 +4,7 @@ import {
   type TrackAnalysisJob,
   type TrackAnalysisPayload,
 } from "@track-lab/datastore";
+import { createTrackAnalysisPrompt } from "./prompts/track-analysis-prompt.ts";
 
 export type TrackAnalysisProcessor = (
   payload: TrackAnalysisPayload,
@@ -66,7 +67,7 @@ export class TrackAnalysisWorker {
 
 export async function processTrackAnalysisPayload(payload: TrackAnalysisPayload) {
   return invokeTrackMetadataAgent(
-    `Title: ${payload.track.title}\nArtists: ${payload.track.artists}`,
+    createTrackAnalysisPrompt(payload),
     {
       operation: payload.operation,
       preferDatastore: payload.operation === "analyze",

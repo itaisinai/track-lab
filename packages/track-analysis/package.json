@@ -12,6 +12,7 @@
   },
   "dependencies": {
     "@track-lab/agent": "workspace:*",
+    "@track-lab/api-types": "workspace:*",
     "@track-lab/datastore": "workspace:*"
   },
   "devDependencies": {

@@ -7,6 +7,7 @@ import type {
   EnqueueTrackAnalysisJobInput,
   TrackAnalysisJob,
   TrackAnalysisJobRow,
+  TrackAnalysisPayload,
   TrackAnalysisJobStatus,
 } from "./types.ts";
 
@@ -255,7 +256,7 @@ function mapRowToTrackAnalysisJob(row: TrackAnalysisJobRow): TrackAnalysisJob {
     id: row.id,
     operation: row.operation,
     status: row.status,
-    payload: parseJson(row.payload_json),
+    payload: parseJson(row.payload_json) as TrackAnalysisPayload,
     result: row.result_json ? parseJson(row.result_json) : null,
     errorMessage: row.error_message,
     attemptCount: row.attempt_count,

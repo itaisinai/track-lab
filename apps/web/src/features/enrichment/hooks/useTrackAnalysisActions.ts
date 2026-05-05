@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import type { useReenrichSavedResultMutation } from "../../../api/mutations/useReenrichSavedResultMutation";
 import type { useRunAgentMutation } from "../../../api/mutations/useRunAgentMutation";
 import type { useSaveAgentResponseMutation } from "../../../api/mutations/useSaveAgentResponseMutation";
-import { createTrackPrompt } from "../../../lib/track-prompt";
 import type { SavedTrackResult, TrackAnalysisJob } from "../../../types";
 import { getErrorMessage } from "../../../lib/errors/app-errors";
 
@@ -84,28 +83,25 @@ export function useTrackAnalysisActions({
 
     try {
       const data = await runAgentMutation.mutateAsync({
-        message: createTrackPrompt(draft.title.trim(), draft.artists.trim()),
-        options: {
-          operation,
-          track: {
-            title: draft.title.trim(),
-            artists: draft.artists.trim(),
-          },
-          skipPersistedResults: operation === "enrich",
-          knownMetadata:
-            operation === "enrich" && draft.trackDetails
-              ? {
-                  album: draft.trackDetails.album ?? null,
-                  bpm: draft.trackDetails.bpm
-                    ? Number(draft.trackDetails.bpm)
-                    : null,
-                  genre: draft.trackDetails.genre ?? null,
-                  subGenre: draft.trackDetails.subGenre ?? null,
-                  key: draft.trackDetails.key ?? null,
-                  spotifyUrl: draft.trackDetails.spotifyUrl ?? null,
-                }
-              : undefined,
+        operation,
+        track: {
+          title: draft.title.trim(),
+          artists: draft.artists.trim(),
         },
+        source: "manual",
+        knownMetadata:
+          operation === "enrich" && draft.trackDetails
+            ? {
+                album: draft.trackDetails.album ?? null,
+                bpm: draft.trackDetails.bpm
+                  ? Number(draft.trackDetails.bpm)
+                  : null,
+                genre: draft.trackDetails.genre ?? null,
+                subGenre: draft.trackDetails.subGenre ?? null,
+                key: draft.trackDetails.key ?? null,
+                spotifyUrl: draft.trackDetails.spotifyUrl ?? null,
+              }
+            : undefined,
       });
       draft.setResponse(`Queued ${operation} job #${data.job.id}.`);
       navigateToView("review");
