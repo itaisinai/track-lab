@@ -1,4 +1,5 @@
 import type { TrackLookupInput } from "./types.ts";
+import { logProviderSearch } from "./utils.ts";
 
 const WIKIPEDIA_API_URL = "https://en.wikipedia.org/w/api.php";
 const WIKIPEDIA_PAGE_URL = "https://en.wikipedia.org/wiki/";
@@ -37,6 +38,7 @@ export async function lookupWikipediaContext({
   title,
   artists,
 }: TrackLookupInput): Promise<WikipediaLookupResult> {
+  logProviderSearch("wikipedia", "search started", { title, artists });
   const searchTerms = [
     primaryArtist(artists),
     `${title} ${primaryArtist(artists)}`,
@@ -44,17 +46,28 @@ export async function lookupWikipediaContext({
 
   for (const searchTerm of searchTerms) {
     try {
+      logProviderSearch("wikipedia", "requesting search", { searchTerm });
       const pageTitle = await searchWikipedia(searchTerm);
 
       if (!pageTitle) {
+        logProviderSearch("wikipedia", "no page for search term", {
+          searchTerm,
+        });
         continue;
       }
 
+      logProviderSearch("wikipedia", "page candidate", { pageTitle });
       const page = await fetchWikipediaExtract(pageTitle);
 
       if (!page?.extract) {
+        logProviderSearch("wikipedia", "page missing extract", { pageTitle });
         continue;
       }
+
+      logProviderSearch("wikipedia", "matched page", {
+        title: page.title ?? pageTitle,
+        url: `${WIKIPEDIA_PAGE_URL}${encodeURIComponent(page.title ?? pageTitle).replace(/%20/g, "_")}`,
+      });
 
       return {
         found: true,
@@ -65,6 +78,10 @@ export async function lookupWikipediaContext({
         error: null,
       };
     } catch (error) {
+      logProviderSearch("wikipedia", "search failed", {
+        searchTerm,
+        error: error instanceof Error ? error.message : String(error),
+      });
       return {
         found: false,
         source: "wikipedia",
@@ -76,6 +93,7 @@ export async function lookupWikipediaContext({
     }
   }
 
+  logProviderSearch("wikipedia", "no match", { title, artists });
   return {
     found: false,
     source: "wikipedia",
