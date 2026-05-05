@@ -120,6 +120,7 @@ export async function lookupSpotifyTrack({
       id: track.id,
       title: track.name,
       artists: track.artists.map((artist) => artist.name),
+      artistGenres: genres,
       album: track.album?.name ?? null,
       releaseDate: track.album?.release_date ?? null,
       spotifyUrl: track.external_urls?.spotify ?? null,

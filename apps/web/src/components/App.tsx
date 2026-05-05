@@ -19,8 +19,8 @@ export function App() {
   const [view, setView] = useState<View>("enrich");
   const [title, setTitle] = useState("");
   const [artists, setArtists] = useState("");
-  const [skipPersistedResults, setSkipPersistedResults] = useState(false);
   const [response, setResponse] = useState("");
+  const [showSearchForm, setShowSearchForm] = useState(true);
   const [lastAgentResponse, setLastAgentResponse] = useState<unknown>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -49,23 +49,39 @@ export function App() {
       return;
     }
 
-    await enrichWithMessage(createTrackPrompt(title.trim(), artists.trim()), {
-      skipPersistedResults,
-    });
+    await runTrackAnalysis("analyze");
   }
 
-  async function enrichWithMessage(
-    message: string,
-    options: { skipPersistedResults?: boolean } = {},
-  ) {
+  async function runTrackAnalysis(operation: "analyze" | "enrich") {
+    if (!title.trim() || !artists.trim() || isLoading) {
+      return;
+    }
+
     setIsLoading(true);
+    if (operation === "analyze") {
+      setShowSearchForm(true);
+    }
     setError("");
     setResponse("");
     setSaveMessage("");
     setLastAgentResponse(null);
 
     try {
-      const data = await runAgent(message, options);
+      const data = await runAgent(createTrackPrompt(title.trim(), artists.trim()), {
+        operation,
+        skipPersistedResults: operation === "enrich",
+        knownMetadata:
+          operation === "enrich" && trackDetails
+            ? {
+                album: trackDetails.album ?? null,
+                bpm: trackDetails.bpm ? Number(trackDetails.bpm) : null,
+                genre: trackDetails.genre ?? null,
+                subGenre: trackDetails.subGenre ?? null,
+                key: trackDetails.key ?? null,
+                spotifyUrl: trackDetails.spotifyUrl ?? null,
+              }
+            : undefined,
+      });
       setLastAgentResponse(data);
       setResponse(formatAgentResponse(data));
     } catch (caughtError) {
@@ -112,6 +128,7 @@ export function App() {
     setReenrichingId(result.id);
     setError("");
     setSaveMessage("");
+    setShowSearchForm(false);
 
     try {
       const data = await reenrichSavedResult(result.id);
@@ -183,14 +200,17 @@ export function App() {
             <h1>Track Lab Agent</h1>
             <nav className="tabs" aria-label="Views">
               <button
-                className={view === "enrich" ? "tab active" : "tab"}
+                className={view === "enrich" ? "nav-tab active" : "nav-tab"}
                 type="button"
-                onClick={() => setView("enrich")}
+                onClick={() => {
+                  setView("enrich");
+                  setShowSearchForm(true);
+                }}
               >
-                Enrich
+                Analyze
               </button>
               <button
-                className={view === "results" ? "tab active" : "tab"}
+                className={view === "results" ? "nav-tab active" : "nav-tab"}
                 type="button"
                 onClick={() => {
                   setView("results");
@@ -212,12 +232,12 @@ export function App() {
               isLoading={isLoading}
               isSaving={isSaving}
               canSave={Boolean(lastAgentResponse)}
-              skipPersistedResults={skipPersistedResults}
+              showSearchForm={showSearchForm}
               trackDetails={trackDetails}
               onTitleChange={setTitle}
               onArtistsChange={setArtists}
-              onSkipPersistedResultsChange={setSkipPersistedResults}
               onSubmit={submitPrompt}
+              onEnrich={() => void runTrackAnalysis("enrich")}
               onSave={() => void saveCurrentResponse()}
             />
           ) : (
@@ -239,7 +259,9 @@ export function App() {
         <ResultDrawer
           result={selectedResult}
           state={drawerState}
+          isEnriching={reenrichingId === selectedResult.id}
           onClose={closeDrawer}
+          onEnrich={(result) => void reenrichResult(result)}
           onDelete={(result) => void deleteResult(result)}
         />
       )}

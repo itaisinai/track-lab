@@ -83,20 +83,18 @@ button:disabled {
   cursor: not-allowed;
 }
 
-.secondary,
-.tab {
+.secondary {
   border: 1px solid #3a4f57;
   color: #dce8e5;
   background: rgb(17 29 36 / 88%);
   box-shadow: none;
 }
 
-.secondary:hover:not(:disabled),
-.tab:hover:not(:disabled) {
+.secondary:hover:not(:disabled) {
   color: #ffffff;
   background: rgb(31 52 60 / 96%);
-  border-color: #e9c46a;
-  box-shadow: 0 8px 18px rgb(233 196 106 / 16%);
+  border-color: #5d747c;
+  box-shadow: 0 8px 18px rgb(93 116 124 / 14%);
 }
 
 .danger {

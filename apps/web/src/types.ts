@@ -23,6 +23,9 @@ export type TrackDetails = {
   summary?: string;
   spotifyUrl?: string;
   toolsUsed?: ToolStatus[];
+  changedFields?: Array<"album" | "bpm" | "genre" | "subGenre" | "key" | "spotifyUrl">;
+  reviewNotes?: string[];
+  conflicts?: string[];
   errors?: ResultError[];
 };
 

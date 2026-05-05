@@ -1,8 +1,6 @@
 export type TrackRequest = {
   title: string;
   artists: string;
-  rekordboxXmlPath?: string;
-  filePath?: string;
 };
 
 export function parseTrackRequest(message: string): TrackRequest | null {
@@ -16,8 +14,6 @@ export function parseTrackRequest(message: string): TrackRequest | null {
   return {
     title,
     artists,
-    rekordboxXmlPath: matchField(message, "Rekordbox XML Path") ?? undefined,
-    filePath: matchField(message, "File Path") ?? undefined,
   };
 }
 

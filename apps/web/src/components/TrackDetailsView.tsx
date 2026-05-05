@@ -6,28 +6,38 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
     <div className="details">
       <section className="matched-track">
         <span>Matched Track</span>
-        <strong>{details.title ?? "Unknown title"}</strong>
-        <p>{details.artists ?? "Unknown artists"}</p>
+        <strong>{details.title ?? "N/A"}</strong>
+        <p>{details.artists ?? "N/A"}</p>
       </section>
       <div className="detail">
-        <span>Album</span>
-        <strong>{details.album ?? "Unknown"}</strong>
+        <span>
+          Album <ChangedBadge field="album" details={details} />
+        </span>
+        <strong>{details.album ?? "N/A"}</strong>
       </div>
       <div className="detail">
-        <span>BPM</span>
-        <strong>{details.bpm ?? "Unknown"}</strong>
+        <span>
+          BPM <ChangedBadge field="bpm" details={details} />
+        </span>
+        <strong>{details.bpm ?? "N/A"}</strong>
       </div>
       <div className="detail">
-        <span>Genre</span>
-        <strong>{details.genre ?? "Unknown"}</strong>
+        <span>
+          Genre <ChangedBadge field="genre" details={details} />
+        </span>
+        <strong>{details.genre ?? "N/A"}</strong>
       </div>
       <div className="detail">
-        <span>Subgenre</span>
-        <strong>{details.subGenre ?? "Unknown"}</strong>
+        <span>
+          Subgenre <ChangedBadge field="subGenre" details={details} />
+        </span>
+        <strong>{details.subGenre ?? "N/A"}</strong>
       </div>
       <div className="detail">
-        <span>Key</span>
-        <strong>{details.key ?? "Unknown"}</strong>
+        <span>
+          Key <ChangedBadge field="key" details={details} />
+        </span>
+        <strong>{details.key ?? "N/A"}</strong>
       </div>
       <div className="summary">
         <span>Summary</span>
@@ -42,6 +52,7 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
             Open in Spotify
           </a>
         )}
+        <ChangedBadge field="spotifyUrl" details={details} />
       </div>
       {details.toolsUsed && details.toolsUsed.length > 0 && (
         <div className="summary">
@@ -53,6 +64,26 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
                 {tool.matched ? "matched" : "not matched"}
                 {tool.error ? `, ${tool.error}` : ""}
               </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {details.reviewNotes && details.reviewNotes.length > 0 && (
+        <div className="summary">
+          <span>Review Notes</span>
+          <ul className="tool-list">
+            {details.reviewNotes.map((note) => (
+              <li key={note}>{note}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {details.conflicts && details.conflicts.length > 0 && (
+        <div className="summary">
+          <span>Conflicts</span>
+          <ul className="tool-list">
+            {details.conflicts.map((conflict) => (
+              <li key={conflict}>{conflict}</li>
             ))}
           </ul>
         </div>
@@ -71,4 +102,18 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
       )}
     </div>
   );
+}
+
+function ChangedBadge({
+  field,
+  details,
+}: {
+  field: NonNullable<TrackDetails["changedFields"]>[number];
+  details: TrackDetails;
+}) {
+  if (!details.changedFields?.includes(field)) {
+    return null;
+  }
+
+  return <mark className="changed-badge">Updated</mark>;
 }

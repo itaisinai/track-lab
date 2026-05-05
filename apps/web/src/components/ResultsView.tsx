@@ -63,11 +63,11 @@ export function ResultsView({
                 <td>
                   <ArtistHoverChips artists={result.artists} />
                 </td>
-                <td>{result.album ?? "Unknown"}</td>
-                <td>{result.bpm ?? "Unknown"}</td>
-                <td>{result.genre ?? "Unknown"}</td>
-                <td>{result.subGenre ?? "Unknown"}</td>
-                <td>{result.key ?? "Unknown"}</td>
+                <td>{result.album ?? "N/A"}</td>
+                <td>{result.bpm ?? "N/A"}</td>
+                <td>{result.genre ?? "N/A"}</td>
+                <td>{result.subGenre ?? "N/A"}</td>
+                <td>{result.key ?? "N/A"}</td>
                 <td>
                   <span className={`pill ${result.status}`}>{result.status}</span>
                 </td>

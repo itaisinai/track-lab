@@ -30,11 +30,28 @@
 .matched-track span,
 .detail span,
 .summary span {
-  display: block;
+  display: flex;
+  align-items: center;
+  gap: 8px;
   margin-bottom: 6px;
   color: #91a4aa;
   font-size: 12px;
   font-weight: 700;
+  text-transform: uppercase;
+}
+
+.changed-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  padding: 2px 7px;
+  border: 1px solid rgb(131 231 216 / 46%);
+  border-radius: 999px;
+  background: rgb(42 157 143 / 18%);
+  color: #a8fff3;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 1.4;
   text-transform: uppercase;
 }
 

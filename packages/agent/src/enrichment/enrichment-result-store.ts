@@ -46,9 +46,9 @@ function toAgentResult(
     Album: result.album ?? null,
     BPM: result.bpm,
     Genre: result.genre,
-    SubGenre: null,
+    SubGenre: result.subGenre ?? null,
     Key: result.key ?? null,
-    AI_generated_summary: "",
+    AI_generated_summary: result.summary ?? "",
     Spotify: {
       matched:
         spotifyTool?.matched ??

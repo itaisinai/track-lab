@@ -6,9 +6,13 @@ export function createAgentRouter() {
 
   router.post("/agent", async (req: Request, res: Response) => {
     try {
+      const operation = req.body.operation === "enrich" ? "enrich" : "analyze";
       res.json(
         await invokeTrackMetadataAgent(req.body.message, {
-          preferDatastore: req.body.skipPersistedResults !== true,
+          operation,
+          preferDatastore:
+            operation === "analyze" && req.body.skipPersistedResults !== true,
+          knownMetadata: req.body.knownMetadata,
         }),
       );
     } catch (error) {

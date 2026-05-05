@@ -1,4 +1,4 @@
-import type { SavedTrackResult } from "../types";
+import type { SavedTrackResult, TrackDetails } from "../types";
 import { valueToString } from "../lib/format";
 import { TrackDetailsView } from "./TrackDetailsView";
 import "./ResultDrawer.css";
@@ -6,14 +6,18 @@ import "./ResultDrawer.css";
 type ResultDrawerProps = {
   result: SavedTrackResult;
   state: "opening" | "open" | "closing";
+  isEnriching: boolean;
   onClose: () => void;
+  onEnrich: (result: SavedTrackResult) => void;
   onDelete: (result: SavedTrackResult) => void;
 };
 
 export function ResultDrawer({
   result,
   state,
+  isEnriching,
   onClose,
+  onEnrich,
   onDelete,
 }: ResultDrawerProps) {
   return (
@@ -29,6 +33,14 @@ export function ResultDrawer({
             <p>{result.artists}</p>
           </div>
           <div className="drawer-actions">
+            <button
+              className="secondary compact"
+              type="button"
+              disabled={isEnriching}
+              onClick={() => onEnrich(result)}
+            >
+              {isEnriching ? "Enriching..." : "Enrich"}
+            </button>
             <button
               className="danger compact"
               type="button"
@@ -56,6 +68,7 @@ export function ResultDrawer({
               result.toolsUsed.find((tool) => tool.name === "Spotify")?.url ??
               undefined,
             toolsUsed: result.toolsUsed,
+            changedFields: getChangedFields(result.json),
             errors: result.errors,
           }}
         />
@@ -65,4 +78,31 @@ export function ResultDrawer({
       </div>
     </aside>
   );
+}
+
+function getChangedFields(value: unknown): TrackDetails["changedFields"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return undefined;
+  }
+
+  const changedFields = (value as Record<string, unknown>).changedFields;
+  if (!Array.isArray(changedFields)) {
+    return undefined;
+  }
+
+  const allowedFields = new Set([
+    "album",
+    "bpm",
+    "genre",
+    "subGenre",
+    "key",
+    "spotifyUrl",
+  ]);
+  const fields = changedFields
+    .filter((field): field is string => typeof field === "string")
+    .filter((field) => allowedFields.has(field));
+
+  return fields.length > 0
+    ? (fields as NonNullable<TrackDetails["changedFields"]>)
+    : undefined;
 }

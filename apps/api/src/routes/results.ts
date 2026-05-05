@@ -57,7 +57,18 @@ export function createResultsRouter(store: TrackResultStore) {
       res.json(
         await invokeTrackMetadataAgent(
           createTrackPrompt(saved.title, saved.artists),
-          { preferDatastore: false },
+          {
+            operation: "enrich",
+            preferDatastore: false,
+            knownMetadata: {
+              album: saved.album,
+              bpm: saved.bpm,
+              genre: saved.genre,
+              subGenre: saved.subGenre,
+              key: saved.key,
+              spotifyUrl: getSpotifyUrl(saved.toolsUsed),
+            },
+          },
         ),
       );
     } catch (error) {
@@ -69,4 +80,8 @@ export function createResultsRouter(store: TrackResultStore) {
   });
 
   return router;
+}
+
+function getSpotifyUrl(toolsUsed: Array<{ name: string; url: string | null }>) {
+  return toolsUsed.find((tool) => tool.name === "Spotify")?.url ?? null;
 }

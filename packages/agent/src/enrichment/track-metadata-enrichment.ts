@@ -1,9 +1,15 @@
 import { lookupGetSongBpmTrack } from "../providers/getsongbpm.ts";
 import { lookupSpotifyTrack } from "../providers/spotify.ts";
-import { loadRekordboxTracks } from "../rekordbox/rekordbox-xml-parser.ts";
-import { findRekordboxTrack } from "../rekordbox/rekordbox-track-lookup.ts";
+import {
+  lookupWikipediaContext,
+  type WikipediaLookupResult,
+} from "../providers/wikipedia.ts";
 import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichmentResultStore } from "./enrichment-result-store.ts";
+import {
+  synthesizeEnrichedTrackMetadata,
+  type ProviderEvidence,
+} from "./llm-synthesis.ts";
 import type {
   EnrichedTrackMetadata,
   EnrichTrackMetadataInput,
@@ -25,11 +31,17 @@ export type ProviderLookup = (input: {
   error?: string | null;
 }>;
 
+export type WikipediaLookup = (input: {
+  title: string;
+  artists: string;
+}) => Promise<WikipediaLookupResult>;
+
 export type EnrichmentDependencies = {
   store?: EnrichmentResultStore;
   spotifyLookup?: ProviderLookup;
   getSongBpmLookup?: ProviderLookup;
-  loadRekordboxTracks?: typeof loadRekordboxTracks;
+  wikipediaLookup?: WikipediaLookup;
+  synthesize?: typeof synthesizeEnrichedTrackMetadata;
 };
 
 export async function enrichTrackMetadata(
@@ -38,49 +50,40 @@ export async function enrichTrackMetadata(
 ): Promise<EnrichedTrackMetadata> {
   const errors: string[] = [];
   const result: EnrichedTrackMetadata = {
+    operation: input.operation ?? "analyze",
     trackName: input.trackName,
     artist: input.artist,
+    album: input.knownMetadata?.album ?? undefined,
+    spotifyUrl: input.knownMetadata?.spotifyUrl ?? undefined,
+    summary: null,
     bpm: null,
     genre: null,
-    key: null,
+    subGenre: input.knownMetadata?.subGenre ?? null,
+    key: input.knownMetadata?.key ?? null,
     sources: {},
     confidence: {},
     toolsUsed: [],
     status: "missing",
   };
+  applyKnownMetadata(result, input);
 
-  applyLocalResult(result, dependencies.store?.findByTrack(input.trackName, input.artist));
-
-  if (isMissingBpmOrGenre(result) && input.rekordboxXmlPath) {
-    try {
-      const tracks = await (dependencies.loadRekordboxTracks ?? loadRekordboxTracks)(
-        input.rekordboxXmlPath,
-      );
-      const rekordboxTrack = findRekordboxTrack(
-        tracks,
-        input.trackName,
-        input.artist,
-      );
-
-      if (rekordboxTrack) {
-        result.trackName = rekordboxTrack.trackName;
-        result.artist = rekordboxTrack.artist ?? result.artist;
-        applyValue(result, "bpm", rekordboxTrack.bpm, "rekordbox_xml", 0.95);
-        applyValue(result, "genre", rekordboxTrack.genre, "rekordbox_xml", 0.95);
-        applyValue(result, "key", rekordboxTrack.key ?? null, "rekordbox_xml", 0.95);
-      }
-    } catch (error) {
-      errors.push(error instanceof Error ? error.message : String(error));
-    }
+  if (result.operation === "analyze") {
+    applyLocalResult(result, dependencies.store?.findByTrack(input.trackName, input.artist));
   }
 
-  if (!result.bpm && input.filePath) {
-    result.sources.bpm = "audio_analysis";
-    result.confidence.bpm = 0;
+  const providerEvidence: ProviderEvidence = {};
+  if (shouldCallProviders(result, input)) {
+    Object.assign(
+      providerEvidence,
+      await applyProviderFallbacks(result, input, dependencies, errors),
+    );
   }
 
-  if (isMissingBpmOrGenre(result) && input.artist) {
-    await applyProviderFallbacks(result, input, dependencies, errors);
+  if (shouldCallContextProviders(result, input)) {
+    Object.assign(
+      providerEvidence,
+      await applyContextProviders(result, input, dependencies, errors),
+    );
   }
 
   result.sources.bpm ??= "unknown";
@@ -93,9 +96,41 @@ export async function enrichTrackMetadata(
     result.errors = errors;
   }
 
-  dependencies.store?.saveEnrichedResult?.(result, input);
+  if (result.operation === "enrich" || hasProviderEvidence(providerEvidence)) {
+    const synthesized = await (dependencies.synthesize ?? synthesizeEnrichedTrackMetadata)({
+      baseResult: result,
+      providerEvidence,
+    });
+
+    return {
+      ...synthesized,
+      changedFields:
+        result.operation === "enrich"
+          ? getChangedFields(input.knownMetadata, synthesized)
+          : undefined,
+    };
+  }
 
   return result;
+}
+
+async function applyContextProviders(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  dependencies: EnrichmentDependencies,
+  errors: string[],
+): Promise<ProviderEvidence> {
+  const providerInput = {
+    title: result.trackName,
+    artists: result.artist ?? (input.artist as string),
+  };
+  const wikipedia = await safeWikipediaLookup(
+    dependencies.wikipediaLookup ?? lookupWikipediaContext,
+    providerInput,
+    errors,
+  );
+
+  return { wikipedia };
 }
 
 function applyLocalResult(
@@ -124,23 +159,42 @@ function applyLocalResult(
   applyValue(result, "key", localResult.key, "local_db", 1);
 }
 
+function applyKnownMetadata(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+) {
+  const knownMetadata = input.knownMetadata;
+
+  if (!knownMetadata) {
+    return;
+  }
+
+  applyAlbum(result, knownMetadata.album, "unknown", 0.5);
+  applyValue(result, "bpm", knownMetadata.bpm, "unknown", 0.5);
+  applyValue(result, "genre", knownMetadata.genre, "unknown", 0.5);
+  applyValue(result, "key", knownMetadata.key, "unknown", 0.5);
+}
+
 async function applyProviderFallbacks(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
   dependencies: EnrichmentDependencies,
   errors: string[],
-) {
+): Promise<ProviderEvidence> {
+  const evidence: ProviderEvidence = {};
   const providerInput = {
     title: result.trackName,
     artists: result.artist ?? (input.artist as string),
   };
+  const shouldForceProviders = result.operation === "enrich";
 
-  if (!result.genre) {
+  if (shouldForceProviders || !result.genre) {
     const spotify = await safeLookup(
       dependencies.spotifyLookup ?? lookupSpotifyTrack,
       providerInput,
       errors,
     );
+    evidence.spotify = spotify;
     addToolStatus(result, "Spotify", spotify);
     applyProviderIdentity(result, spotify?.track);
     applyAlbum(result, getProviderAlbum(spotify), "spotify", 0.85);
@@ -148,12 +202,13 @@ async function applyProviderFallbacks(
     applyValue(result, "genre", spotify?.genre ?? null, "spotify", 0.65);
   }
 
-  if (!result.bpm || !result.genre) {
+  if (shouldForceProviders || !result.bpm || !result.genre) {
     const getSongBpm = await safeLookup(
       dependencies.getSongBpmLookup ?? lookupGetSongBpmTrack,
       providerInput,
       errors,
     );
+    evidence.getSongBpm = getSongBpm;
     addToolStatus(result, "GetSongBPM", getSongBpm);
     applyProviderIdentity(result, getSongBpm?.track);
     applyAlbum(result, getProviderAlbum(getSongBpm), "getsongbpm", 0.65);
@@ -164,6 +219,8 @@ async function applyProviderFallbacks(
       applyValue(result, "key", getSongBpm?.key ?? null, "unknown", 0.4);
     }
   }
+
+  return evidence;
 }
 
 function addToolStatus(
@@ -227,6 +284,25 @@ async function safeLookup(
   }
 }
 
+async function safeWikipediaLookup(
+  lookup: WikipediaLookup,
+  input: { title: string; artists: string },
+  errors: string[],
+) {
+  try {
+    const result = await lookup(input);
+
+    if (result.error) {
+      errors.push(result.error);
+    }
+
+    return result;
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
 function applyValue(
   result: EnrichedTrackMetadata,
   field: "bpm" | "genre" | "key",
@@ -256,6 +332,83 @@ function applyValue(
 
 function isMissingBpmOrGenre(result: EnrichedTrackMetadata) {
   return !result.bpm || !result.genre;
+}
+
+function shouldCallProviders(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+) {
+  return Boolean(
+    input.artist &&
+      (result.operation === "enrich" || isMissingBpmOrGenre(result)),
+  );
+}
+
+function shouldCallContextProviders(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+) {
+  return Boolean(
+    input.artist &&
+      (result.operation === "enrich" ||
+        result.genre === null ||
+        result.summary === null),
+  );
+}
+
+function hasProviderEvidence(providerEvidence: ProviderEvidence) {
+  return Boolean(
+    providerEvidence.spotify ||
+      providerEvidence.getSongBpm ||
+      hasFoundWikipediaEvidence(providerEvidence.wikipedia),
+  );
+}
+
+function hasFoundWikipediaEvidence(value: unknown) {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { found?: unknown }).found === true,
+  );
+}
+
+function getChangedFields(
+  knownMetadata: EnrichTrackMetadataInput["knownMetadata"],
+  result: EnrichedTrackMetadata,
+): EnrichedTrackMetadata["changedFields"] {
+  if (!knownMetadata) {
+    return [];
+  }
+
+  return (["album", "bpm", "genre", "subGenre", "key", "spotifyUrl"] as const)
+    .filter((field) => {
+      if (!(field in knownMetadata)) {
+        return false;
+      }
+
+      return normalizeComparableValue(knownMetadata[field]) !==
+        normalizeComparableValue(getResultFieldValue(result, field));
+    });
+}
+
+function getResultFieldValue(
+  result: EnrichedTrackMetadata,
+  field: NonNullable<EnrichedTrackMetadata["changedFields"]>[number],
+) {
+  return result[field];
+}
+
+function normalizeComparableValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "";
+  }
+
+  if (typeof value === "number") {
+    return String(value);
+  }
+
+  return String(value).trim().toLowerCase();
 }
 
 function applyProviderIdentity(
@@ -305,7 +458,10 @@ function getTrackSpotifyUrl(track: unknown) {
 function applyAlbum(
   result: EnrichedTrackMetadata,
   album: string | null | undefined,
-  source: Extract<EnrichmentSource, "local_db" | "spotify" | "getsongbpm">,
+  source: Extract<
+    EnrichmentSource,
+    "local_db" | "spotify" | "getsongbpm" | "unknown"
+  >,
   confidence: number,
 ) {
   if (!album || result.album) {
