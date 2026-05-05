@@ -15,13 +15,14 @@ type SynthesisInput = {
 
 const synthesisModel = new ChatOpenAI({
   model: "gpt-5-nano",
+  apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
 });
 
 export async function synthesizeEnrichedTrackMetadata({
   baseResult,
   providerEvidence,
 }: SynthesisInput): Promise<EnrichedTrackMetadata> {
-  if (!process.env.OPENAI_API_KEY) {
+  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
     return addFallbackReviewNotes(baseResult);
   }
 
@@ -71,7 +72,8 @@ Keep null when evidence is missing.`),
     ]);
 
     const parsed = parseJsonObject(getMessageContent(response));
-    return mergeSynthesis(baseResult, parsed);
+    const merged = mergeSynthesis(baseResult, parsed);
+    return repairStructuredGenreFromSummary(merged, providerEvidence);
   } catch (error) {
     return {
       ...addFallbackReviewNotes(baseResult),
@@ -106,6 +108,80 @@ function mergeSynthesis(
     conflicts: getStringArray(parsed.conflicts) ?? baseResult.conflicts,
     status: isStatus(parsed.status) ? parsed.status : baseResult.status,
   };
+}
+
+async function repairStructuredGenreFromSummary(
+  result: EnrichedTrackMetadata,
+  providerEvidence: ProviderEvidence,
+): Promise<EnrichedTrackMetadata> {
+  if (result.genre || !result.summary || (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY)) {
+    return result;
+  }
+
+  try {
+    const response = await synthesisModel.invoke([
+      new SystemMessage(`You repair inconsistent music metadata.
+Return only strict JSON.
+The current result has a non-null summary but null genre.
+If the summary and provider evidence support a DJ-library genre, return that genre and optional subGenre.
+If they do not support a genre, return null.
+Do not use hard-coded keyword matching. Interpret the summary and evidence.
+Do not invent BPM, key, album, URLs, or provider matches.`),
+      new HumanMessage(
+        JSON.stringify({
+          currentResult: result,
+          providerEvidence,
+          requiredShape: {
+            genre: "string | null",
+            subGenre: "string | null",
+            reviewNotes: "short user-facing strings",
+          },
+        }),
+      ),
+    ]);
+    const parsed = parseJsonObject(getMessageContent(response));
+
+    if (!parsed) {
+      return result;
+    }
+
+    const genre = getNullableString(parsed.genre);
+    const subGenre = getNullableString(parsed.subGenre);
+
+    if (!genre) {
+      return {
+        ...result,
+        reviewNotes: getStringArray(parsed.reviewNotes) ?? result.reviewNotes,
+      };
+    }
+
+    return {
+      ...result,
+      genre,
+      subGenre: subGenre ?? result.subGenre,
+      sources: {
+        ...result.sources,
+        genre: result.sources.genre ?? "unknown",
+      },
+      confidence: {
+        ...result.confidence,
+        genre: result.confidence.genre ?? 0.55,
+      },
+      reviewNotes: getStringArray(parsed.reviewNotes) ?? [
+        ...(result.reviewNotes ?? []),
+        `Genre inferred by review from summary and provider evidence: ${genre}.`,
+      ],
+      status: result.bpm ? "complete" : "partial",
+    };
+  } catch (error) {
+    return {
+      ...result,
+      errors: [
+        ...(result.errors ?? []),
+        error instanceof Error ? error.message : String(error),
+      ],
+    };
+  }
 }
 
 function addFallbackReviewNotes(

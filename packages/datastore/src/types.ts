@@ -68,3 +68,74 @@ export type TrackResultRow = {
   created_at: string;
   updated_at: string;
 };
+
+export type TrackAnalysisOperation = "analyze" | "enrich";
+
+export type TrackAnalysisJobStatus =
+  | "queued"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "dead_lettered";
+
+export type TrackAnalysisKnownMetadata = Partial<{
+  album: string | null;
+  bpm: number | null;
+  genre: string | null;
+  subGenre: string | null;
+  key: string | null;
+  spotifyUrl: string | null;
+}>;
+
+export type TrackAnalysisSource =
+  | "manual"
+  | "saved_result"
+  | "bulk_saved_results";
+
+export type TrackAnalysisPayload = {
+  operation: TrackAnalysisOperation;
+  track: {
+    title: string;
+    artists: string;
+  };
+  knownMetadata?: TrackAnalysisKnownMetadata;
+  source?: TrackAnalysisSource;
+};
+
+export type EnqueueTrackAnalysisJobInput = {
+  operation: TrackAnalysisOperation;
+  payload: TrackAnalysisPayload;
+  maxAttempts?: number;
+};
+
+export type TrackAnalysisJob = {
+  id: number;
+  operation: TrackAnalysisOperation;
+  status: TrackAnalysisJobStatus;
+  payload: unknown;
+  result: unknown | null;
+  errorMessage: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  notificationReadAt: string | null;
+  resolvedAt: string | null;
+};
+
+export type TrackAnalysisJobRow = {
+  id: number;
+  operation: TrackAnalysisOperation;
+  status: TrackAnalysisJobStatus;
+  payload_json: string;
+  result_json: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  created_at: string;
+  updated_at: string;
+  completed_at: string | null;
+  notification_read_at: string | null;
+  resolved_at: string | null;
+};

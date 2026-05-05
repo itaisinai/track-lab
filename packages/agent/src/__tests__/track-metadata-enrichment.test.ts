@@ -82,7 +82,10 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
   assert.equal(result.genre, "Hip Hop");
   assert.equal(result.album, "DAMN.");
   assert.equal(result.spotifyUrl, "https://open.spotify.com/track/demo");
-  assert.equal(result.toolsUsed?.length, 2);
+  assert.deepEqual(
+    result.toolsUsed?.map((tool) => tool.name),
+    ["Spotify", "GetSongBPM", "Wikipedia"],
+  );
   assert.deepEqual(result.changedFields, ["album", "spotifyUrl"]);
 });
 
@@ -171,6 +174,12 @@ test("wikipedia context is passed to synthesis when genre context is missing", a
   assert.equal(result.genre, "Bass");
   assert.equal(result.subGenre, "Experimental bass");
   assert.equal(result.summary, "Artist context suggests this fits bass-focused sets.");
+  assert.deepEqual(result.toolsUsed?.at(-1), {
+    name: "Wikipedia",
+    matched: true,
+    url: "https://en.wikipedia.org/wiki/LSDREAM",
+    error: null,
+  });
 });
 
 test("output status reflects complete, partial, and missing states", async () => {

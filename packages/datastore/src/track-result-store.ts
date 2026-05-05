@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import { getDefaultDatabasePath } from "./db-path.ts";
 import { parseJson, parseJsonArray } from "./lib/json.ts";
 import { normalizeUniqueKey } from "./lib/object.ts";
 import { normalizeTrackResult } from "./normalization.ts";
@@ -15,7 +16,7 @@ import type {
 export class TrackResultStore {
   readonly db: DatabaseSync;
 
-  constructor(databasePath = process.env.TRACK_LAB_DB_PATH ?? "data/track-lab.sqlite") {
+  constructor(databasePath = getDefaultDatabasePath()) {
     const resolvedPath = resolve(databasePath);
     mkdirSync(dirname(resolvedPath), { recursive: true });
     this.db = new DatabaseSync(resolvedPath);

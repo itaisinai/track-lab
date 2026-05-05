@@ -1,5 +1,5 @@
 {
-  "name": "@track-lab/datastore",
+  "name": "@track-lab/track-analysis",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,6 +9,10 @@
   "scripts": {
     "test": "node --test src/__tests__/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@track-lab/agent": "workspace:*",
+    "@track-lab/datastore": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

@@ -1,18 +1,24 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   deleteSavedResult,
+  listTrackAnalysisJobs,
   listResults,
+  markTrackAnalysisNotificationRead,
   reenrichSavedResult,
+  resolveTrackAnalysisJob,
+  retryTrackAnalysisJob,
   runAgent,
   saveAgentResponse,
 } from "../api/track-lab-api";
 import { formatAgentResponse } from "../lib/format";
 import { parseTrackDetails } from "../lib/track-details";
 import { createTrackPrompt } from "../lib/track-prompt";
-import type { SavedTrackResult, View } from "../types";
+import type { SavedTrackResult, TrackAnalysisJob, View } from "../types";
+import { DataStoreView } from "./DataStoreView";
 import { EnrichView } from "./EnrichView";
 import { ResultDrawer } from "./ResultDrawer";
 import { ResultsView } from "./ResultsView";
+import { ReviewQueueView } from "./ReviewQueueView";
 import "./App.css";
 
 export function App() {
@@ -36,11 +42,32 @@ export function App() {
     "opening" | "open" | "closing"
   >("opening");
   const [reenrichingId, setReenrichingId] = useState<number | null>(null);
+  const [activeJobs, setActiveJobs] = useState<TrackAnalysisJob[]>([]);
+  const [reviewJobs, setReviewJobs] = useState<TrackAnalysisJob[]>([]);
+  const [notificationJobs, setNotificationJobs] = useState<TrackAnalysisJob[]>([]);
+  const [allJobs, setAllJobs] = useState<TrackAnalysisJob[]>([]);
+  const [jobsError, setJobsError] = useState("");
+  const [currentReviewJobId, setCurrentReviewJobId] = useState<number | null>(null);
   const trackDetails = response ? parseTrackDetails(response) : null;
 
   useEffect(() => {
     void loadSavedResults();
+    void refreshJobs();
   }, []);
+
+  useEffect(() => {
+    const activeInterval = window.setInterval(() => {
+      void refreshJobs();
+    }, activeJobs.length > 0 ? 1000 : 2000);
+    const notificationInterval = window.setInterval(() => {
+      void refreshJobs();
+    }, 7000);
+
+    return () => {
+      window.clearInterval(activeInterval);
+      window.clearInterval(notificationInterval);
+    };
+  }, [activeJobs.length]);
 
   async function submitPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -65,10 +92,15 @@ export function App() {
     setResponse("");
     setSaveMessage("");
     setLastAgentResponse(null);
+    setCurrentReviewJobId(null);
 
     try {
       const data = await runAgent(createTrackPrompt(title.trim(), artists.trim()), {
         operation,
+        track: {
+          title: title.trim(),
+          artists: artists.trim(),
+        },
         skipPersistedResults: operation === "enrich",
         knownMetadata:
           operation === "enrich" && trackDetails
@@ -82,8 +114,9 @@ export function App() {
               }
             : undefined,
       });
-      setLastAgentResponse(data);
-      setResponse(formatAgentResponse(data));
+      setResponse(`Queued ${operation} job #${data.job.id}.`);
+      setView("review");
+      await refreshJobs();
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Something went wrong"));
     } finally {
@@ -93,7 +126,7 @@ export function App() {
 
   async function saveCurrentResponse() {
     if (!lastAgentResponse || isSaving) {
-      return;
+      return false;
     }
 
     setIsSaving(true);
@@ -104,8 +137,10 @@ export function App() {
       await saveAgentResponse(lastAgentResponse);
       setSaveMessage("Saved");
       await loadSavedResults();
+      return true;
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Could not save result"));
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -128,15 +163,11 @@ export function App() {
     setReenrichingId(result.id);
     setError("");
     setSaveMessage("");
-    setShowSearchForm(false);
 
     try {
-      const data = await reenrichSavedResult(result.id);
-      setTitle(result.title);
-      setArtists(result.artists);
-      setLastAgentResponse(data);
-      setResponse(formatAgentResponse(data));
-      setView("enrich");
+      await reenrichSavedResult(result.id);
+      setView("review");
+      await refreshJobs();
       closeDrawer();
     } catch (caughtError) {
       setResultsError(getErrorMessage(caughtError, "Could not enrich result"));
@@ -192,6 +223,125 @@ export function App() {
     }, 260);
   }
 
+  async function refreshJobs() {
+    await Promise.all([
+      refreshActiveJobs(),
+      refreshNotifications(),
+      refreshReviewJobs(),
+      refreshAllJobs(),
+    ]);
+  }
+
+  async function refreshActiveJobs() {
+    try {
+      setActiveJobs(
+        await listTrackAnalysisJobs({ statuses: ["queued", "processing"] }),
+      );
+      setJobsError("");
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not load active jobs"));
+    }
+  }
+
+  async function refreshNotifications() {
+    try {
+      setNotificationJobs(await listTrackAnalysisJobs({ unread: true }));
+      setJobsError("");
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not load notifications"));
+    }
+  }
+
+  async function refreshReviewJobs() {
+    try {
+      setReviewJobs(await listTrackAnalysisJobs({ unresolved: true }));
+      setJobsError("");
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not load review queue"));
+    }
+  }
+
+  async function refreshAllJobs() {
+    try {
+      setAllJobs(await listTrackAnalysisJobs());
+      setJobsError("");
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not load datastore"));
+    }
+  }
+
+  async function openJob(job: TrackAnalysisJob) {
+    if (!job.notificationReadAt) {
+      setNotificationJobs((currentJobs) =>
+        currentJobs.filter((currentJob) => currentJob.id !== job.id),
+      );
+      await markTrackAnalysisNotificationRead(job.id);
+    }
+
+    setTitle(job.payload.track.title);
+    setArtists(job.payload.track.artists);
+    setShowSearchForm(false);
+    setLastAgentResponse(job.status === "completed" ? job.result : null);
+    setCurrentReviewJobId(job.id);
+    setResponse(job.result ? formatAgentResponse(job.result) : "");
+    setError(job.errorMessage ?? "");
+    setSaveMessage("");
+    setView("enrich");
+    await refreshJobs();
+  }
+
+  async function retryJob(job: TrackAnalysisJob) {
+    try {
+      await retryTrackAnalysisJob(job.id);
+      await refreshJobs();
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not retry job"));
+    }
+  }
+
+  async function resolveJob(job: TrackAnalysisJob) {
+    try {
+      await resolveTrackAnalysisJob(job.id);
+      await refreshJobs();
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not resolve job"));
+    }
+  }
+
+  async function dismissCurrentJob() {
+    if (!currentReviewJobId) {
+      return;
+    }
+
+    const currentJob =
+      reviewJobs.find((job) => job.id === currentReviewJobId) ??
+      allJobs.find((job) => job.id === currentReviewJobId);
+
+    if (!currentJob) {
+      return;
+    }
+
+    await resolveJob(currentJob);
+    setCurrentReviewJobId(null);
+    setLastAgentResponse(null);
+    setResponse("");
+    setError("");
+    setSaveMessage("Dismissed");
+    setView("review");
+  }
+
+  async function saveAndResolveCurrentJob() {
+    const saved = await saveCurrentResponse();
+
+    if (saved && currentReviewJobId) {
+      const currentJob = reviewJobs.find((job) => job.id === currentReviewJobId);
+
+      if (currentJob) {
+        await resolveJob(currentJob);
+      }
+    }
+  }
+
   return (
     <>
       <div className="page">
@@ -219,8 +369,49 @@ export function App() {
               >
                 Saved Results
               </button>
+              <button
+                className={view === "review" ? "nav-tab active" : "nav-tab"}
+                type="button"
+                onClick={() => {
+                  setView("review");
+                  void refreshReviewJobs();
+                }}
+              >
+                Review Queue
+              </button>
+              <button
+                className={view === "datastore" ? "nav-tab active" : "nav-tab"}
+                type="button"
+                onClick={() => {
+                  setView("datastore");
+                  void Promise.all([refreshAllJobs(), loadSavedResults()]);
+                }}
+              >
+                Data Store
+              </button>
             </nav>
+            <button
+              className="notification-button"
+              type="button"
+              onClick={() => {
+                setView("review");
+                void refreshJobs();
+              }}
+            >
+              Notifications {notificationJobs.length}
+            </button>
           </header>
+
+          {(activeJobs.length > 0 || jobsError) && (
+            <section className="job-strip" aria-live="polite">
+              {jobsError && <span className="error-text">{jobsError}</span>}
+              {activeJobs.map((job) => (
+                <span className={`pill ${job.status}`} key={job.id}>
+                  #{job.id} {job.operation} {job.status}: {formatJobTrackLabel(job)}
+                </span>
+              ))}
+            </section>
+          )}
 
           {view === "enrich" ? (
             <EnrichView
@@ -232,24 +423,44 @@ export function App() {
               isLoading={isLoading}
               isSaving={isSaving}
               canSave={Boolean(lastAgentResponse)}
+              canDismiss={Boolean(currentReviewJobId)}
               showSearchForm={showSearchForm}
               trackDetails={trackDetails}
               onTitleChange={setTitle}
               onArtistsChange={setArtists}
               onSubmit={submitPrompt}
               onEnrich={() => void runTrackAnalysis("enrich")}
-              onSave={() => void saveCurrentResponse()}
+              onSave={() => void saveAndResolveCurrentJob()}
+              onDismiss={() => void dismissCurrentJob()}
             />
-          ) : (
+          ) : view === "results" ? (
             <ResultsView
               results={results}
               error={resultsError}
               isLoading={isResultsLoading}
               reenrichingId={reenrichingId}
+              activeJobs={activeJobs}
               onRefresh={() => void loadSavedResults()}
               onMore={openDrawer}
               onReenrich={(result) => void reenrichResult(result)}
               onDelete={(result) => void deleteResult(result)}
+            />
+          ) : view === "review" ? (
+            <ReviewQueueView
+              jobs={reviewJobs}
+              notifications={notificationJobs}
+              error={jobsError}
+              onRefresh={() => void refreshJobs()}
+              onOpen={(job) => void openJob(job)}
+              onRetry={(job) => void retryJob(job)}
+              onDismiss={(job) => void resolveJob(job)}
+            />
+          ) : (
+            <DataStoreView
+              jobs={allJobs}
+              results={results}
+              error={jobsError}
+              onRefresh={() => void Promise.all([refreshAllJobs(), loadSavedResults()])}
             />
           )}
         </main>
@@ -271,4 +482,15 @@ export function App() {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function formatJobTrackLabel(job: TrackAnalysisJob) {
+  const title = job.payload.track.title;
+  const artists = job.payload.track.artists
+    .split(",")
+    .map((artist) => artist.trim())
+    .filter(Boolean);
+  const artistLabel = artists.length > 1 ? `${artists[0]}...` : artists[0];
+
+  return [title, artistLabel].filter(Boolean).join(" - ");
 }

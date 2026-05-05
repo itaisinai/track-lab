@@ -1,0 +1,19 @@
+{
+  "name": "@track-lab/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --env-file=../../.env src/index.ts",
+    "start": "node --env-file=../../.env src/index.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@track-lab/datastore": "workspace:*",
+    "@track-lab/track-analysis": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3"
+  }
+}
