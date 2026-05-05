@@ -1,5 +1,5 @@
 import type { FormEvent } from "react";
-import type { TrackDetails } from "../types";
+import type { TrackDetails } from "../../types";
 import { TrackDetailsView } from "./TrackDetailsView";
 import "./EnrichView.css";
 

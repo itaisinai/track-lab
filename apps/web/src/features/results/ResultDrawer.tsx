@@ -1,6 +1,6 @@
-import type { SavedTrackResult, TrackDetails } from "../types";
-import { valueToString } from "../lib/format";
-import { TrackDetailsView } from "./TrackDetailsView";
+import type { SavedTrackResult, TrackDetails } from "../../types";
+import { valueToString } from "../../lib/format";
+import { TrackDetailsView } from "../enrichment/TrackDetailsView";
 import "./ResultDrawer.css";
 
 type ResultDrawerProps = {
@@ -65,7 +65,8 @@ export function ResultDrawer({
             key: result.key ?? undefined,
             summary: result.summary ?? undefined,
             spotifyUrl:
-              result.toolsUsed.find((tool) => tool.name === "Spotify")?.url ??
+              result.toolsUsed.find((provider) => provider.name === "Spotify")
+                ?.url ??
               undefined,
             toolsUsed: result.toolsUsed,
             changedFields: getChangedFields(result.json),

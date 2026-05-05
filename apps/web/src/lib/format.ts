@@ -1,4 +1,4 @@
-import type { ToolStatus } from "../types";
+import type { ProviderStatus } from "../types";
 
 export function formatAgentResponse(data: unknown) {
   if (
@@ -13,20 +13,21 @@ export function formatAgentResponse(data: unknown) {
   return JSON.stringify(data, null, 2);
 }
 
-export function formatTools(tools: ToolStatus[]) {
-  if (tools.length === 0) {
+export function formatProviders(providers: ProviderStatus[]) {
+  if (providers.length === 0) {
     return "None";
   }
 
-  return tools
-    .map((tool) => `${tool.name}: ${tool.matched ? "yes" : "no"}`)
+  return providers
+    .map((provider) => `${provider.name}: ${provider.matched ? "yes" : "no"}`)
     .join(", ");
 }
 
 export function formatDate(value: string) {
   return new Intl.DateTimeFormat(undefined, {
-    dateStyle: "medium",
-    timeStyle: "short",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
   }).format(new Date(value));
 }
 
