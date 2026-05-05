@@ -12,6 +12,7 @@ type EnrichViewProps = {
   isLoading: boolean;
   isSaving: boolean;
   canSave: boolean;
+  canDismiss: boolean;
   showSearchForm: boolean;
   trackDetails: TrackDetails | null;
   onTitleChange: (value: string) => void;
@@ -19,6 +20,7 @@ type EnrichViewProps = {
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onEnrich: () => void;
   onSave: () => void;
+  onDismiss: () => void;
 };
 
 export function EnrichView({
@@ -30,6 +32,7 @@ export function EnrichView({
   isLoading,
   isSaving,
   canSave,
+  canDismiss,
   showSearchForm,
   trackDetails,
   onTitleChange,
@@ -37,6 +40,7 @@ export function EnrichView({
   onSubmit,
   onEnrich,
   onSave,
+  onDismiss,
 }: EnrichViewProps) {
   const hasTrack = Boolean(title.trim() && artists.trim());
 
@@ -81,7 +85,12 @@ export function EnrichView({
           {trackDetails && !error && (
             <>
               <TrackDetailsView details={trackDetails} />
-              <div className="actions response-actions">
+            </>
+          )}
+
+          {(trackDetails || canDismiss) && (
+            <div className="actions response-actions">
+              {trackDetails && !error && (
                 <button
                   className="secondary"
                   type="button"
@@ -90,20 +99,30 @@ export function EnrichView({
                 >
                   {isLoading ? "Enriching..." : "Enrich"}
                 </button>
-                {!showSearchForm && (
-                  <button
-                    type="button"
-                    disabled={!canSave || isSaving}
-                    onClick={onSave}
-                  >
-                    {isSaving ? "Saving..." : "Save"}
-                  </button>
-                )}
-                {!showSearchForm && saveMessage && (
-                  <span className="status-note">{saveMessage}</span>
-                )}
-              </div>
-            </>
+              )}
+              {!showSearchForm && trackDetails && !error && (
+                <button
+                  type="button"
+                  disabled={!canSave || isSaving}
+                  onClick={onSave}
+                >
+                  {isSaving ? "Saving..." : "Save"}
+                </button>
+              )}
+              {canDismiss && (
+                <button
+                  className="secondary"
+                  type="button"
+                  disabled={isSaving}
+                  onClick={onDismiss}
+                >
+                  Dismiss
+                </button>
+              )}
+              {!showSearchForm && saveMessage && (
+                <span className="status-note">{saveMessage}</span>
+              )}
+            </div>
           )}
 
           <h2>Full Response</h2>

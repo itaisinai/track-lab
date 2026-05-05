@@ -129,6 +129,7 @@ async function applyContextProviders(
     providerInput,
     errors,
   );
+  addWikipediaToolStatus(result, wikipedia);
 
   return { wikipedia };
 }
@@ -243,6 +244,19 @@ function addToolStatus(
     name,
     matched: lookupResult ? isProviderMatched(lookupResult) : false,
     url: lookupResult?.url ?? getTrackSpotifyUrl(lookupResult?.track),
+    error: lookupResult?.error ?? null,
+  });
+}
+
+function addWikipediaToolStatus(
+  result: EnrichedTrackMetadata,
+  lookupResult: WikipediaLookupResult | null,
+) {
+  result.toolsUsed ??= [];
+  result.toolsUsed.push({
+    name: "Wikipedia",
+    matched: lookupResult?.found ?? false,
+    url: lookupResult?.url ?? null,
     error: lookupResult?.error ?? null,
   });
 }

@@ -1,9 +1,11 @@
-import { invokeTrackMetadataAgent } from "@track-lab/agent";
 import { extractAgentResponse, type TrackResultStore } from "@track-lab/datastore";
+import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
-import { createTrackPrompt } from "../lib/track-prompt.ts";
 
-export function createResultsRouter(store: TrackResultStore) {
+export function createResultsRouter(
+  store: TrackResultStore,
+  orchestrator: TrackAnalysisOrchestrator,
+) {
   const router = Router();
 
   router.get("/results", (_req: Request, res: Response) => {
@@ -45,7 +47,7 @@ export function createResultsRouter(store: TrackResultStore) {
     res.sendStatus(204);
   });
 
-  router.post("/results/:id/enrich", async (req: Request, res: Response) => {
+  router.post("/results/:id/enrich", (req: Request, res: Response) => {
     const saved = store.getResult(Number(req.params.id));
 
     if (!saved) {
@@ -54,28 +56,37 @@ export function createResultsRouter(store: TrackResultStore) {
     }
 
     try {
-      res.json(
-        await invokeTrackMetadataAgent(
-          createTrackPrompt(saved.title, saved.artists),
-          {
-            operation: "enrich",
-            preferDatastore: false,
-            knownMetadata: {
-              album: saved.album,
-              bpm: saved.bpm,
-              genre: saved.genre,
-              subGenre: saved.subGenre,
-              key: saved.key,
-              spotifyUrl: getSpotifyUrl(saved.toolsUsed),
-            },
-          },
-        ),
-      );
+      const job = orchestrator.enqueue({
+        operation: "enrich",
+        track: {
+          title: saved.title,
+          artists: saved.artists,
+        },
+        source: "saved_result",
+        knownMetadata: {
+          album: saved.album,
+          bpm: saved.bpm,
+          genre: saved.genre,
+          subGenre: saved.subGenre,
+          key: saved.key,
+          spotifyUrl: getSpotifyUrl(saved.toolsUsed),
+        },
+      });
+
+      res.status(202).json({
+        job: {
+          id: job.id,
+          status: job.status,
+        },
+      });
     } catch (error) {
-      console.error("Error re-enriching result:", error);
-      res
-        .status(500)
-        .json({ error: "An error occurred while processing the request." });
+      console.error("Error enqueueing re-enrichment:", error);
+      res.status(400).json({
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not enqueue enrichment.",
+      });
     }
   });
 

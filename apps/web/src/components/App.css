@@ -21,6 +21,23 @@
   backdrop-filter: blur(14px);
 }
 
+.notification-button {
+  min-height: 34px;
+  white-space: nowrap;
+}
+
+.job-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 18px;
+  padding: 10px 12px;
+  border: 1px solid #30434a;
+  border-radius: 8px;
+  background: rgb(13 23 29 / 78%);
+}
+
 .topbar h1 {
   margin: 0;
   color: #f4faf8;

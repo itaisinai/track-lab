@@ -1,4 +1,4 @@
-import type { SavedTrackResult } from "../types";
+import type { SavedTrackResult, TrackAnalysisJob } from "../types";
 import { formatDate, formatTools } from "../lib/format";
 import { ArtistHoverChips } from "./ArtistHoverChips";
 import { ArrowPathIcon } from "./icons/ArrowPathIcon";
@@ -11,6 +11,7 @@ type ResultsViewProps = {
   error: string;
   isLoading: boolean;
   reenrichingId: number | null;
+  activeJobs: TrackAnalysisJob[];
   onRefresh: () => void;
   onMore: (result: SavedTrackResult) => void;
   onReenrich: (result: SavedTrackResult) => void;
@@ -22,6 +23,7 @@ export function ResultsView({
   error,
   isLoading,
   reenrichingId,
+  activeJobs,
   onRefresh,
   onMore,
   onReenrich,
@@ -57,7 +59,16 @@ export function ResultsView({
             </tr>
           </thead>
           <tbody>
-            {results.map((result) => (
+            {results.map((result) => {
+              const activeJob = activeJobs.find(
+                (job) =>
+                  job.operation === "enrich" &&
+                  job.payload.source === "saved_result" &&
+                  job.payload.track.title === result.title &&
+                  job.payload.track.artists === result.artists,
+              );
+
+              return (
               <tr key={result.id}>
                 <td>{result.title}</td>
                 <td>
@@ -69,7 +80,9 @@ export function ResultsView({
                 <td>{result.subGenre ?? "N/A"}</td>
                 <td>{result.key ?? "N/A"}</td>
                 <td>
-                  <span className={`pill ${result.status}`}>{result.status}</span>
+                  <span className={`pill ${activeJob?.status ?? result.status}`}>
+                    {activeJob?.status ?? result.status}
+                  </span>
                 </td>
                 <td>{formatTools(result.toolsUsed)}</td>
                 <td>{result.errors.length}</td>
@@ -113,7 +126,8 @@ export function ResultsView({
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+            })}
             {!isLoading && results.length === 0 && (
               <tr>
                 <td colSpan={12}>No saved results yet.</td>

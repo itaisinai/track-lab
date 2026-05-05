@@ -96,10 +96,61 @@ tr:last-child td {
   background: rgb(231 111 81 / 22%);
 }
 
+.pill.queued,
+.pill.processing {
+  color: #b9ddff;
+  background: rgb(69 123 157 / 24%);
+}
+
+.pill.dead_lettered {
+  color: #ffb5ae;
+  background: rgb(231 111 81 / 28%);
+}
+
 .row-actions {
   display: flex;
   align-items: center;
   gap: 10px;
+}
+
+.notification-list {
+  display: grid;
+  gap: 8px;
+}
+
+.notification-item {
+  width: 100%;
+  justify-content: flex-start;
+  border-color: #415862;
+  color: #f4faf8;
+  background: rgb(21 37 45 / 88%);
+  text-align: left;
+}
+
+.datastore-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  color: #b7c8cb;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.datastore-summary span {
+  border: 1px solid #30434a;
+  border-radius: 8px;
+  padding: 8px 10px;
+  background: rgb(13 23 29 / 78%);
+}
+
+.table-json {
+  max-width: 420px;
+  max-height: 220px;
+  overflow: auto;
+  margin: 0;
+  white-space: pre-wrap;
+  color: #d8e4e3;
+  font-size: 12px;
 }
 
 @keyframes results-enter {
