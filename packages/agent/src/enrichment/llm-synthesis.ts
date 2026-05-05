@@ -5,6 +5,7 @@ import type { EnrichedTrackMetadata } from "./types.ts";
 export type ProviderEvidence = {
   spotify?: unknown;
   getSongBpm?: unknown;
+  wikipedia?: unknown;
 };
 
 type SynthesisInput = {
@@ -36,6 +37,8 @@ For example, a bass-heavy Excision track should not be tagged only as electronic
 The summary must include one practical DJ set-context sentence: what kind of party, room, or crowd the track likely fits, and whether it is better for opening, warmup, peak-time, transition, or closing.
 When track-level genre is missing but the artist or matched track is found, use available artist context from provider evidence, such as Spotify artist genres, artist name, album, track title, BPM, and key, to infer a likely vibe. Make it clear in the summary or reviewNotes that this is inferred from artist/provider context.
 If provider evidence contains artist genre/context data, do not return a null summary only because the track genre field is missing.
+Use Wikipedia context when providerEvidence.wikipedia.found is true, especially for artist background, associated styles, scene, and cultural context. Treat Wikipedia as context for vibe and genre inference, not as proof of exact BPM/key.
+Do not claim you searched Wikipedia unless providerEvidence.wikipedia is present and found.
 Base set-context advice only on the provided BPM, genre, artist/track metadata, and provider evidence. Do not claim online/forum reputation unless it is present in provider evidence.
 Prefer concrete provider values over broad artist genres.
 Keep null when evidence is missing.`),

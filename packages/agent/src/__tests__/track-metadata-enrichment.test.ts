@@ -119,6 +119,60 @@ test("provider data completes missing analyze results", async () => {
   assert.equal(result.summary, "Provider evidence found BPM and genre.");
 });
 
+test("wikipedia context is passed to synthesis when genre context is missing", async () => {
+  let synthesisWikipediaEvidence: unknown = null;
+
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
+    {
+      spotifyLookup: async () => ({
+        found: true,
+        bpm: null,
+        genre: null,
+        genres: [],
+        track: {
+          title: "I AM BASS",
+          artists: ["LSDREAM"],
+          album: "RENAGADES OF LIGHT",
+          artistGenres: [],
+        },
+      }),
+      getSongBpmLookup: async () => ({
+        found: true,
+        bpm: 144,
+        genre: null,
+      }),
+      wikipediaLookup: async () => ({
+        found: true,
+        source: "wikipedia",
+        title: "LSDREAM",
+        extract: "LSDREAM is associated with bass music.",
+        url: "https://en.wikipedia.org/wiki/LSDREAM",
+      }),
+      synthesize: async ({ baseResult, providerEvidence }) => {
+        synthesisWikipediaEvidence = providerEvidence.wikipedia;
+        return {
+          ...baseResult,
+          genre: "Bass",
+          subGenre: "Experimental bass",
+          summary: "Artist context suggests this fits bass-focused sets.",
+        };
+      },
+    },
+  );
+
+  assert.deepEqual(synthesisWikipediaEvidence, {
+    found: true,
+    source: "wikipedia",
+    title: "LSDREAM",
+    extract: "LSDREAM is associated with bass music.",
+    url: "https://en.wikipedia.org/wiki/LSDREAM",
+  });
+  assert.equal(result.genre, "Bass");
+  assert.equal(result.subGenre, "Experimental bass");
+  assert.equal(result.summary, "Artist context suggests this fits bass-focused sets.");
+});
+
 test("output status reflects complete, partial, and missing states", async () => {
   const complete = await enrichTrackMetadata(
     { trackName: "A", artist: "B" },

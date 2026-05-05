@@ -1,5 +1,9 @@
 import { lookupGetSongBpmTrack } from "../providers/getsongbpm.ts";
 import { lookupSpotifyTrack } from "../providers/spotify.ts";
+import {
+  lookupWikipediaContext,
+  type WikipediaLookupResult,
+} from "../providers/wikipedia.ts";
 import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichmentResultStore } from "./enrichment-result-store.ts";
 import {
@@ -27,10 +31,16 @@ export type ProviderLookup = (input: {
   error?: string | null;
 }>;
 
+export type WikipediaLookup = (input: {
+  title: string;
+  artists: string;
+}) => Promise<WikipediaLookupResult>;
+
 export type EnrichmentDependencies = {
   store?: EnrichmentResultStore;
   spotifyLookup?: ProviderLookup;
   getSongBpmLookup?: ProviderLookup;
+  wikipediaLookup?: WikipediaLookup;
   synthesize?: typeof synthesizeEnrichedTrackMetadata;
 };
 
@@ -69,6 +79,13 @@ export async function enrichTrackMetadata(
     );
   }
 
+  if (shouldCallContextProviders(result, input)) {
+    Object.assign(
+      providerEvidence,
+      await applyContextProviders(result, input, dependencies, errors),
+    );
+  }
+
   result.sources.bpm ??= "unknown";
   result.sources.genre ??= "unknown";
   result.sources.album ??= result.album ? "unknown" : undefined;
@@ -95,6 +112,25 @@ export async function enrichTrackMetadata(
   }
 
   return result;
+}
+
+async function applyContextProviders(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  dependencies: EnrichmentDependencies,
+  errors: string[],
+): Promise<ProviderEvidence> {
+  const providerInput = {
+    title: result.trackName,
+    artists: result.artist ?? (input.artist as string),
+  };
+  const wikipedia = await safeWikipediaLookup(
+    dependencies.wikipediaLookup ?? lookupWikipediaContext,
+    providerInput,
+    errors,
+  );
+
+  return { wikipedia };
 }
 
 function applyLocalResult(
@@ -248,6 +284,25 @@ async function safeLookup(
   }
 }
 
+async function safeWikipediaLookup(
+  lookup: WikipediaLookup,
+  input: { title: string; artists: string },
+  errors: string[],
+) {
+  try {
+    const result = await lookup(input);
+
+    if (result.error) {
+      errors.push(result.error);
+    }
+
+    return result;
+  } catch (error) {
+    errors.push(error instanceof Error ? error.message : String(error));
+    return null;
+  }
+}
+
 function applyValue(
   result: EnrichedTrackMetadata,
   field: "bpm" | "genre" | "key",
@@ -289,8 +344,33 @@ function shouldCallProviders(
   );
 }
 
+function shouldCallContextProviders(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+) {
+  return Boolean(
+    input.artist &&
+      (result.operation === "enrich" ||
+        result.genre === null ||
+        result.summary === null),
+  );
+}
+
 function hasProviderEvidence(providerEvidence: ProviderEvidence) {
-  return Boolean(providerEvidence.spotify || providerEvidence.getSongBpm);
+  return Boolean(
+    providerEvidence.spotify ||
+      providerEvidence.getSongBpm ||
+      hasFoundWikipediaEvidence(providerEvidence.wikipedia),
+  );
+}
+
+function hasFoundWikipediaEvidence(value: unknown) {
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      !Array.isArray(value) &&
+      (value as { found?: unknown }).found === true,
+  );
 }
 
 function getChangedFields(
