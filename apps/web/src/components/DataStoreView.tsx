@@ -1,5 +1,8 @@
+import { useMemo } from "react";
+import type { ColumnDef } from "@tanstack/react-table";
 import { formatDate } from "../lib/format";
 import type { SavedTrackResult, TrackAnalysisJob } from "../types";
+import { DataTable } from "./DataTable";
 import "./ResultsView.css";
 
 type DataStoreViewProps = {
@@ -15,6 +18,61 @@ export function DataStoreView({
   error,
   onRefresh,
 }: DataStoreViewProps) {
+  const columns = useMemo<ColumnDef<TrackAnalysisJob>[]>(
+    () => [
+      {
+        accessorKey: "id",
+        header: "Job",
+        cell: ({ getValue }) => `#${getValue<number>()}`,
+      },
+      {
+        accessorKey: "operation",
+        header: "Operation",
+      },
+      {
+        accessorKey: "status",
+        header: "Status",
+        cell: ({ row }) => (
+          <span className={`pill ${row.original.status}`}>
+            {row.original.status}
+          </span>
+        ),
+      },
+      {
+        id: "attempts",
+        header: "Attempts",
+        accessorFn: (job) => `${job.attemptCount}/${job.maxAttempts}`,
+      },
+      {
+        id: "payload",
+        header: "Payload",
+        accessorFn: (job) => JSON.stringify(job.payload),
+        cell: ({ row }) => (
+          <pre className="table-json">{formatJson(row.original.payload)}</pre>
+        ),
+      },
+      {
+        id: "result",
+        header: "Result",
+        accessorFn: (job) => JSON.stringify(job.result),
+        cell: ({ row }) => (
+          <pre className="table-json">{formatJson(row.original.result)}</pre>
+        ),
+      },
+      {
+        accessorKey: "errorMessage",
+        header: "Error",
+        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
+      },
+      {
+        accessorKey: "updatedAt",
+        header: "Updated",
+        cell: ({ getValue }) => formatDate(getValue<string>()),
+      },
+    ],
+    [],
+  );
+
   return (
     <section className="results-view">
       <div className="section-header">
@@ -31,49 +89,14 @@ export function DataStoreView({
         <span>track_results: {results.length}</span>
       </div>
 
-      <div className="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Operation</th>
-              <th>Status</th>
-              <th>Attempts</th>
-              <th>Payload</th>
-              <th>Result</th>
-              <th>Error</th>
-              <th>Updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {jobs.map((job) => (
-              <tr key={job.id}>
-                <td>#{job.id}</td>
-                <td>{job.operation}</td>
-                <td>
-                  <span className={`pill ${job.status}`}>{job.status}</span>
-                </td>
-                <td>
-                  {job.attemptCount}/{job.maxAttempts}
-                </td>
-                <td>
-                  <pre className="table-json">{formatJson(job.payload)}</pre>
-                </td>
-                <td>
-                  <pre className="table-json">{formatJson(job.result)}</pre>
-                </td>
-                <td>{job.errorMessage ?? "N/A"}</td>
-                <td>{formatDate(job.updatedAt)}</td>
-              </tr>
-            ))}
-            {jobs.length === 0 && (
-              <tr>
-                <td colSpan={8}>No queue jobs yet.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <DataTable
+        data={jobs}
+        columns={columns}
+        emptyMessage="No queue jobs yet."
+        getRowKey={(job) => job.id}
+        searchPlaceholder="Search queue jobs"
+        minWidth={1280}
+      />
     </section>
   );
 }

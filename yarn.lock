@@ -874,6 +874,43 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@tanstack/query-core@npm:5.100.9":
+  version: 5.100.9
+  resolution: "@tanstack/query-core@npm:5.100.9"
+  checksum: 10c0/119bcfa78f416562d64d6584c9354a0f6eec030818a1010428d4fbe8a8599075b3e45cacca09b166726aea9a159b09c5d24a5a0f55581f43cda007a48b5b4414
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-query@npm:^5.100.9":
+  version: 5.100.9
+  resolution: "@tanstack/react-query@npm:5.100.9"
+  dependencies:
+    "@tanstack/query-core": "npm:5.100.9"
+  peerDependencies:
+    react: ^18 || ^19
+  checksum: 10c0/7e9af3334f6eada6fd0e030d19d77f62a2809d91a991caec68811e1e86aef9c93b8cb8fecfcf7efd9517fb1148f0df60fc4103d44cdd38accba991e70b6bb138
+  languageName: node
+  linkType: hard
+
+"@tanstack/react-table@npm:^8.21.3":
+  version: 8.21.3
+  resolution: "@tanstack/react-table@npm:8.21.3"
+  dependencies:
+    "@tanstack/table-core": "npm:8.21.3"
+  peerDependencies:
+    react: ">=16.8"
+    react-dom: ">=16.8"
+  checksum: 10c0/85d1d0fcb690ecc011f68a5a61c96f82142e31a0270dcf9cbc699a6f36715b1653fe6ff1518302a6d08b7093351fc4cabefd055a7db3cd8ac01e068956b0f944
+  languageName: node
+  linkType: hard
+
+"@tanstack/table-core@npm:8.21.3":
+  version: 8.21.3
+  resolution: "@tanstack/table-core@npm:8.21.3"
+  checksum: 10c0/40e3560e6d55e07cc047024aa7f83bd47a9323d21920d4adabba8071fd2d21230c48460b26cedf392588f8265b9edc133abb1b0d6d0adf4dae0970032900a8c9
+  languageName: node
+  linkType: hard
+
 "@track-lab/agent@workspace:*, @track-lab/agent@workspace:packages/agent":
   version: 0.0.0-use.local
   resolution: "@track-lab/agent@workspace:packages/agent"
@@ -932,6 +969,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@track-lab/web@workspace:apps/web"
   dependencies:
+    "@tanstack/react-query": "npm:^5.100.9"
+    "@tanstack/react-table": "npm:^8.21.3"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^5.1.2"
