@@ -46,6 +46,7 @@ These rules capture the frontend practices we want Track Lab to follow as the ap
 
 - Use React Query for server state, polling, refetching, and mutations.
 - Prefer one query or mutation hook per API operation. Avoid bundle hooks that subscribe a caller to unrelated server state.
+- API request and response contracts shared by frontend and backend belong in `@track-lab/api-types`.
 - Local React state is for form inputs, open drawers, selected rows, and transient UI messages.
 - After a mutation changes jobs or results, invalidate/refetch the relevant query instead of hand-updating unrelated arrays.
 

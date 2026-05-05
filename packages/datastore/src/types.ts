@@ -1,54 +1,35 @@
-export type ResultStatus = "complete" | "partial" | "failed";
+import type {
+  NormalizedTrackResult,
+  ProviderStatus,
+  ResultError,
+  ResultStatus,
+  SaveTrackResultInput,
+  SavedTrackResult,
+  TrackAnalysisJob,
+  TrackAnalysisJobStatus,
+  TrackAnalysisKnownMetadata,
+  TrackAnalysisOperation,
+  TrackAnalysisPayload,
+  TrackAnalysisSource,
+} from "@track-lab/api-types";
 
-export type ToolStatus = {
-  name: string;
-  matched: boolean | null;
-  url: string | null;
-  error: string | null;
+export type {
+  NormalizedTrackResult,
+  ProviderStatus,
+  ResultError,
+  ResultStatus,
+  SaveTrackResultInput,
+  SavedTrackResult,
+  TrackAnalysisJob,
+  TrackAnalysisJobStatus,
+  TrackAnalysisKnownMetadata,
+  TrackAnalysisOperation,
+  TrackAnalysisPayload,
+  TrackAnalysisSource,
 };
 
-export type ResultError = {
-  source: string;
-  message: string;
-};
-
-export type TrackResult = {
-  id: number;
-  title: string;
-  artists: string;
-  album: string | null;
-  bpm: number | null;
-  genre: string | null;
-  subGenre: string | null;
-  key: string | null;
-  summary: string | null;
-  status: ResultStatus;
-  toolsUsed: ToolStatus[];
-  errors: ResultError[];
-  json: unknown;
-  rawResponse: string;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type SaveTrackResultInput = {
-  rawResponse: string;
-  json: unknown;
-};
-
-export type NormalizedTrackResult = {
-  title: string;
-  artists: string;
-  album: string | null;
-  bpm: number | null;
-  genre: string | null;
-  subGenre: string | null;
-  key: string | null;
-  summary: string | null;
-  status: ResultStatus;
-  toolsUsed: ToolStatus[];
-  errors: ResultError[];
-};
+export type ToolStatus = ProviderStatus;
+export type TrackResult = SavedTrackResult;
 
 export type TrackResultRow = {
   id: number;
@@ -69,59 +50,10 @@ export type TrackResultRow = {
   updated_at: string;
 };
 
-export type TrackAnalysisOperation = "analyze" | "enrich";
-
-export type TrackAnalysisJobStatus =
-  | "queued"
-  | "processing"
-  | "completed"
-  | "failed"
-  | "dead_lettered";
-
-export type TrackAnalysisKnownMetadata = Partial<{
-  album: string | null;
-  bpm: number | null;
-  genre: string | null;
-  subGenre: string | null;
-  key: string | null;
-  spotifyUrl: string | null;
-}>;
-
-export type TrackAnalysisSource =
-  | "manual"
-  | "saved_result"
-  | "bulk_saved_results";
-
-export type TrackAnalysisPayload = {
-  operation: TrackAnalysisOperation;
-  track: {
-    title: string;
-    artists: string;
-  };
-  knownMetadata?: TrackAnalysisKnownMetadata;
-  source?: TrackAnalysisSource;
-};
-
 export type EnqueueTrackAnalysisJobInput = {
   operation: TrackAnalysisOperation;
   payload: TrackAnalysisPayload;
   maxAttempts?: number;
-};
-
-export type TrackAnalysisJob = {
-  id: number;
-  operation: TrackAnalysisOperation;
-  status: TrackAnalysisJobStatus;
-  payload: unknown;
-  result: unknown | null;
-  errorMessage: string | null;
-  attemptCount: number;
-  maxAttempts: number;
-  createdAt: string;
-  updatedAt: string;
-  completedAt: string | null;
-  notificationReadAt: string | null;
-  resolvedAt: string | null;
 };
 
 export type TrackAnalysisJobRow = {

@@ -1,7 +1,7 @@
 export {
   TrackAnalysisOrchestrator,
-  type EnqueueTrackAnalysisRequest,
 } from "./orchestrator.ts";
+export type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
 export {
   processTrackAnalysisPayload,
   TrackAnalysisWorker,

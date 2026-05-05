@@ -926,12 +926,21 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@track-lab/api-types@workspace:*, @track-lab/api-types@workspace:packages/api-types":
+  version: 0.0.0-use.local
+  resolution: "@track-lab/api-types@workspace:packages/api-types"
+  dependencies:
+    typescript: "npm:^5.9.3"
+  languageName: unknown
+  linkType: soft
+
 "@track-lab/api@workspace:apps/api":
   version: 0.0.0-use.local
   resolution: "@track-lab/api@workspace:apps/api"
   dependencies:
     "@langchain/core": "npm:1.1.42"
     "@track-lab/agent": "workspace:*"
+    "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
     "@track-lab/track-analysis": "workspace:*"
     "@types/express": "npm:^5.0.6"
@@ -949,6 +958,7 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@track-lab/datastore@workspace:packages/datastore"
   dependencies:
+    "@track-lab/api-types": "workspace:*"
     "@types/node": "npm:^25.6.0"
     typescript: "npm:^5.9.3"
   languageName: unknown
@@ -959,6 +969,7 @@ __metadata:
   resolution: "@track-lab/track-analysis@workspace:packages/track-analysis"
   dependencies:
     "@track-lab/agent": "workspace:*"
+    "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
     "@types/node": "npm:^25.6.0"
     typescript: "npm:^5.9.3"
@@ -971,6 +982,7 @@ __metadata:
   dependencies:
     "@tanstack/react-query": "npm:^5.100.9"
     "@tanstack/react-table": "npm:^8.21.3"
+    "@track-lab/api-types": "workspace:*"
     "@types/react": "npm:^19.2.14"
     "@types/react-dom": "npm:^19.2.3"
     "@vitejs/plugin-react": "npm:^5.1.2"

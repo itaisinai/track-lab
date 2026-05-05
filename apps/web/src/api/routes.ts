@@ -1,4 +1,4 @@
-import type { TrackAnalysisJobStatus } from "../types";
+import type { TrackAnalysisJobStatus } from "@track-lab/api-types";
 
 export const apiRoutes = {
   agent: "/agent",

@@ -1,3 +1,4 @@
+import type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
@@ -6,15 +7,14 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
 
   router.post("/agent", (req: Request, res: Response) => {
     try {
-      const operation = req.body.operation === "enrich" ? "enrich" : "analyze";
-      const track = getTrackFromRequest(req);
+      const body = req.body as Partial<EnqueueTrackAnalysisRequest>;
+      const operation = body.operation === "enrich" ? "enrich" : "analyze";
 
       const job = orchestrator.enqueue({
         operation,
-        track,
-        source: "manual",
-        knownMetadata:
-          operation === "enrich" ? req.body.knownMetadata : undefined,
+        track: getTrackFromRequestBody(body),
+        source: body.source ?? "manual",
+        knownMetadata: operation === "enrich" ? body.knownMetadata : undefined,
       });
 
       res.status(202).json({
@@ -37,33 +37,17 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
   return router;
 }
 
-function getTrackFromRequest(req: Request) {
+function getTrackFromRequestBody(body: Partial<EnqueueTrackAnalysisRequest>) {
   if (
-    req.body.track &&
-    typeof req.body.track.title === "string" &&
-    typeof req.body.track.artists === "string"
+    body.track &&
+    typeof body.track.title === "string" &&
+    typeof body.track.artists === "string"
   ) {
     return {
-      title: req.body.track.title,
-      artists: req.body.track.artists,
+      title: body.track.title,
+      artists: body.track.artists,
     };
   }
 
-  if (typeof req.body.message === "string") {
-    const title = matchField(req.body.message, "Title");
-    const artists =
-      matchField(req.body.message, "Artists") ?? matchField(req.body.message, "Artist");
-
-    if (title && artists) {
-      return { title, artists };
-    }
-  }
-
   throw new Error("Track title and artists are required.");
-}
-
-function matchField(message: string, field: string) {
-  const escapedField = field.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const match = message.match(new RegExp(`^\\s*${escapedField}\\s*:\\s*(.+)$`, "im"));
-  return match?.[1].trim() || null;
 }

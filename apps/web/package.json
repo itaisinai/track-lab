@@ -12,6 +12,7 @@
   "dependencies": {
     "@tanstack/react-query": "^5.100.9",
     "@tanstack/react-table": "^8.21.3",
+    "@track-lab/api-types": "workspace:*",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",

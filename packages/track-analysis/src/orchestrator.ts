@@ -1,21 +1,10 @@
+import type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
 import {
   TrackAnalysisJobStore,
   type TrackAnalysisJob,
   type TrackAnalysisKnownMetadata,
-  type TrackAnalysisOperation,
   type TrackAnalysisPayload,
-  type TrackAnalysisSource,
 } from "@track-lab/datastore";
-
-export type EnqueueTrackAnalysisRequest = {
-  operation: TrackAnalysisOperation;
-  track: {
-    title: string;
-    artists: string;
-  };
-  knownMetadata?: TrackAnalysisKnownMetadata;
-  source?: TrackAnalysisSource;
-};
 
 export class TrackAnalysisOrchestrator {
   private readonly jobs: TrackAnalysisJobStore;
