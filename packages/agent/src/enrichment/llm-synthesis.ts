@@ -4,6 +4,7 @@ import type { EnrichedTrackMetadata } from "./types.ts";
 
 export type ProviderEvidence = {
   spotify?: unknown;
+  beatport?: unknown;
   getSongBpm?: unknown;
   wikipedia?: unknown;
 };
@@ -13,10 +14,74 @@ type SynthesisInput = {
   providerEvidence: ProviderEvidence;
 };
 
+export type BeatportSearchDecision = {
+  shouldSearch: boolean;
+  classification: "edm" | "unknown" | "not_edm";
+  reason?: string;
+};
+
+type BeatportSearchDecisionInput = {
+  baseResult: EnrichedTrackMetadata;
+  providerEvidence: ProviderEvidence;
+};
+
 const synthesisModel = new ChatOpenAI({
   model: "gpt-5-nano",
   apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
 });
+
+export async function decideBeatportSearch({
+  baseResult,
+  providerEvidence,
+}: BeatportSearchDecisionInput): Promise<BeatportSearchDecision> {
+  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
+    return {
+      shouldSearch: !baseResult.genre,
+      classification: baseResult.genre ? "not_edm" : "unknown",
+      reason: "No OpenAI API key configured for Beatport classification.",
+    };
+  }
+
+  try {
+    const response = await synthesisModel.invoke([
+      new SystemMessage(`Classify whether Beatport should be searched for this track.
+Beatport should be searched only when the track is likely relevant to EDM/DJ catalog music, or when the evidence is too unknown to classify.
+Return only strict JSON.
+Use "edm" for electronic dance, house, techno, trance, dubstep, drum and bass, bass music, garage, breakbeat, dance remixes, DJ edits, and adjacent club music.
+Use "not_edm" for clearly non-EDM pop, hip hop, rock, acoustic, singer-songwriter, or local mainstream music when providers already identified the track.
+Use "unknown" when provider evidence is too weak or conflicting to decide.
+Do not call something EDM only because it has BPM/key metadata.`),
+      new HumanMessage(
+        JSON.stringify({
+          currentResult: baseResult,
+          providerEvidence,
+          requiredShape: {
+            classification: "edm | unknown | not_edm",
+            shouldSearch: "boolean",
+            reason: "short string",
+          },
+        }),
+      ),
+    ]);
+    const parsed = parseJsonObject(getMessageContent(response));
+    const classification = getBeatportClassification(parsed?.classification);
+
+    return {
+      classification,
+      shouldSearch:
+        typeof parsed?.shouldSearch === "boolean"
+          ? parsed.shouldSearch
+          : classification !== "not_edm",
+      reason: getString(parsed?.reason) ?? undefined,
+    };
+  } catch (error) {
+    return {
+      shouldSearch: false,
+      classification: "not_edm",
+      reason: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
 
 export async function synthesizeEnrichedTrackMetadata({
   baseResult,
@@ -42,6 +107,7 @@ Use Wikipedia context when providerEvidence.wikipedia.found is true, especially 
 Do not claim you searched Wikipedia unless providerEvidence.wikipedia is present and found.
 Base set-context advice only on the provided BPM, genre, artist/track metadata, and provider evidence. Do not claim online/forum reputation unless it is present in provider evidence.
 Prefer concrete provider values over broad artist genres.
+Prefer Beatport BPM/key/genre when the matched track is strong because it is DJ-catalog track-level evidence.
 Keep null when evidence is missing.`),
       new HumanMessage(
         JSON.stringify({
@@ -85,6 +151,12 @@ Keep null when evidence is missing.`),
   }
 }
 
+function getBeatportClassification(value: unknown): BeatportSearchDecision["classification"] {
+  return value === "edm" || value === "unknown" || value === "not_edm"
+    ? value
+    : "unknown";
+}
+
 function mergeSynthesis(
   baseResult: EnrichedTrackMetadata,
   parsed: Record<string, unknown> | null,
@@ -95,8 +167,8 @@ function mergeSynthesis(
 
   return {
     ...baseResult,
-    trackName: getString(parsed.trackName) ?? baseResult.trackName,
-    artist: getString(parsed.artist) ?? baseResult.artist,
+    trackName: baseResult.trackName,
+    artist: baseResult.artist,
     album: getNullableString(parsed.album) ?? baseResult.album,
     spotifyUrl: getNullableString(parsed.spotifyUrl) ?? baseResult.spotifyUrl,
     summary: getNullableString(parsed.summary) ?? baseResult.summary,

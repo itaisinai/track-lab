@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
 import type { EnrichmentResultStore } from "../enrichment/enrichment-result-store.ts";
+import { parseBeatportSearchHtml } from "../providers/beatport.ts";
 
 test("analyze reuses local DB data before provider lookup", async () => {
   let providerCalls = 0;
@@ -14,10 +15,19 @@ test("analyze reuses local DB data before provider lookup", async () => {
         providerCalls += 1;
         return { bpm: null, genre: "Should not call" };
       },
+      beatportLookup: async () => {
+        providerCalls += 1;
+        return { bpm: 999, genre: "Should not call" };
+      },
       getSongBpmLookup: async () => {
         providerCalls += 1;
         return { bpm: 999, genre: "Should not call" };
       },
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: false,
+        classification: "not_edm",
+      }),
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -64,6 +74,16 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
           url: "https://open.spotify.com/track/demo",
         };
       },
+      beatportLookup: async () => {
+        calledProviders.push("beatport");
+        return {
+          found: true,
+          bpm: 76,
+          genre: "Hip-Hop",
+          subGenre: "Rap",
+          key: "A Minor",
+        };
+      },
       getSongBpmLookup: async () => {
         calledProviders.push("getsongbpm");
         return {
@@ -73,6 +93,7 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
           key: "C#m",
         };
       },
+      wikipediaLookup: async () => noWikipedia(),
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -103,10 +124,21 @@ test("provider data completes missing analyze results", async () => {
           album: "For Lack of a Better Name",
         },
       }),
+      beatportLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+        key: null,
+      }),
       getSongBpmLookup: async () => ({
         found: true,
         bpm: 128,
         genre: null,
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: true,
+        classification: "edm",
       }),
       synthesize: async ({ baseResult }) => ({
         ...baseResult,
@@ -139,6 +171,12 @@ test("wikipedia context is passed to synthesis when genre context is missing", a
           album: "RENAGADES OF LIGHT",
           artistGenres: [],
         },
+      }),
+      beatportLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+        key: null,
       }),
       getSongBpmLookup: async () => ({
         found: true,
@@ -182,12 +220,288 @@ test("wikipedia context is passed to synthesis when genre context is missing", a
   });
 });
 
+test("beatport evidence fills DJ catalog metadata", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
+    {
+      spotifyLookup: async () => ({
+        found: true,
+        bpm: null,
+        genre: null,
+        track: {
+          title: "I AM BASS",
+          artists: ["LSDREAM"],
+          album: "RENAGADES OF LIGHT",
+        },
+      }),
+      beatportLookup: async () => ({
+        found: true,
+        bpm: 145,
+        genre: "Dance / Pop",
+        subGenre: null,
+        key: "E Major",
+        url: "https://www.beatport.com/track/i-am-bass/11777847",
+        track: {
+          title: "I AM BASS",
+          artists: ["LSDREAM"],
+          album: "RENAGADES OF LIGHT",
+        },
+      }),
+      getSongBpmLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: true,
+        classification: "edm",
+      }),
+      synthesize: async ({ baseResult, providerEvidence }) => ({
+        ...baseResult,
+        summary: providerEvidence.beatport
+          ? "Beatport found track-level DJ metadata."
+          : null,
+      }),
+    },
+  );
+
+  assert.equal(result.bpm, 145);
+  assert.equal(result.genre, "Dance / Pop");
+  assert.equal(result.key, "E Major");
+  assert.equal(result.sources.bpm, "beatport");
+  assert.equal(result.sources.genre, "beatport");
+  assert.equal(result.sources.key, "beatport");
+  assert.deepEqual(
+    result.toolsUsed?.map((tool) => tool.name),
+    ["Spotify", "GetSongBPM", "Beatport", "Wikipedia"],
+  );
+});
+
+test("beatport public search parser reads embedded track rows", () => {
+  const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
+    props: {
+      pageProps: {
+        dehydratedState: {
+          queries: [
+            {
+              state: {
+                data: {
+                  tracks: {
+                    data: [
+                      {
+                        track_id: 11777847,
+                        track_name: "I AM BASS",
+                        mix_name: "Original Mix",
+                        bpm: 145,
+                        key_name: "E Major",
+                        artists: [{ artist_name: "LSDREAM" }],
+                        label: { label_name: "Wakaan" },
+                        release: { release_name: "RENAGADES OF LIGHT" },
+                        genre: [{ genre_name: "Dance / Pop" }],
+                      },
+                    ],
+                  },
+                },
+              },
+            },
+          ],
+        },
+      },
+    },
+  })}</script>`;
+
+  const tracks = parseBeatportSearchHtml(html);
+
+  assert.equal(tracks.length, 1);
+  assert.equal(tracks[0]?.track_name, "I AM BASS");
+  assert.equal(tracks[0]?.bpm, 145);
+  assert.equal(tracks[0]?.key_name, "E Major");
+});
+
+test("beatport accepts featured-title matches with partial artist overlap", async () => {
+  const result = await enrichTrackMetadata(
+    {
+      operation: "analyze",
+      trackName: "Push",
+      artist: "Skrillex, Hamdi, TAICHU, OFFAIAH, contra",
+    },
+    {
+      spotifyLookup: async () => ({
+        found: true,
+        bpm: null,
+        genre: null,
+        track: {
+          title: "Push",
+          artists: ["Skrillex", "Hamdi", "TAICHU", "OFFAIAH", "contra"],
+          album: null,
+        },
+      }),
+      getSongBpmLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+      }),
+      beatportLookup: async () => ({
+        found: true,
+        bpm: 140,
+        genre: "Deep Dubstep",
+        key: "Ab Minor",
+        track: {
+          title: "Push (feat. OFFAIAH)",
+          artists: ["Skrillex", "Taichu", "Hamdi", "OFFAIAH"],
+        },
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: true,
+        classification: "edm",
+      }),
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.bpm, 140);
+  assert.equal(result.genre, "Deep Dubstep");
+  assert.equal(result.key, "Ab Minor");
+  assert.equal(result.trackName, "Push");
+});
+
+test("beatport ignores public first row when artist does not match", async () => {
+  let beatportCalled = false;
+  const result = await enrichTrackMetadata(
+    { operation: "enrich", trackName: "כנפיים", artist: "טונה" },
+    {
+      spotifyLookup: async () => ({
+        found: true,
+        bpm: null,
+        genre: null,
+        track: {
+          title: "כנפיים",
+          artists: ["Tuna"],
+          album: null,
+        },
+      }),
+      beatportLookup: async () => {
+        beatportCalled = true;
+        return {
+          found: true,
+          bpm: 134,
+          genre: "Pop",
+          key: "A Minor",
+          track: {
+            title: "שורשים/כנפיים",
+            artists: ["גיא ויהל"],
+            album: "ועכשיו לחלק האינטרגלקטי",
+          },
+        };
+      },
+      getSongBpmLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: false,
+        classification: "not_edm",
+      }),
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.trackName, "כנפיים");
+  assert.equal(result.artist, "Tuna");
+  assert.equal(beatportCalled, false);
+});
+
+test("beatport runs when other providers do not identify the track", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "Unknown EDM Cut", artist: "Unknown DJ" },
+    {
+      spotifyLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+        track: null,
+        url: null,
+      }),
+      getSongBpmLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+        track: null,
+        url: null,
+      }),
+      beatportLookup: async () => ({
+        found: true,
+        bpm: 128,
+        genre: "Tech House",
+        key: "G Minor",
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.bpm, 128);
+  assert.equal(result.genre, "Tech House");
+  assert.equal(result.key, "G Minor");
+  assert.deepEqual(
+    result.toolsUsed?.map((tool) => tool.name),
+    ["Spotify", "GetSongBPM", "Beatport", "Wikipedia"],
+  );
+});
+
+test("synthesis cannot replace matched track identity", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "כנפיים", artist: "טונה" },
+    {
+      spotifyLookup: async () => ({
+        found: true,
+        bpm: null,
+        genre: "Pop",
+        track: {
+          title: "כנפיים",
+          artists: ["Tuna"],
+          album: null,
+        },
+      }),
+      beatportLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+      }),
+      getSongBpmLookup: async () => ({
+        found: false,
+        bpm: null,
+        genre: null,
+      }),
+      wikipediaLookup: async () => noWikipedia(),
+      decideBeatportSearch: async () => ({
+        shouldSearch: false,
+        classification: "not_edm",
+      }),
+      synthesize: async ({ baseResult }) => ({
+        ...baseResult,
+        trackName: "שורשים/כנפיים",
+        artist: "גיא ויהל",
+      }),
+    },
+  );
+
+  assert.equal(result.trackName, "כנפיים");
+  assert.equal(result.artist, "Tuna");
+});
+
 test("output status reflects complete, partial, and missing states", async () => {
   const complete = await enrichTrackMetadata(
     { trackName: "A", artist: "B" },
     {
       spotifyLookup: async () => ({ bpm: null, genre: "House" }),
+      beatportLookup: async () => ({ bpm: null, genre: null }),
       getSongBpmLookup: async () => ({ bpm: 120, genre: null }),
+      wikipediaLookup: async () => noWikipedia(),
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -195,7 +509,9 @@ test("output status reflects complete, partial, and missing states", async () =>
     { trackName: "A", artist: "B" },
     {
       spotifyLookup: async () => ({ bpm: null, genre: null }),
+      beatportLookup: async () => ({ bpm: null, genre: null }),
       getSongBpmLookup: async () => ({ bpm: 120, genre: null }),
+      wikipediaLookup: async () => noWikipedia(),
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -203,7 +519,9 @@ test("output status reflects complete, partial, and missing states", async () =>
     { trackName: "A", artist: "B" },
     {
       spotifyLookup: async () => ({ bpm: null, genre: null }),
+      beatportLookup: async () => ({ bpm: null, genre: null }),
       getSongBpmLookup: async () => ({ bpm: null, genre: null }),
+      wikipediaLookup: async () => noWikipedia(),
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -233,5 +551,16 @@ function localStore(): EnrichmentResultStore {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }),
+  };
+}
+
+function noWikipedia() {
+  return {
+    found: false,
+    source: "wikipedia" as const,
+    title: null,
+    extract: null,
+    url: null,
+    error: null,
   };
 }

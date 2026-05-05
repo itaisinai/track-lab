@@ -299,6 +299,7 @@ export function App() {
     setResponse(job.result ? formatAgentResponse(job.result) : "");
     setError(job.errorMessage ?? "");
     setSaveMessage("");
+    setView("enrich");
     navigateToJob(job.id);
     await refreshJobs();
   }
@@ -335,10 +336,7 @@ export function App() {
     }
 
     await resolveJob(currentJob);
-    setCurrentReviewJobId(null);
-    setLastAgentResponse(null);
-    setResponse("");
-    setError("");
+    clearCurrentReviewState();
     setSaveMessage("Dismissed");
     navigateToView("review");
   }
@@ -422,12 +420,28 @@ export function App() {
     const saved = await saveCurrentResponse();
 
     if (saved && currentReviewJobId) {
-      const currentJob = reviewJobs.find((job) => job.id === currentReviewJobId);
+      const currentJob =
+        reviewJobs.find((job) => job.id === currentReviewJobId) ??
+        allJobs.find((job) => job.id === currentReviewJobId);
 
       if (currentJob) {
         await resolveJob(currentJob);
       }
+
+      clearCurrentReviewState();
+      setSaveMessage("Saved");
+      navigateToView("review");
     }
+  }
+
+  function clearCurrentReviewState() {
+    setCurrentReviewJobId(null);
+    setLastAgentResponse(null);
+    setResponse("");
+    setError("");
+    setTitle("");
+    setArtists("");
+    setShowSearchForm(true);
   }
 
   return (

@@ -1,6 +1,6 @@
 import { config } from "../config.ts";
 import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
-import { normalize, unique } from "./utils.ts";
+import { logProviderSearch, normalize, unique } from "./utils.ts";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
@@ -52,7 +52,10 @@ export async function lookupSpotifyTrack({
   title,
   artists,
 }: TrackLookupInput): Promise<ProviderTrackLookupResult> {
+  logProviderSearch("spotify", "search started", { title, artists });
+
   if (!config.spotify.clientId || !config.spotify.clientSecret) {
+    logProviderSearch("spotify", "skipped missing credentials");
     return {
       found: false,
       source: "spotify",
@@ -72,6 +75,9 @@ export async function lookupSpotifyTrack({
     token = await getSpotifyAccessToken();
     track = await searchTrack(token, title, artists);
   } catch (error) {
+    logProviderSearch("spotify", "search failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       found: false,
       source: "spotify",
@@ -85,6 +91,7 @@ export async function lookupSpotifyTrack({
   }
 
   if (!track) {
+    logProviderSearch("spotify", "no match", { title, artists });
     return {
       found: false,
       source: "spotify",
@@ -108,6 +115,13 @@ export async function lookupSpotifyTrack({
   } catch {
     genres = [];
   }
+
+  logProviderSearch("spotify", "matched track", {
+    title: track.name,
+    artists: track.artists.map((artist) => artist.name).join(", "),
+    genre: genres[0] ?? null,
+    url: track.external_urls?.spotify ?? null,
+  });
 
   return {
     found: true,
@@ -182,8 +196,15 @@ async function searchTrack(token: string, title: string, artists: string) {
     "search",
   );
   const tracks = data.tracks?.items ?? [];
+  const match = findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
 
-  return findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
+  logProviderSearch("spotify", "search results", {
+    query,
+    candidates: tracks.length,
+    selected: match?.name ?? null,
+  });
+
+  return match;
 }
 
 async function getArtists(token: string, artistIds: string[]) {

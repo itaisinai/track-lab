@@ -1,6 +1,6 @@
 import { config } from "../config.ts";
 import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
-import { normalize, parseNumericValue } from "./utils.ts";
+import { logProviderSearch, normalize, parseNumericValue } from "./utils.ts";
 
 const GETSONGBPM_API_URL = "https://api.getsong.co";
 
@@ -37,9 +37,11 @@ export async function lookupGetSongBpmTrack({
   title,
   artists,
 }: TrackLookupInput): Promise<ProviderTrackLookupResult> {
+  logProviderSearch("getsongbpm", "search started", { title, artists });
   const apiKey = config.getSongBpm.apiKey;
 
   if (!apiKey) {
+    logProviderSearch("getsongbpm", "skipped missing api key");
     return {
       found: false,
       source: "getsongbpm",
@@ -54,13 +56,18 @@ export async function lookupGetSongBpmTrack({
   let search: GetSongBpmSearchResponse;
 
   try {
+    const lookup = `song:${title} artist:${artists}`;
+    logProviderSearch("getsongbpm", "requesting search", { lookup });
     search = await getSongBpmFetch<GetSongBpmSearchResponse>("/search/", {
       api_key: apiKey,
       type: "both",
-      lookup: `song:${title} artist:${artists}`,
+      lookup,
       limit: "10",
     });
   } catch (error) {
+    logProviderSearch("getsongbpm", "search failed", {
+      error: error instanceof Error ? error.message : String(error),
+    });
     return {
       found: false,
       source: "getsongbpm",
@@ -74,8 +81,13 @@ export async function lookupGetSongBpmTrack({
 
   const tracks = normalizeTracks(search.search);
   const match = findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
+  logProviderSearch("getsongbpm", "search results", {
+    candidates: tracks.length,
+    selected: match?.title ?? null,
+  });
 
   if (!match) {
+    logProviderSearch("getsongbpm", "no match", { title, artists });
     return {
       found: false,
       source: "getsongbpm",
@@ -90,6 +102,13 @@ export async function lookupGetSongBpmTrack({
   }
 
   const artist = firstArtist(match.artist);
+  logProviderSearch("getsongbpm", "matched track", {
+    title: match.title,
+    artist: artist?.name ?? null,
+    bpm: parseNumericValue(match.tempo),
+    key: match.key_of ?? null,
+    url: match.uri ?? null,
+  });
 
   return {
     found: true,

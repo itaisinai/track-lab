@@ -15,6 +15,7 @@ export type EnrichTrackMetadataInput = {
 export type EnrichmentSource =
   | "local_db"
   | "spotify"
+  | "beatport"
   | "getsongbpm"
   | "lastfm"
   | "unknown";
@@ -35,9 +36,9 @@ export type EnrichedTrackMetadata = {
     genre?: EnrichmentSource;
     album?: Extract<
       EnrichmentSource,
-      "local_db" | "spotify" | "getsongbpm" | "unknown"
+      "local_db" | "spotify" | "beatport" | "getsongbpm" | "unknown"
     >;
-    key?: Extract<EnrichmentSource, "local_db" | "unknown">;
+    key?: Extract<EnrichmentSource, "local_db" | "beatport" | "getsongbpm" | "unknown">;
   };
   confidence: {
     bpm?: number;

@@ -1,5 +1,5 @@
 export function normalize(value: string) {
-  return value.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 }
 
 export function unique<T>(values: T[]) {
@@ -17,4 +17,12 @@ export function parseNumericValue(value: number | string | null | undefined) {
   }
 
   return null;
+}
+
+export function logProviderSearch(
+  provider: string,
+  message: string,
+  details: Record<string, unknown> = {},
+) {
+  console.info(`[provider:${provider}] ${message}`, details);
 }
