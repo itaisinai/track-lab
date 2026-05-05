@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
+import type { useReenrichSavedResultMutation } from "../../../api/mutations/useReenrichSavedResultMutation";
+import type { useRunAgentMutation } from "../../../api/mutations/useRunAgentMutation";
+import type { useSaveAgentResponseMutation } from "../../../api/mutations/useSaveAgentResponseMutation";
 import { createTrackPrompt } from "../../../lib/track-prompt";
 import type { SavedTrackResult, TrackAnalysisJob } from "../../../types";
 import { getErrorMessage } from "../../../lib/errors/app-errors";
-import type { TrackLabQueries } from "../../../api/queries/useTrackLabQueries";
 
 type AnalysisDraftState = {
   artists: string;
@@ -30,9 +32,11 @@ type UseTrackAnalysisActionsOptions = {
   draft: AnalysisDraftState;
   findCurrentReviewJob: () => TrackAnalysisJob | null;
   loadSavedResults: () => Promise<void>;
-  mutations: TrackLabQueries["mutations"];
-  refreshJobs: TrackLabQueries["refreshJobs"];
+  reenrichResultMutation: ReturnType<typeof useReenrichSavedResultMutation>;
+  refreshJobs: () => Promise<unknown>;
   resolveJob: (job: TrackAnalysisJob) => Promise<void>;
+  runAgentMutation: ReturnType<typeof useRunAgentMutation>;
+  saveResultMutation: ReturnType<typeof useSaveAgentResponseMutation>;
   navigateToView: (view: "enrich" | "results" | "review" | "datastore") => void;
   setResultsError: (error: string) => void;
 };
@@ -42,15 +46,17 @@ export function useTrackAnalysisActions({
   draft,
   findCurrentReviewJob,
   loadSavedResults,
-  mutations,
   navigateToView,
+  reenrichResultMutation,
   refreshJobs,
   resolveJob,
+  runAgentMutation,
+  saveResultMutation,
   setResultsError,
 }: UseTrackAnalysisActionsOptions) {
   const [reenrichingId, setReenrichingId] = useState<number | null>(null);
-  const isLoading = mutations.runAgent.isPending;
-  const isSaving = mutations.saveResult.isPending;
+  const isLoading = runAgentMutation.isPending;
+  const isSaving = saveResultMutation.isPending;
 
   async function submitPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -77,7 +83,7 @@ export function useTrackAnalysisActions({
     draft.setCurrentReviewJobId(null);
 
     try {
-      const data = await mutations.runAgent.mutateAsync({
+      const data = await runAgentMutation.mutateAsync({
         message: createTrackPrompt(draft.title.trim(), draft.artists.trim()),
         options: {
           operation,
@@ -115,7 +121,7 @@ export function useTrackAnalysisActions({
     draft.setSaveMessage("");
 
     try {
-      await mutations.reenrichResult.mutateAsync(result.id);
+      await reenrichResultMutation.mutateAsync(result.id);
       navigateToView("review");
       await refreshJobs();
       closeDrawer();
@@ -153,7 +159,7 @@ export function useTrackAnalysisActions({
     draft.setError("");
 
     try {
-      await mutations.saveResult.mutateAsync(draft.lastAgentResponse);
+      await saveResultMutation.mutateAsync(draft.lastAgentResponse);
       draft.setSaveMessage("Saved");
       await loadSavedResults();
       return true;

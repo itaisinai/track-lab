@@ -1,19 +1,20 @@
 import { useState } from "react";
-import type { TrackLabQueries } from "../../../api/queries/useTrackLabQueries";
+import type { useDeleteSavedResultMutation } from "../../../api/mutations/useDeleteSavedResultMutation";
+import type { useSavedResultsQuery } from "../../../api/queries/useSavedResultsQuery";
 import { getErrorMessage } from "../../../lib/errors/app-errors";
 import type { SavedTrackResult } from "../../../types";
 
 type UseSavedResultsDataOptions = {
   closeDrawer: () => void;
-  mutations: TrackLabQueries["mutations"];
-  queries: TrackLabQueries["queries"];
+  deleteResultMutation: ReturnType<typeof useDeleteSavedResultMutation>;
+  resultsQuery: ReturnType<typeof useSavedResultsQuery>;
   selectedResult: SavedTrackResult | null;
 };
 
 export function useSavedResultsData({
   closeDrawer,
-  mutations,
-  queries,
+  deleteResultMutation,
+  resultsQuery,
   selectedResult,
 }: UseSavedResultsDataOptions) {
   const [resultsError, setResultsError] = useState("");
@@ -22,7 +23,7 @@ export function useSavedResultsData({
     setResultsError("");
 
     try {
-      await queries.results.refetch();
+      await resultsQuery.refetch();
     } catch (caughtError) {
       setResultsError(getErrorMessage(caughtError, "Could not load results"));
     }
@@ -40,7 +41,7 @@ export function useSavedResultsData({
     setResultsError("");
 
     try {
-      await mutations.deleteResult.mutateAsync(result.id);
+      await deleteResultMutation.mutateAsync(result.id);
       await loadSavedResults();
 
       if (selectedResult?.id === result.id) {

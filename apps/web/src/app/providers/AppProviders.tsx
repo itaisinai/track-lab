@@ -1,5 +1,16 @@
 import type { ReactNode } from "react";
-import { useTrackLabQueries } from "../../api/queries/useTrackLabQueries";
+import { useDeleteSavedResultMutation } from "../../api/mutations/useDeleteSavedResultMutation";
+import { useMarkTrackAnalysisNotificationReadMutation } from "../../api/mutations/useMarkTrackAnalysisNotificationReadMutation";
+import { useReenrichSavedResultMutation } from "../../api/mutations/useReenrichSavedResultMutation";
+import { useResolveTrackAnalysisJobMutation } from "../../api/mutations/useResolveTrackAnalysisJobMutation";
+import { useRetryTrackAnalysisJobMutation } from "../../api/mutations/useRetryTrackAnalysisJobMutation";
+import { useRunAgentMutation } from "../../api/mutations/useRunAgentMutation";
+import { useSaveAgentResponseMutation } from "../../api/mutations/useSaveAgentResponseMutation";
+import { useActiveJobsQuery } from "../../api/queries/useActiveJobsQuery";
+import { useAllJobsQuery } from "../../api/queries/useAllJobsQuery";
+import { useNotificationJobsQuery } from "../../api/queries/useNotificationJobsQuery";
+import { useReviewJobsQuery } from "../../api/queries/useReviewJobsQuery";
+import { useSavedResultsQuery } from "../../api/queries/useSavedResultsQuery";
 import { useTrackAnalysisActions } from "../../features/enrichment/hooks/useTrackAnalysisActions";
 import { useReviewDraftState } from "../../features/enrichment/hooks/useReviewDraftState";
 import { useSavedResultsData } from "../../features/results/hooks/useSavedResultsData";
@@ -19,13 +30,25 @@ import {
 } from "./app-contexts";
 
 export function AppProviders({ children }: { children: ReactNode }) {
-  const { queryClient, queries, mutations, refreshJobs } = useTrackLabQueries();
+  const resultsQuery = useSavedResultsQuery();
+  const activeJobsQuery = useActiveJobsQuery();
+  const notificationJobsQuery = useNotificationJobsQuery();
+  const reviewJobsQuery = useReviewJobsQuery();
+  const allJobsQuery = useAllJobsQuery();
+  const runAgentMutation = useRunAgentMutation();
+  const saveResultMutation = useSaveAgentResponseMutation();
+  const reenrichResultMutation = useReenrichSavedResultMutation();
+  const deleteResultMutation = useDeleteSavedResultMutation();
+  const markNotificationReadMutation =
+    useMarkTrackAnalysisNotificationReadMutation();
+  const retryJobMutation = useRetryTrackAnalysisJobMutation();
+  const resolveJobMutation = useResolveTrackAnalysisJobMutation();
   const draft = useReviewDraftState();
   const drawer = useResultDrawer();
   const savedResults = useSavedResultsData({
     closeDrawer: drawer.closeDrawer,
-    mutations,
-    queries,
+    deleteResultMutation,
+    resultsQuery,
     selectedResult: drawer.selectedResult,
   });
   const routing = useAppRouting({
@@ -37,16 +60,20 @@ export function AppProviders({ children }: { children: ReactNode }) {
     refreshReviewJobs,
   });
   const jobs = useTrackAnalysisJobActions({
+    activeJobsQuery,
+    allJobsQuery,
     draft: {
       clearCurrentReviewState: draft.clearCurrentReviewState,
       currentReviewJobId: draft.currentReviewJobId,
       loadJobIntoReview: draft.loadJobIntoReview,
       setSaveMessage: draft.setSaveMessage,
     },
-    mutations,
-    queries,
-    queryClient,
+    markNotificationReadMutation,
+    notificationJobsQuery,
     refreshJobs,
+    resolveJobMutation,
+    retryJobMutation,
+    reviewJobsQuery,
     routing,
   });
   const analysis = useTrackAnalysisActions({
@@ -54,17 +81,19 @@ export function AppProviders({ children }: { children: ReactNode }) {
     draft,
     findCurrentReviewJob: jobs.findCurrentReviewJob,
     loadSavedResults: savedResults.loadSavedResults,
-    mutations,
     navigateToView: routing.navigateToView,
+    reenrichResultMutation,
     refreshJobs,
     resolveJob: jobs.resolveJob,
+    runAgentMutation,
+    saveResultMutation,
     setResultsError: savedResults.setResultsError,
   });
-  const results = queries.results.data ?? [];
+  const results = resultsQuery.data ?? [];
   const resultsError =
     savedResults.resultsError ||
-    (queries.results.error
-      ? getErrorMessage(queries.results.error, "Could not load results")
+    (resultsQuery.error
+      ? getErrorMessage(resultsQuery.error, "Could not load results")
       : "");
   const appShellValue: AppShellContextValue = {
     activeJobs: jobs.activeJobs,
@@ -115,7 +144,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const resultsValue: ResultsContextValue = {
     activeJobs: jobs.activeJobs,
     drawerState: drawer.drawerState,
-    isResultsLoading: queries.results.isLoading,
+    isResultsLoading: resultsQuery.isLoading,
     reenrichingId: analysis.reenrichingId,
     results,
     resultsError,
@@ -150,6 +179,15 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   async function refreshReviewJobs() {
     await jobs.refreshReviewJobs();
+  }
+
+  function refreshJobs() {
+    return Promise.all([
+      activeJobsQuery.refetch(),
+      notificationJobsQuery.refetch(),
+      reviewJobsQuery.refetch(),
+      allJobsQuery.refetch(),
+    ]);
   }
 
   return (

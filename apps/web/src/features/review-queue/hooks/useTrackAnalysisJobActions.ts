@@ -1,9 +1,15 @@
 import { useState } from "react";
-import { getTrackAnalysisJob } from "../../../api/track-lab-api";
-import {
-  queryKeys,
-  type TrackLabQueries,
-} from "../../../api/queries/useTrackLabQueries";
+import { useQueryClient } from "@tanstack/react-query";
+import type { useMarkTrackAnalysisNotificationReadMutation } from "../../../api/mutations/useMarkTrackAnalysisNotificationReadMutation";
+import type { useResolveTrackAnalysisJobMutation } from "../../../api/mutations/useResolveTrackAnalysisJobMutation";
+import type { useRetryTrackAnalysisJobMutation } from "../../../api/mutations/useRetryTrackAnalysisJobMutation";
+import { queryKeys } from "../../../api/queries/queryKeys";
+import type { useActiveJobsQuery } from "../../../api/queries/useActiveJobsQuery";
+import type { useAllJobsQuery } from "../../../api/queries/useAllJobsQuery";
+import type { useNotificationJobsQuery } from "../../../api/queries/useNotificationJobsQuery";
+import type { useReviewJobsQuery } from "../../../api/queries/useReviewJobsQuery";
+import { request } from "../../../api/request";
+import { apiRoutes } from "../../../api/routes";
 import {
   getErrorMessage,
   getFirstErrorMessage,
@@ -25,41 +31,52 @@ type JobRoutingActions = {
 
 type UseTrackAnalysisJobActionsOptions = {
   draft: JobDraftActions;
-  queries: TrackLabQueries["queries"];
-  mutations: TrackLabQueries["mutations"];
-  queryClient: TrackLabQueries["queryClient"];
-  refreshJobs: TrackLabQueries["refreshJobs"];
+  activeJobsQuery: ReturnType<typeof useActiveJobsQuery>;
+  allJobsQuery: ReturnType<typeof useAllJobsQuery>;
+  markNotificationReadMutation: ReturnType<
+    typeof useMarkTrackAnalysisNotificationReadMutation
+  >;
+  notificationJobsQuery: ReturnType<typeof useNotificationJobsQuery>;
+  refreshJobs: () => Promise<unknown>;
+  resolveJobMutation: ReturnType<typeof useResolveTrackAnalysisJobMutation>;
+  retryJobMutation: ReturnType<typeof useRetryTrackAnalysisJobMutation>;
+  reviewJobsQuery: ReturnType<typeof useReviewJobsQuery>;
   routing: JobRoutingActions;
 };
 
 export function useTrackAnalysisJobActions({
+  activeJobsQuery,
+  allJobsQuery,
   draft,
-  mutations,
-  queries,
-  queryClient,
+  markNotificationReadMutation,
+  notificationJobsQuery,
   refreshJobs,
+  resolveJobMutation,
+  retryJobMutation,
+  reviewJobsQuery,
   routing,
 }: UseTrackAnalysisJobActionsOptions) {
+  const queryClient = useQueryClient();
   const [jobsError, setJobsError] = useState("");
-  const activeJobs = queries.activeJobs.data ?? [];
-  const notificationJobs = queries.notificationJobs.data ?? [];
-  const reviewJobs = queries.reviewJobs.data ?? [];
-  const allJobs = queries.allJobs.data ?? [];
+  const activeJobs = activeJobsQuery.data ?? [];
+  const notificationJobs = notificationJobsQuery.data ?? [];
+  const reviewJobs = reviewJobsQuery.data ?? [];
+  const allJobs = allJobsQuery.data ?? [];
   const jobsErrorMessage =
     jobsError ||
     getFirstErrorMessage(
       [
-        queries.activeJobs.error,
-        queries.notificationJobs.error,
-        queries.reviewJobs.error,
-        queries.allJobs.error,
+        activeJobsQuery.error,
+        notificationJobsQuery.error,
+        reviewJobsQuery.error,
+        allJobsQuery.error,
       ],
       "Could not load jobs",
     );
 
   async function refreshReviewJobs() {
     try {
-      await queries.reviewJobs.refetch();
+      await reviewJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not load review queue"));
@@ -68,7 +85,7 @@ export function useTrackAnalysisJobActions({
 
   async function refreshAllJobs() {
     try {
-      await queries.allJobs.refetch();
+      await allJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not load datastore"));
@@ -105,7 +122,7 @@ export function useTrackAnalysisJobActions({
 
   async function retryJob(job: TrackAnalysisJob) {
     try {
-      await mutations.retryJob.mutateAsync(job.id);
+      await retryJobMutation.mutateAsync(job.id);
       await refreshJobs();
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not retry job"));
@@ -114,7 +131,7 @@ export function useTrackAnalysisJobActions({
 
   async function resolveJob(job: TrackAnalysisJob) {
     try {
-      await mutations.resolveJob.mutateAsync(job.id);
+      await resolveJobMutation.mutateAsync(job.id);
       await refreshJobs();
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not resolve job"));
@@ -152,7 +169,7 @@ export function useTrackAnalysisJobActions({
       (currentJobs = []) =>
         currentJobs.filter((currentJob) => currentJob.id !== job.id),
     );
-    await mutations.markNotificationRead.mutateAsync(job.id);
+    await markNotificationReadMutation.mutateAsync(job.id);
   }
 
   return {
@@ -170,4 +187,11 @@ export function useTrackAnalysisJobActions({
     resolveJob,
     retryJob,
   };
+}
+
+async function getTrackAnalysisJob(id: number) {
+  const data = await request<{ job: TrackAnalysisJob }>(
+    apiRoutes.trackAnalysisJob(id),
+  );
+  return data.job;
 }
