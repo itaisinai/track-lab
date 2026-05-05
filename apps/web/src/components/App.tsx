@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import {
   deleteSavedResult,
+  getTrackAnalysisJob,
   listTrackAnalysisJobs,
   listResults,
   markTrackAnalysisNotificationRead,
@@ -22,7 +23,8 @@ import { ReviewQueueView } from "./ReviewQueueView";
 import "./App.css";
 
 export function App() {
-  const [view, setView] = useState<View>("enrich");
+  const initialRoute = getRouteFromPath(window.location.pathname);
+  const [view, setView] = useState<View>(initialRoute.view);
   const [title, setTitle] = useState("");
   const [artists, setArtists] = useState("");
   const [response, setResponse] = useState("");
@@ -53,6 +55,17 @@ export function App() {
   useEffect(() => {
     void loadSavedResults();
     void refreshJobs();
+    void applyRoute(getRouteFromPath(window.location.pathname), { replace: true });
+
+    function handlePopState() {
+      void applyRoute(getRouteFromPath(window.location.pathname), { replace: true });
+    }
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, []);
 
   useEffect(() => {
@@ -115,7 +128,7 @@ export function App() {
             : undefined,
       });
       setResponse(`Queued ${operation} job #${data.job.id}.`);
-      setView("review");
+      navigateToView("review");
       await refreshJobs();
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Something went wrong"));
@@ -166,7 +179,7 @@ export function App() {
 
     try {
       await reenrichSavedResult(result.id);
-      setView("review");
+      navigateToView("review");
       await refreshJobs();
       closeDrawer();
     } catch (caughtError) {
@@ -286,7 +299,7 @@ export function App() {
     setResponse(job.result ? formatAgentResponse(job.result) : "");
     setError(job.errorMessage ?? "");
     setSaveMessage("");
-    setView("enrich");
+    navigateToJob(job.id);
     await refreshJobs();
   }
 
@@ -327,7 +340,82 @@ export function App() {
     setResponse("");
     setError("");
     setSaveMessage("Dismissed");
-    setView("review");
+    navigateToView("review");
+  }
+
+  async function applyRoute(
+    route: AppRoute,
+    options: { replace?: boolean } = {},
+  ) {
+    if (route.path !== window.location.pathname) {
+      updateHistory(route.path, options.replace ?? false);
+    }
+
+    setView(route.view);
+
+    if (route.view === "enrich" && !route.jobId) {
+      setShowSearchForm(true);
+      setCurrentReviewJobId(null);
+      return;
+    }
+
+    if (route.view === "results") {
+      await loadSavedResults();
+      return;
+    }
+
+    if (route.view === "review") {
+      await refreshReviewJobs();
+      return;
+    }
+
+    if (route.view === "datastore") {
+      await Promise.all([refreshAllJobs(), loadSavedResults()]);
+      return;
+    }
+
+    if (route.jobId) {
+      await openJobFromRoute(route.jobId);
+    }
+  }
+
+  async function openJobFromRoute(jobId: number) {
+    try {
+      const job = await getTrackAnalysisJob(jobId);
+
+      if (!job.notificationReadAt) {
+        setNotificationJobs((currentJobs) =>
+          currentJobs.filter((currentJob) => currentJob.id !== job.id),
+        );
+        await markTrackAnalysisNotificationRead(job.id);
+      }
+
+      setTitle(job.payload.track.title);
+      setArtists(job.payload.track.artists);
+      setShowSearchForm(false);
+      setLastAgentResponse(job.status === "completed" ? job.result : null);
+      setCurrentReviewJobId(job.id);
+      setResponse(job.result ? formatAgentResponse(job.result) : "");
+      setError(job.errorMessage ?? "");
+      setSaveMessage("");
+      setView("enrich");
+      await refreshJobs();
+    } catch (caughtError) {
+      setJobsError(getErrorMessage(caughtError, "Could not open review job"));
+      navigateToView("review", { replace: true });
+    }
+  }
+
+  function navigateToView(
+    nextView: View,
+    options: { replace?: boolean } = {},
+  ) {
+    setView(nextView);
+    updateHistory(getPathForView(nextView), options.replace ?? false);
+  }
+
+  function navigateToJob(jobId: number) {
+    updateHistory(`/review/jobs/${jobId}`, false);
   }
 
   async function saveAndResolveCurrentJob() {
@@ -350,11 +438,15 @@ export function App() {
             <h1>Track Lab Agent</h1>
             <nav className="tabs" aria-label="Views">
               <button
-                className={view === "enrich" ? "nav-tab active" : "nav-tab"}
+                className={
+                  view === "enrich" && !currentReviewJobId
+                    ? "nav-tab active"
+                    : "nav-tab"
+                }
                 type="button"
                 onClick={() => {
-                  setView("enrich");
                   setShowSearchForm(true);
+                  navigateToView("enrich");
                 }}
               >
                 Analyze
@@ -363,17 +455,21 @@ export function App() {
                 className={view === "results" ? "nav-tab active" : "nav-tab"}
                 type="button"
                 onClick={() => {
-                  setView("results");
+                  navigateToView("results");
                   void loadSavedResults();
                 }}
               >
                 Saved Results
               </button>
               <button
-                className={view === "review" ? "nav-tab active" : "nav-tab"}
+                className={
+                  view === "review" || currentReviewJobId
+                    ? "nav-tab active"
+                    : "nav-tab"
+                }
                 type="button"
                 onClick={() => {
-                  setView("review");
+                  navigateToView("review");
                   void refreshReviewJobs();
                 }}
               >
@@ -383,7 +479,7 @@ export function App() {
                 className={view === "datastore" ? "nav-tab active" : "nav-tab"}
                 type="button"
                 onClick={() => {
-                  setView("datastore");
+                  navigateToView("datastore");
                   void Promise.all([refreshAllJobs(), loadSavedResults()]);
                 }}
               >
@@ -394,7 +490,7 @@ export function App() {
               className="notification-button"
               type="button"
               onClick={() => {
-                setView("review");
+                navigateToView("review");
                 void refreshJobs();
               }}
             >
@@ -482,6 +578,76 @@ export function App() {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+type AppRoute = {
+  view: View;
+  path: string;
+  jobId?: number;
+};
+
+function getRouteFromPath(pathname: string): AppRoute {
+  const normalizedPath = normalizePath(pathname);
+  const reviewJobMatch = normalizedPath.match(/^\/review\/jobs\/(\d+)$/);
+
+  if (reviewJobMatch) {
+    return {
+      view: "enrich",
+      path: normalizedPath,
+      jobId: Number(reviewJobMatch[1]),
+    };
+  }
+
+  if (normalizedPath === "/results") {
+    return { view: "results", path: normalizedPath };
+  }
+
+  if (normalizedPath === "/review") {
+    return { view: "review", path: normalizedPath };
+  }
+
+  if (normalizedPath === "/datastore") {
+    return { view: "datastore", path: normalizedPath };
+  }
+
+  return { view: "enrich", path: "/analyze" };
+}
+
+function getPathForView(view: View) {
+  if (view === "results") {
+    return "/results";
+  }
+
+  if (view === "review") {
+    return "/review";
+  }
+
+  if (view === "datastore") {
+    return "/datastore";
+  }
+
+  return "/analyze";
+}
+
+function normalizePath(pathname: string) {
+  if (!pathname || pathname === "/") {
+    return "/analyze";
+  }
+
+  return pathname.replace(/\/+$/, "") || "/analyze";
+}
+
+function updateHistory(path: string, replace: boolean) {
+  if (window.location.pathname === path) {
+    return;
+  }
+
+  if (replace) {
+    window.history.replaceState(null, "", path);
+    return;
+  }
+
+  window.history.pushState(null, "", path);
 }
 
 function formatJobTrackLabel(job: TrackAnalysisJob) {
