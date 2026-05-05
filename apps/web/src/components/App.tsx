@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   deleteSavedResult,
   getTrackAnalysisJob,
@@ -10,6 +11,7 @@ import {
   retryTrackAnalysisJob,
   runAgent,
   saveAgentResponse,
+  type RunAgentOptions,
 } from "../api/track-lab-api";
 import { formatAgentResponse } from "../lib/format";
 import { parseTrackDetails } from "../lib/track-details";
@@ -23,6 +25,7 @@ import { ReviewQueueView } from "./ReviewQueueView";
 import "./App.css";
 
 export function App() {
+  const queryClient = useQueryClient();
   const initialRoute = getRouteFromPath(window.location.pathname);
   const [view, setView] = useState<View>(initialRoute.view);
   const [title, setTitle] = useState("");
@@ -30,13 +33,9 @@ export function App() {
   const [response, setResponse] = useState("");
   const [showSearchForm, setShowSearchForm] = useState(true);
   const [lastAgentResponse, setLastAgentResponse] = useState<unknown>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState("");
   const [error, setError] = useState("");
-  const [results, setResults] = useState<SavedTrackResult[]>([]);
   const [resultsError, setResultsError] = useState("");
-  const [isResultsLoading, setIsResultsLoading] = useState(false);
   const [selectedResult, setSelectedResult] = useState<SavedTrackResult | null>(
     null,
   );
@@ -44,21 +43,78 @@ export function App() {
     "opening" | "open" | "closing"
   >("opening");
   const [reenrichingId, setReenrichingId] = useState<number | null>(null);
-  const [activeJobs, setActiveJobs] = useState<TrackAnalysisJob[]>([]);
-  const [reviewJobs, setReviewJobs] = useState<TrackAnalysisJob[]>([]);
-  const [notificationJobs, setNotificationJobs] = useState<TrackAnalysisJob[]>([]);
-  const [allJobs, setAllJobs] = useState<TrackAnalysisJob[]>([]);
   const [jobsError, setJobsError] = useState("");
-  const [currentReviewJobId, setCurrentReviewJobId] = useState<number | null>(null);
+  const [currentReviewJobId, setCurrentReviewJobId] = useState<number | null>(
+    null,
+  );
   const trackDetails = response ? parseTrackDetails(response) : null;
+  const resultsQuery = useQuery({
+    queryKey: queryKeys.results,
+    queryFn: listResults,
+  });
+  const activeJobsQuery = useQuery({
+    queryKey: queryKeys.activeJobs,
+    queryFn: () =>
+      listTrackAnalysisJobs({ statuses: ["queued", "processing"] }),
+    refetchInterval: (query) =>
+      (query.state.data as TrackAnalysisJob[] | undefined)?.length ? 1000 : 2000,
+  });
+  const notificationJobsQuery = useQuery({
+    queryKey: queryKeys.notificationJobs,
+    queryFn: () => listTrackAnalysisJobs({ unread: true }),
+    refetchInterval: 7000,
+  });
+  const reviewJobsQuery = useQuery({
+    queryKey: queryKeys.reviewJobs,
+    queryFn: () => listTrackAnalysisJobs({ unresolved: true }),
+  });
+  const allJobsQuery = useQuery({
+    queryKey: queryKeys.allJobs,
+    queryFn: () => listTrackAnalysisJobs(),
+  });
+  const runAgentMutation = useMutation({ mutationFn: runAgentWithOptions });
+  const saveMutation = useMutation({ mutationFn: saveAgentResponse });
+  const reenrichMutation = useMutation({ mutationFn: reenrichSavedResult });
+  const deleteMutation = useMutation({ mutationFn: deleteSavedResult });
+  const markNotificationReadMutation = useMutation({
+    mutationFn: markTrackAnalysisNotificationRead,
+  });
+  const retryMutation = useMutation({ mutationFn: retryTrackAnalysisJob });
+  const resolveMutation = useMutation({ mutationFn: resolveTrackAnalysisJob });
+  const results = resultsQuery.data ?? [];
+  const activeJobs = activeJobsQuery.data ?? [];
+  const notificationJobs = notificationJobsQuery.data ?? [];
+  const reviewJobs = reviewJobsQuery.data ?? [];
+  const allJobs = allJobsQuery.data ?? [];
+  const isLoading = runAgentMutation.isPending;
+  const isSaving = saveMutation.isPending;
+  const isResultsLoading = resultsQuery.isLoading;
+  const resultsErrorMessage =
+    resultsError ||
+    (resultsQuery.error
+      ? getErrorMessage(resultsQuery.error, "Could not load results")
+      : "");
+  const jobsErrorMessage =
+    jobsError ||
+    getFirstErrorMessage(
+      [
+        activeJobsQuery.error,
+        notificationJobsQuery.error,
+        reviewJobsQuery.error,
+        allJobsQuery.error,
+      ],
+      "Could not load jobs",
+    );
 
   useEffect(() => {
-    void loadSavedResults();
-    void refreshJobs();
-    void applyRoute(getRouteFromPath(window.location.pathname), { replace: true });
+    void applyRoute(getRouteFromPath(window.location.pathname), {
+      replace: true,
+    });
 
     function handlePopState() {
-      void applyRoute(getRouteFromPath(window.location.pathname), { replace: true });
+      void applyRoute(getRouteFromPath(window.location.pathname), {
+        replace: true,
+      });
     }
 
     window.addEventListener("popstate", handlePopState);
@@ -67,20 +123,6 @@ export function App() {
       window.removeEventListener("popstate", handlePopState);
     };
   }, []);
-
-  useEffect(() => {
-    const activeInterval = window.setInterval(() => {
-      void refreshJobs();
-    }, activeJobs.length > 0 ? 1000 : 2000);
-    const notificationInterval = window.setInterval(() => {
-      void refreshJobs();
-    }, 7000);
-
-    return () => {
-      window.clearInterval(activeInterval);
-      window.clearInterval(notificationInterval);
-    };
-  }, [activeJobs.length]);
 
   async function submitPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -97,7 +139,6 @@ export function App() {
       return;
     }
 
-    setIsLoading(true);
     if (operation === "analyze") {
       setShowSearchForm(true);
     }
@@ -108,32 +149,33 @@ export function App() {
     setCurrentReviewJobId(null);
 
     try {
-      const data = await runAgent(createTrackPrompt(title.trim(), artists.trim()), {
-        operation,
-        track: {
-          title: title.trim(),
-          artists: artists.trim(),
+      const data = await runAgentMutation.mutateAsync({
+        message: createTrackPrompt(title.trim(), artists.trim()),
+        options: {
+          operation,
+          track: {
+            title: title.trim(),
+            artists: artists.trim(),
+          },
+          skipPersistedResults: operation === "enrich",
+          knownMetadata:
+            operation === "enrich" && trackDetails
+              ? {
+                  album: trackDetails.album ?? null,
+                  bpm: trackDetails.bpm ? Number(trackDetails.bpm) : null,
+                  genre: trackDetails.genre ?? null,
+                  subGenre: trackDetails.subGenre ?? null,
+                  key: trackDetails.key ?? null,
+                  spotifyUrl: trackDetails.spotifyUrl ?? null,
+                }
+              : undefined,
         },
-        skipPersistedResults: operation === "enrich",
-        knownMetadata:
-          operation === "enrich" && trackDetails
-            ? {
-                album: trackDetails.album ?? null,
-                bpm: trackDetails.bpm ? Number(trackDetails.bpm) : null,
-                genre: trackDetails.genre ?? null,
-                subGenre: trackDetails.subGenre ?? null,
-                key: trackDetails.key ?? null,
-                spotifyUrl: trackDetails.spotifyUrl ?? null,
-              }
-            : undefined,
       });
       setResponse(`Queued ${operation} job #${data.job.id}.`);
       navigateToView("review");
       await refreshJobs();
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Something went wrong"));
-    } finally {
-      setIsLoading(false);
     }
   }
 
@@ -142,33 +184,27 @@ export function App() {
       return false;
     }
 
-    setIsSaving(true);
     setSaveMessage("");
     setError("");
 
     try {
-      await saveAgentResponse(lastAgentResponse);
+      await saveMutation.mutateAsync(lastAgentResponse);
       setSaveMessage("Saved");
       await loadSavedResults();
       return true;
     } catch (caughtError) {
       setError(getErrorMessage(caughtError, "Could not save result"));
       return false;
-    } finally {
-      setIsSaving(false);
     }
   }
 
   async function loadSavedResults() {
-    setIsResultsLoading(true);
     setResultsError("");
 
     try {
-      setResults(await listResults());
+      await resultsQuery.refetch();
     } catch (caughtError) {
       setResultsError(getErrorMessage(caughtError, "Could not load results"));
-    } finally {
-      setIsResultsLoading(false);
     }
   }
 
@@ -178,7 +214,7 @@ export function App() {
     setSaveMessage("");
 
     try {
-      await reenrichSavedResult(result.id);
+      await reenrichMutation.mutateAsync(result.id);
       navigateToView("review");
       await refreshJobs();
       closeDrawer();
@@ -201,10 +237,8 @@ export function App() {
     setResultsError("");
 
     try {
-      await deleteSavedResult(result.id);
-      setResults((currentResults) =>
-        currentResults.filter((currentResult) => currentResult.id !== result.id),
-      );
+      await deleteMutation.mutateAsync(result.id);
+      await loadSavedResults();
 
       if (selectedResult?.id === result.id) {
         closeDrawer();
@@ -238,18 +272,16 @@ export function App() {
 
   async function refreshJobs() {
     await Promise.all([
-      refreshActiveJobs(),
-      refreshNotifications(),
-      refreshReviewJobs(),
-      refreshAllJobs(),
+      activeJobsQuery.refetch(),
+      notificationJobsQuery.refetch(),
+      reviewJobsQuery.refetch(),
+      allJobsQuery.refetch(),
     ]);
   }
 
   async function refreshActiveJobs() {
     try {
-      setActiveJobs(
-        await listTrackAnalysisJobs({ statuses: ["queued", "processing"] }),
-      );
+      await activeJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not load active jobs"));
@@ -258,16 +290,18 @@ export function App() {
 
   async function refreshNotifications() {
     try {
-      setNotificationJobs(await listTrackAnalysisJobs({ unread: true }));
+      await notificationJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
-      setJobsError(getErrorMessage(caughtError, "Could not load notifications"));
+      setJobsError(
+        getErrorMessage(caughtError, "Could not load notifications"),
+      );
     }
   }
 
   async function refreshReviewJobs() {
     try {
-      setReviewJobs(await listTrackAnalysisJobs({ unresolved: true }));
+      await reviewJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not load review queue"));
@@ -276,7 +310,7 @@ export function App() {
 
   async function refreshAllJobs() {
     try {
-      setAllJobs(await listTrackAnalysisJobs());
+      await allJobsQuery.refetch();
       setJobsError("");
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not load datastore"));
@@ -285,10 +319,12 @@ export function App() {
 
   async function openJob(job: TrackAnalysisJob) {
     if (!job.notificationReadAt) {
-      setNotificationJobs((currentJobs) =>
-        currentJobs.filter((currentJob) => currentJob.id !== job.id),
+      queryClient.setQueryData<TrackAnalysisJob[]>(
+        queryKeys.notificationJobs,
+        (currentJobs = []) =>
+          currentJobs.filter((currentJob) => currentJob.id !== job.id),
       );
-      await markTrackAnalysisNotificationRead(job.id);
+      await markNotificationReadMutation.mutateAsync(job.id);
     }
 
     setTitle(job.payload.track.title);
@@ -306,7 +342,7 @@ export function App() {
 
   async function retryJob(job: TrackAnalysisJob) {
     try {
-      await retryTrackAnalysisJob(job.id);
+      await retryMutation.mutateAsync(job.id);
       await refreshJobs();
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not retry job"));
@@ -315,7 +351,7 @@ export function App() {
 
   async function resolveJob(job: TrackAnalysisJob) {
     try {
-      await resolveTrackAnalysisJob(job.id);
+      await resolveMutation.mutateAsync(job.id);
       await refreshJobs();
     } catch (caughtError) {
       setJobsError(getErrorMessage(caughtError, "Could not resolve job"));
@@ -382,10 +418,12 @@ export function App() {
       const job = await getTrackAnalysisJob(jobId);
 
       if (!job.notificationReadAt) {
-        setNotificationJobs((currentJobs) =>
-          currentJobs.filter((currentJob) => currentJob.id !== job.id),
+        queryClient.setQueryData<TrackAnalysisJob[]>(
+          queryKeys.notificationJobs,
+          (currentJobs = []) =>
+            currentJobs.filter((currentJob) => currentJob.id !== job.id),
         );
-        await markTrackAnalysisNotificationRead(job.id);
+        await markNotificationReadMutation.mutateAsync(job.id);
       }
 
       setTitle(job.payload.track.title);
@@ -404,10 +442,7 @@ export function App() {
     }
   }
 
-  function navigateToView(
-    nextView: View,
-    options: { replace?: boolean } = {},
-  ) {
+  function navigateToView(nextView: View, options: { replace?: boolean } = {}) {
     setView(nextView);
     updateHistory(getPathForView(nextView), options.replace ?? false);
   }
@@ -512,12 +547,15 @@ export function App() {
             </button>
           </header>
 
-          {(activeJobs.length > 0 || jobsError) && (
+          {(activeJobs.length > 0 || jobsErrorMessage) && (
             <section className="job-strip" aria-live="polite">
-              {jobsError && <span className="error-text">{jobsError}</span>}
+              {jobsErrorMessage && (
+                <span className="error-text">{jobsErrorMessage}</span>
+              )}
               {activeJobs.map((job) => (
                 <span className={`pill ${job.status}`} key={job.id}>
-                  #{job.id} {job.operation} {job.status}: {formatJobTrackLabel(job)}
+                  #{job.id} {job.operation} {job.status}:{" "}
+                  {formatJobTrackLabel(job)}
                 </span>
               ))}
             </section>
@@ -546,7 +584,7 @@ export function App() {
           ) : view === "results" ? (
             <ResultsView
               results={results}
-              error={resultsError}
+              error={resultsErrorMessage}
               isLoading={isResultsLoading}
               reenrichingId={reenrichingId}
               activeJobs={activeJobs}
@@ -559,7 +597,7 @@ export function App() {
             <ReviewQueueView
               jobs={reviewJobs}
               notifications={notificationJobs}
-              error={jobsError}
+              error={jobsErrorMessage}
               onRefresh={() => void refreshJobs()}
               onOpen={(job) => void openJob(job)}
               onRetry={(job) => void retryJob(job)}
@@ -569,8 +607,10 @@ export function App() {
             <DataStoreView
               jobs={allJobs}
               results={results}
-              error={jobsError}
-              onRefresh={() => void Promise.all([refreshAllJobs(), loadSavedResults()])}
+              error={jobsErrorMessage}
+              onRefresh={() =>
+                void Promise.all([refreshAllJobs(), loadSavedResults()])
+              }
             />
           )}
         </main>
@@ -592,6 +632,29 @@ export function App() {
 
 function getErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
+}
+
+function getFirstErrorMessage(errors: unknown[], fallback: string) {
+  const error = errors.find(Boolean);
+  return error ? getErrorMessage(error, fallback) : "";
+}
+
+const queryKeys = {
+  results: ["results"] as const,
+  activeJobs: ["track-analysis-jobs", "active"] as const,
+  notificationJobs: ["track-analysis-jobs", "notifications"] as const,
+  reviewJobs: ["track-analysis-jobs", "review"] as const,
+  allJobs: ["track-analysis-jobs", "all"] as const,
+};
+
+function runAgentWithOptions({
+  message,
+  options,
+}: {
+  message: string;
+  options: RunAgentOptions;
+}) {
+  return runAgent(message, options);
 }
 
 type AppRoute = {
