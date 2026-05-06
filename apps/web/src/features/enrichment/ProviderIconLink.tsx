@@ -57,6 +57,10 @@ function getProviderIcon(providerName: string) {
     return <BeatportIcon />;
   }
 
+  if (providerName === "SoundCloud") {
+    return <SoundCloudIcon />;
+  }
+
   if (providerName === "Wikipedia") {
     return <WikipediaIcon />;
   }
@@ -116,6 +120,24 @@ function WikipediaIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         strokeWidth="1.5"
+      />
+    </svg>
+  );
+}
+
+function SoundCloudIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        d="M6.2 16.6H17a3.4 3.4 0 0 0 .2-6.8 4.8 4.8 0 0 0-9.1-1.6 3.9 3.9 0 0 0-1.9 8.4Z"
+        fill="currentColor"
+      />
+      <path
+        d="M4.8 16.4v-5.1m2 5.1V8.6m2 7.8V7.9m2 8.5V7.4"
+        fill="none"
+        stroke="#081014"
+        strokeLinecap="round"
+        strokeWidth="1.1"
       />
     </svg>
   );

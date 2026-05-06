@@ -3,6 +3,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import type { RemixSearchCandidate } from "../../types";
 import { DataTable } from "../../shared/components/DataTable";
 import { formatDate } from "../../lib/format";
+import { ProviderIconLink } from "../enrichment/ProviderIconLink";
 import { useRemixSearchState } from "./hooks/useRemixSearchState";
 import "../results/ResultDrawer.css";
 import "./RemixSearchView.css";
@@ -44,11 +45,6 @@ export function RemixSearchView() {
         cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
       },
       {
-        accessorKey: "subGenre",
-        header: "Subgenre",
-        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
-      },
-      {
         accessorKey: "bpm",
         header: "BPM",
         cell: ({ getValue }) => getValue<number | null>() ?? "N/A",
@@ -56,6 +52,16 @@ export function RemixSearchView() {
       {
         accessorKey: "provider",
         header: "Provider",
+        cell: ({ row }) => (
+          <ProviderIconLink
+            provider={{
+              name: row.original.provider,
+              matched: true,
+              url: row.original.link,
+              error: null,
+            }}
+          />
+        ),
       },
       {
         accessorKey: "createdAt",
@@ -70,16 +76,6 @@ export function RemixSearchView() {
         accessorKey: "confidence",
         header: "Confidence",
         cell: ({ getValue }) => `${getValue<number>()}%`,
-      },
-      {
-        accessorKey: "link",
-        header: "Link",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <a href={row.original.link} target="_blank" rel="noreferrer">
-            Open
-          </a>
-        ),
       },
       {
         id: "details",
@@ -180,7 +176,7 @@ export function RemixSearchView() {
             columns={columns}
             emptyMessage="No remix candidates found."
             getRowKey={(candidate) => `${candidate.provider}-${candidate.link}`}
-            minWidth={1420}
+            minWidth={1280}
             searchPlaceholder="Search remix candidates"
             initialSorting={initialSorting}
           />
