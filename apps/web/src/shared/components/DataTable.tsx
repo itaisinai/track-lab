@@ -1,4 +1,4 @@
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -32,6 +32,12 @@ export function DataTable<TData>({
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
   const stableColumns = useMemo(() => columns, [columns]);
+  const initialSortingKey = JSON.stringify(initialSorting);
+
+  useEffect(() => {
+    setSorting(initialSorting);
+  }, [initialSortingKey]);
+
   const table = useReactTable({
     data,
     columns: stableColumns,

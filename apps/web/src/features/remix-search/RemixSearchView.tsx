@@ -1,13 +1,23 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RemixSearchCandidate } from "../../types";
 import { DataTable } from "../../shared/components/DataTable";
 import { formatDate } from "../../lib/format";
 import { useRemixSearchState } from "./hooks/useRemixSearchState";
+import "../results/ResultDrawer.css";
 import "./RemixSearchView.css";
 
 export function RemixSearchView() {
   const search = useRemixSearchState();
+  const [selectedCandidate, setSelectedCandidate] =
+    useState<RemixSearchCandidate | null>(null);
+  const initialSorting = useMemo(
+    () => [
+      { id: "createdAt", desc: true },
+      { id: "confidence", desc: true },
+    ],
+    [],
+  );
   const columns = useMemo<ColumnDef<RemixSearchCandidate>[]>(
     () => [
       {
@@ -71,6 +81,20 @@ export function RemixSearchView() {
           </a>
         ),
       },
+      {
+        id: "details",
+        header: "Details",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <button
+            className="secondary compact"
+            type="button"
+            onClick={() => setSelectedCandidate(row.original)}
+          >
+            Details
+          </button>
+        ),
+      },
     ],
     [],
   );
@@ -114,10 +138,30 @@ export function RemixSearchView() {
             placeholder="Optional, e.g. bass"
           />
         </label>
-        <button type="submit" disabled={search.isSearching}>
-          {search.isSearching ? "Searching..." : "Search Remixes"}
-        </button>
+        <div className="remix-search-actions">
+          <button type="submit" disabled={search.isSearching}>
+            {search.isSearching ? "Searching..." : "Search Remixes"}
+          </button>
+          <button
+            className="secondary"
+            type="button"
+            disabled={search.isSearching}
+            onClick={() => {
+              setSelectedCandidate(null);
+              search.clear();
+            }}
+          >
+            Clear
+          </button>
+        </div>
       </form>
+
+      {search.isSearching && (
+        <div className="remix-search-loading" role="status" aria-live="polite">
+          <span />
+          <strong>Searching remixes</strong>
+        </div>
+      )}
 
       {search.error && <p className="error-text">{search.error}</p>}
 
@@ -136,12 +180,144 @@ export function RemixSearchView() {
             columns={columns}
             emptyMessage="No remix candidates found."
             getRowKey={(candidate) => `${candidate.provider}-${candidate.link}`}
-            minWidth={1320}
+            minWidth={1420}
             searchPlaceholder="Search remix candidates"
-            initialSorting={[{ id: "createdAt", desc: true }]}
+            initialSorting={initialSorting}
           />
         </div>
       )}
+
+      {selectedCandidate && (
+        <RemixCandidateDrawer
+          candidate={selectedCandidate}
+          onClose={() => setSelectedCandidate(null)}
+        />
+      )}
     </section>
   );
+}
+
+type RemixCandidateDrawerProps = {
+  candidate: RemixSearchCandidate;
+  onClose: () => void;
+};
+
+function RemixCandidateDrawer({
+  candidate,
+  onClose,
+}: RemixCandidateDrawerProps) {
+  const tags = getCandidateTags(candidate);
+
+  return (
+    <aside className="drawer open" aria-label="Remix details" onClick={onClose}>
+      <div className="drawer-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="drawer-header">
+          <div>
+            <h2>{candidate.title}</h2>
+            <p>{candidate.artists}</p>
+          </div>
+          <div className="drawer-actions">
+            <a
+              className="button secondary compact"
+              href={candidate.link}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Open
+            </a>
+            <button className="secondary compact" type="button" onClick={onClose}>
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="remix-candidate-details">
+          <DetailField label="Provider" value={candidate.provider} />
+          <DetailField label="Remix Artist" value={candidate.remixArtist} />
+          <DetailField label="Album" value={candidate.album} />
+          <DetailField label="Genre" value={candidate.genre} />
+          <DetailField label="Subgenre" value={candidate.subGenre} />
+          <DetailField label="BPM" value={candidate.bpm} />
+          <DetailField
+            label="Uploaded At"
+            value={candidate.createdAt ? formatDate(candidate.createdAt) : null}
+          />
+          <DetailField
+            label="Duration"
+            value={formatDuration(candidate.durationMs)}
+          />
+          <DetailField label="Confidence" value={`${candidate.confidence}%`} />
+          <DetailField label="Reason" value={candidate.relevanceReason} wide />
+        </div>
+
+        <h3>Tags</h3>
+        {tags.length ? (
+          <div className="remix-tags">
+            {tags.map((tag) => (
+              <span key={tag}>{tag}</span>
+            ))}
+          </div>
+        ) : (
+          <p className="muted-text">No tags returned.</p>
+        )}
+
+        <h3>Full Candidate</h3>
+        <pre>{JSON.stringify(candidate, null, 2)}</pre>
+      </div>
+    </aside>
+  );
+}
+
+type DetailFieldProps = {
+  label: string;
+  value: unknown;
+  wide?: boolean;
+};
+
+function DetailField({ label, value, wide = false }: DetailFieldProps) {
+  return (
+    <div className={wide ? "detail-field wide" : "detail-field"}>
+      <span>{label}</span>
+      <strong>{formatDetailValue(value)}</strong>
+    </div>
+  );
+}
+
+function formatDetailValue(value: unknown) {
+  if (value === null || value === undefined || value === "") {
+    return "N/A";
+  }
+
+  return String(value);
+}
+
+function formatDuration(value: number | null | undefined) {
+  if (!value) {
+    return null;
+  }
+
+  const totalSeconds = Math.round(value / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function getCandidateTags(candidate: RemixSearchCandidate) {
+  return Array.from(
+    new Set(
+      [candidate.genre, ...parseTags(candidate.subGenre)]
+        .map((tag) => tag?.trim())
+        .filter((tag): tag is string => Boolean(tag)),
+    ),
+  );
+}
+
+function parseTags(value: string | null | undefined) {
+  if (!value) {
+    return [];
+  }
+
+  return Array.from(value.matchAll(/"([^"]+)"|(\S+)/g))
+    .map((match) => match[1] ?? match[2] ?? "")
+    .filter(Boolean);
 }

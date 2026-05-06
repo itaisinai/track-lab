@@ -29,8 +29,19 @@ export function useRemixSearchState() {
     }
   }
 
+  function clear() {
+    setTitle("");
+    setArtists("");
+    setSpotifyUrl("");
+    setGenre("");
+    setError("");
+    setResult(null);
+    mutation.reset();
+  }
+
   return {
     artists,
+    clear,
     error,
     genre,
     isSearching: mutation.isPending,
