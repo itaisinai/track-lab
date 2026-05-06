@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { RemixSearchCandidate } from "../../types";
+import type { RemixSearchCandidate, SavedRemixCandidate } from "../../types";
+import { useSaveRemixMutation } from "../../api/mutations/useSaveRemixMutation";
+import { useSavedRemixesQuery } from "../../api/queries/useSavedRemixesQuery";
 import { DataTable } from "../../shared/components/DataTable";
 import { formatDate } from "../../lib/format";
 import { ProviderIconLink } from "../enrichment/ProviderIconLink";
@@ -10,6 +12,8 @@ import "./RemixSearchView.css";
 
 export function RemixSearchView() {
   const search = useRemixSearchState();
+  const savedRemixesQuery = useSavedRemixesQuery();
+  const saveRemixMutation = useSaveRemixMutation();
   const [selectedCandidate, setSelectedCandidate] =
     useState<RemixSearchCandidate | null>(null);
   const initialSorting = useMemo(
@@ -76,6 +80,102 @@ export function RemixSearchView() {
         accessorKey: "confidence",
         header: "Confidence",
         cell: ({ getValue }) => `${getValue<number>()}%`,
+      },
+      {
+        id: "details",
+        header: "Details",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <button
+            className="secondary compact"
+            type="button"
+            onClick={() => setSelectedCandidate(row.original)}
+          >
+            Details
+          </button>
+        ),
+      },
+      {
+        id: "save",
+        header: "Save",
+        enableSorting: false,
+        cell: ({ row }) => (
+          <button
+            className="secondary compact"
+            type="button"
+            disabled={!search.result || saveRemixMutation.isPending}
+            onClick={() => {
+              if (!search.result) {
+                return;
+              }
+
+              saveRemixMutation.mutate({
+                candidate: row.original,
+                originalTrack: search.result.originalTrack,
+                requestedGenre: search.result.requestedGenre ?? null,
+              });
+            }}
+          >
+            Save
+          </button>
+        ),
+      },
+    ],
+    [saveRemixMutation, search.result],
+  );
+  const savedColumns = useMemo<ColumnDef<SavedRemixCandidate>[]>(
+    () => [
+      {
+        accessorKey: "title",
+        header: "Title",
+      },
+      {
+        accessorKey: "artists",
+        header: "Artists",
+      },
+      {
+        accessorKey: "remixArtist",
+        header: "Remix Artist",
+        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
+      },
+      {
+        accessorKey: "genre",
+        header: "Genre",
+        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
+      },
+      {
+        accessorKey: "provider",
+        header: "Provider",
+        cell: ({ row }) => (
+          <ProviderIconLink
+            provider={{
+              name: row.original.provider,
+              matched: true,
+              url: row.original.link,
+              error: null,
+            }}
+          />
+        ),
+      },
+      {
+        accessorKey: "createdAt",
+        header: "Uploaded At",
+        sortingFn: "datetime",
+        cell: ({ getValue }) => {
+          const value = getValue<string | null>();
+          return value ? formatDate(value) : "N/A";
+        },
+      },
+      {
+        accessorKey: "confidence",
+        header: "Confidence",
+        cell: ({ getValue }) => `${getValue<number>()}%`,
+      },
+      {
+        accessorKey: "savedAt",
+        header: "Saved At",
+        sortingFn: "datetime",
+        cell: ({ getValue }) => formatDate(getValue<string>()),
       },
       {
         id: "details",
@@ -160,6 +260,9 @@ export function RemixSearchView() {
       )}
 
       {search.error && <p className="error-text">{search.error}</p>}
+      {saveRemixMutation.error && (
+        <p className="error-text">Could not save remix.</p>
+      )}
 
       {search.result && (
         <div className="remix-search-results">
@@ -182,6 +285,25 @@ export function RemixSearchView() {
           />
         </div>
       )}
+
+      <div className="remix-search-results">
+        <div className="section-header">
+          <h2>Saved Remixes</h2>
+        </div>
+        <DataTable
+          data={savedRemixesQuery.data ?? []}
+          columns={savedColumns}
+          emptyMessage={
+            savedRemixesQuery.isLoading
+              ? "Loading saved remixes..."
+              : "No saved remixes yet."
+          }
+          getRowKey={(remix) => remix.id}
+          minWidth={1120}
+          searchPlaceholder="Search saved remixes"
+          initialSorting={[{ id: "savedAt", desc: true }]}
+        />
+      </div>
 
       {selectedCandidate && (
         <RemixCandidateDrawer

@@ -169,3 +169,25 @@ export type RemixSearchResponse = {
   requestedGenre?: string | null;
   candidates: RemixSearchCandidate[];
 };
+
+export type SavedRemixCandidate = RemixSearchCandidate & {
+  id: number;
+  originalTrack: RemixSearchOriginalTrack;
+  requestedGenre?: string | null;
+  savedAt: string;
+  updatedAt: string;
+};
+
+export type SaveRemixCandidateRequest = {
+  candidate: RemixSearchCandidate;
+  originalTrack: RemixSearchOriginalTrack;
+  requestedGenre?: string | null;
+};
+
+export type ListSavedRemixCandidatesResponse = {
+  remixes: SavedRemixCandidate[];
+};
+
+export type SaveRemixCandidateResponse = {
+  remix: SavedRemixCandidate;
+};

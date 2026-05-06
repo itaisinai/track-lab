@@ -4,6 +4,7 @@ export type {
   RemixSearchCandidate,
   RemixSearchRequest,
   RemixSearchResponse,
+  SavedRemixCandidate,
   SavedTrackResult,
   TrackAnalysisJob,
   TrackAnalysisJobStatus,

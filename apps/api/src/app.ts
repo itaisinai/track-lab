@@ -1,4 +1,8 @@
-import { TrackAnalysisJobStore, TrackResultStore } from "@track-lab/datastore";
+import {
+  RemixResultStore,
+  TrackAnalysisJobStore,
+  TrackResultStore,
+} from "@track-lab/datastore";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import express from "express";
 import { createCorsMiddleware } from "./cors.ts";
@@ -9,6 +13,7 @@ import { createTrackAnalysisRouter } from "./routes/track-analysis.ts";
 
 export function createApp(store = new TrackResultStore()) {
   const jobStore = new TrackAnalysisJobStore();
+  const remixStore = new RemixResultStore();
   const orchestrator = new TrackAnalysisOrchestrator(jobStore);
   const app = express();
 
@@ -16,7 +21,7 @@ export function createApp(store = new TrackResultStore()) {
   app.use(express.urlencoded({ extended: true }));
   app.use(createCorsMiddleware());
   app.use(createAgentRouter(orchestrator));
-  app.use(createRemixSearchRouter());
+  app.use(createRemixSearchRouter(undefined, remixStore));
   app.use(createResultsRouter(store, orchestrator));
   app.use(createTrackAnalysisRouter(jobStore));
 
