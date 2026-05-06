@@ -17,6 +17,7 @@ type DataTableProps<TData> = {
   getRowKey: (row: TData) => string | number;
   searchPlaceholder?: string;
   minWidth?: number;
+  initialSorting?: SortingState;
 };
 
 export function DataTable<TData>({
@@ -26,9 +27,10 @@ export function DataTable<TData>({
   getRowKey,
   searchPlaceholder = "Search table",
   minWidth = 1160,
+  initialSorting = [],
 }: DataTableProps<TData>) {
   const [globalFilter, setGlobalFilter] = useState("");
-  const [sorting, setSorting] = useState<SortingState>([]);
+  const [sorting, setSorting] = useState<SortingState>(initialSorting);
   const stableColumns = useMemo(() => columns, [columns]);
   const table = useReactTable({
     data,

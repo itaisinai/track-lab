@@ -22,6 +22,10 @@ export function getRouteFromPath(pathname: string): AppRoute {
     return { view: "results", path: normalizedPath };
   }
 
+  if (normalizedPath === "/remix-search") {
+    return { view: "remix-search", path: normalizedPath };
+  }
+
   if (normalizedPath === "/review") {
     return { view: "review", path: normalizedPath };
   }
@@ -36,6 +40,10 @@ export function getRouteFromPath(pathname: string): AppRoute {
 export function getPathForView(view: View) {
   if (view === "results") {
     return "/results";
+  }
+
+  if (view === "remix-search") {
+    return "/remix-search";
   }
 
   if (view === "review") {

@@ -1,0 +1,22 @@
+{
+  "name": "@track-lab/remix-search",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test src/__tests__/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@langchain/core": "1.1.42",
+    "@langchain/openai": "^1.4.5",
+    "@track-lab/api-types": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.6.0",
+    "typescript": "^5.9.3"
+  }
+}

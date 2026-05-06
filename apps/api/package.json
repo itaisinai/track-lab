@@ -16,6 +16,7 @@
     "@track-lab/agent": "workspace:*",
     "@track-lab/api-types": "workspace:*",
     "@track-lab/datastore": "workspace:*",
+    "@track-lab/remix-search": "workspace:*",
     "@track-lab/track-analysis": "workspace:*",
     "express": "^5.2.1"
   },

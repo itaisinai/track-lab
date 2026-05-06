@@ -17,6 +17,7 @@ export type AppShellContextValue = {
   onAnalyzeClick: () => void;
   onDataStoreClick: () => void;
   onNotificationsClick: () => void;
+  onRemixSearchClick: () => void;
   onReviewClick: () => void;
   onSavedResultsClick: () => void;
 };

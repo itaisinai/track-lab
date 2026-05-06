@@ -942,6 +942,7 @@ __metadata:
     "@track-lab/agent": "workspace:*"
     "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
+    "@track-lab/remix-search": "workspace:*"
     "@track-lab/track-analysis": "workspace:*"
     "@types/express": "npm:^5.0.6"
     "@types/node": "npm:^25.6.0"
@@ -957,6 +958,16 @@ __metadata:
 "@track-lab/datastore@workspace:*, @track-lab/datastore@workspace:packages/datastore":
   version: 0.0.0-use.local
   resolution: "@track-lab/datastore@workspace:packages/datastore"
+  dependencies:
+    "@track-lab/api-types": "workspace:*"
+    "@types/node": "npm:^25.6.0"
+    typescript: "npm:^5.9.3"
+  languageName: unknown
+  linkType: soft
+
+"@track-lab/remix-search@workspace:*, @track-lab/remix-search@workspace:packages/remix-search":
+  version: 0.0.0-use.local
+  resolution: "@track-lab/remix-search@workspace:packages/remix-search"
   dependencies:
     "@track-lab/api-types": "workspace:*"
     "@types/node": "npm:^25.6.0"

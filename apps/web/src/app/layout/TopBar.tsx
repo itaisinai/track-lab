@@ -7,6 +7,7 @@ type TopBarProps = {
   onAnalyzeClick: () => void;
   onDataStoreClick: () => void;
   onNotificationsClick: () => void;
+  onRemixSearchClick: () => void;
   onReviewClick: () => void;
   onSavedResultsClick: () => void;
 };
@@ -18,6 +19,7 @@ export function TopBar({
   onAnalyzeClick,
   onDataStoreClick,
   onNotificationsClick,
+  onRemixSearchClick,
   onReviewClick,
   onSavedResultsClick,
 }: TopBarProps) {
@@ -35,6 +37,13 @@ export function TopBar({
           onClick={onAnalyzeClick}
         >
           Analyze
+        </button>
+        <button
+          className={view === "remix-search" ? "nav-tab active" : "nav-tab"}
+          type="button"
+          onClick={onRemixSearchClick}
+        >
+          Remix Search
         </button>
         <button
           className={view === "results" ? "nav-tab active" : "nav-tab"}

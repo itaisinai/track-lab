@@ -1,0 +1,38 @@
+.remix-search-view {
+  display: grid;
+  gap: 16px;
+}
+
+.remix-search-form {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(220px, 1fr));
+  gap: 12px;
+  align-items: end;
+}
+
+.remix-search-form label {
+  display: grid;
+  gap: 6px;
+}
+
+.remix-search-form label span {
+  color: #91a4aa;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.remix-search-form button {
+  width: fit-content;
+}
+
+.remix-search-results {
+  display: grid;
+  gap: 12px;
+}
+
+@media (max-width: 760px) {
+  .remix-search-form {
+    grid-template-columns: 1fr;
+  }
+}

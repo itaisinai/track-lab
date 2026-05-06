@@ -71,6 +71,10 @@ export function useAppRouting({
       return;
     }
 
+    if (route.view === "remix-search") {
+      return;
+    }
+
     if (route.view === "review") {
       await refreshReviewJobs();
       return;

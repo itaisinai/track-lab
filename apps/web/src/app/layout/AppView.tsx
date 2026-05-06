@@ -1,5 +1,6 @@
 import { DataStoreView } from "../../features/datastore/DataStoreView";
 import { EnrichView } from "../../features/enrichment/EnrichView";
+import { RemixSearchView } from "../../features/remix-search/RemixSearchView";
 import { ResultDrawer } from "../../features/results/ResultDrawer";
 import { ResultsView } from "../../features/results/ResultsView";
 import { ReviewQueueView } from "../../features/review-queue/ReviewQueueView";
@@ -22,6 +23,7 @@ export function AppView() {
     onAnalyzeClick,
     onDataStoreClick,
     onNotificationsClick,
+    onRemixSearchClick,
     onReviewClick,
     onSavedResultsClick,
   } = useAppShell();
@@ -39,13 +41,16 @@ export function AppView() {
             onAnalyzeClick={onAnalyzeClick}
             onDataStoreClick={onDataStoreClick}
             onNotificationsClick={onNotificationsClick}
+            onRemixSearchClick={onRemixSearchClick}
             onReviewClick={onReviewClick}
             onSavedResultsClick={onSavedResultsClick}
           />
 
           <ActiveJobStrip activeJobs={activeJobs} error={jobsError} />
 
-          {view === "enrich" ? (
+          {view === "remix-search" ? (
+            <RemixSearchView />
+          ) : view === "enrich" ? (
             <EnrichView
               title={enrichment.title}
               artists={enrichment.artists}

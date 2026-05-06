@@ -105,6 +105,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
       draft.setShowSearchForm(true);
       routing.navigateToView("enrich");
     },
+    onRemixSearchClick: () => {
+      routing.navigateToView("remix-search");
+    },
     onDataStoreClick: () => {
       routing.navigateToView("datastore");
       void Promise.all([jobs.refreshAllJobs(), savedResults.loadSavedResults()]);
