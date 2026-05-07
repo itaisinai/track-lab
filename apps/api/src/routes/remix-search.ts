@@ -3,11 +3,11 @@ import type {
   SaveRemixCandidateRequest,
 } from "@track-lab/api-types";
 import type { RemixResultStore } from "@track-lab/datastore";
-import { RemixSearchOrchestrator } from "@track-lab/remix-search";
+import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
 export function createRemixSearchRouter(
-  orchestrator = new RemixSearchOrchestrator(),
+  orchestrator: TrackAnalysisOrchestrator,
   store?: RemixResultStore,
 ) {
   const router = Router();
@@ -21,15 +21,23 @@ export function createRemixSearchRouter(
     res.json({ remixes: store.listRemixes() });
   });
 
-  router.post("/remix-search", async (req: Request, res: Response) => {
+  router.post("/remix-search", (req: Request, res: Response) => {
     try {
-      const result = await orchestrator.search(req.body as RemixSearchRequest);
-      res.json(result);
+      const job = orchestrator.enqueue({
+        operation: "remix_search",
+        request: req.body as RemixSearchRequest,
+      });
+      res.status(202).json({
+        job: {
+          id: job.id,
+          status: job.status,
+        },
+      });
     } catch (error) {
-      console.error("Error searching remixes:", error);
+      console.error("Error enqueueing remix search:", error);
       res.status(400).json({
         error:
-          error instanceof Error ? error.message : "Could not search remixes.",
+          error instanceof Error ? error.message : "Could not enqueue remix search.",
       });
     }
   });

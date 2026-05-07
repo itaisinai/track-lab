@@ -1,21 +1,28 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
-import type { RemixSearchCandidate, SavedRemixCandidate } from "../../types";
+import type { RemixSearchCandidate } from "../../types";
 import { useSaveRemixMutation } from "../../api/mutations/useSaveRemixMutation";
-import { useSavedRemixesQuery } from "../../api/queries/useSavedRemixesQuery";
 import { DataTable } from "../../shared/components/DataTable";
 import { formatDate } from "../../lib/format";
+import { useResultDrawer } from "../../shared/hooks/useResultDrawer";
 import { ProviderIconLink } from "../enrichment/ProviderIconLink";
+import { RemixCandidateDrawer } from "./RemixCandidateDrawer";
 import { useRemixSearchState } from "./hooks/useRemixSearchState";
-import "../results/ResultDrawer.css";
 import "./RemixSearchView.css";
 
-export function RemixSearchView() {
-  const search = useRemixSearchState();
-  const savedRemixesQuery = useSavedRemixesQuery();
+type RemixSearchViewProps = {
+  jobId?: number | null;
+};
+
+export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
+  const search = useRemixSearchState(jobId);
   const saveRemixMutation = useSaveRemixMutation();
-  const [selectedCandidate, setSelectedCandidate] =
-    useState<RemixSearchCandidate | null>(null);
+  const {
+    closeDrawer,
+    drawerState,
+    openDrawer,
+    selectedResult,
+  } = useResultDrawer<RemixSearchCandidate>();
   const initialSorting = useMemo(
     () => [
       { id: "createdAt", desc: true },
@@ -89,7 +96,7 @@ export function RemixSearchView() {
           <button
             className="secondary compact"
             type="button"
-            onClick={() => setSelectedCandidate(row.original)}
+            onClick={() => openDrawer(row.original)}
           >
             Details
           </button>
@@ -121,78 +128,7 @@ export function RemixSearchView() {
         ),
       },
     ],
-    [saveRemixMutation, search.result],
-  );
-  const savedColumns = useMemo<ColumnDef<SavedRemixCandidate>[]>(
-    () => [
-      {
-        accessorKey: "title",
-        header: "Title",
-      },
-      {
-        accessorKey: "artists",
-        header: "Artists",
-      },
-      {
-        accessorKey: "remixArtist",
-        header: "Remix Artist",
-        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
-      },
-      {
-        accessorKey: "genre",
-        header: "Genre",
-        cell: ({ getValue }) => getValue<string | null>() ?? "N/A",
-      },
-      {
-        accessorKey: "provider",
-        header: "Provider",
-        cell: ({ row }) => (
-          <ProviderIconLink
-            provider={{
-              name: row.original.provider,
-              matched: true,
-              url: row.original.link,
-              error: null,
-            }}
-          />
-        ),
-      },
-      {
-        accessorKey: "createdAt",
-        header: "Uploaded At",
-        sortingFn: "datetime",
-        cell: ({ getValue }) => {
-          const value = getValue<string | null>();
-          return value ? formatDate(value) : "N/A";
-        },
-      },
-      {
-        accessorKey: "confidence",
-        header: "Confidence",
-        cell: ({ getValue }) => `${getValue<number>()}%`,
-      },
-      {
-        accessorKey: "savedAt",
-        header: "Saved At",
-        sortingFn: "datetime",
-        cell: ({ getValue }) => formatDate(getValue<string>()),
-      },
-      {
-        id: "details",
-        header: "Details",
-        enableSorting: false,
-        cell: ({ row }) => (
-          <button
-            className="secondary compact"
-            type="button"
-            onClick={() => setSelectedCandidate(row.original)}
-          >
-            Details
-          </button>
-        ),
-      },
-    ],
-    [],
+    [openDrawer, saveRemixMutation, search.result],
   );
 
   return (
@@ -235,15 +171,14 @@ export function RemixSearchView() {
           />
         </label>
         <div className="remix-search-actions">
-          <button type="submit" disabled={search.isSearching}>
-            {search.isSearching ? "Searching..." : "Search Remixes"}
+          <button type="submit" disabled={search.isEnqueueing}>
+            {search.isEnqueueing ? "Queueing..." : "Search Remixes"}
           </button>
           <button
             className="secondary"
             type="button"
-            disabled={search.isSearching}
             onClick={() => {
-              setSelectedCandidate(null);
+              closeDrawer();
               search.clear();
             }}
           >
@@ -255,7 +190,11 @@ export function RemixSearchView() {
       {search.isSearching && (
         <div className="remix-search-loading" role="status" aria-live="polite">
           <span />
-          <strong>Searching remixes</strong>
+          <strong>
+            {search.activeJob
+              ? `#${search.activeJob.id} ${search.activeJob.status}`
+              : "Queueing remix search"}
+          </strong>
         </div>
       )}
 
@@ -286,156 +225,13 @@ export function RemixSearchView() {
         </div>
       )}
 
-      <div className="remix-search-results">
-        <div className="section-header">
-          <h2>Saved Remixes</h2>
-        </div>
-        <DataTable
-          data={savedRemixesQuery.data ?? []}
-          columns={savedColumns}
-          emptyMessage={
-            savedRemixesQuery.isLoading
-              ? "Loading saved remixes..."
-              : "No saved remixes yet."
-          }
-          getRowKey={(remix) => remix.id}
-          minWidth={1120}
-          searchPlaceholder="Search saved remixes"
-          initialSorting={[{ id: "savedAt", desc: true }]}
-        />
-      </div>
-
-      {selectedCandidate && (
+      {selectedResult && (
         <RemixCandidateDrawer
-          candidate={selectedCandidate}
-          onClose={() => setSelectedCandidate(null)}
+          candidate={selectedResult}
+          state={drawerState}
+          onClose={closeDrawer}
         />
       )}
     </section>
   );
-}
-
-type RemixCandidateDrawerProps = {
-  candidate: RemixSearchCandidate;
-  onClose: () => void;
-};
-
-function RemixCandidateDrawer({
-  candidate,
-  onClose,
-}: RemixCandidateDrawerProps) {
-  const tags = getCandidateTags(candidate);
-
-  return (
-    <aside className="drawer open" aria-label="Remix details" onClick={onClose}>
-      <div className="drawer-panel" onClick={(event) => event.stopPropagation()}>
-        <div className="drawer-header">
-          <div>
-            <h2>{candidate.title}</h2>
-            <p>{candidate.artists}</p>
-          </div>
-          <div className="drawer-actions">
-            <a
-              className="button secondary compact"
-              href={candidate.link}
-              target="_blank"
-              rel="noreferrer"
-            >
-              Open
-            </a>
-            <button className="secondary compact" type="button" onClick={onClose}>
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div className="remix-candidate-details">
-          <DetailField label="Provider" value={candidate.provider} />
-          <DetailField label="Remix Artist" value={candidate.remixArtist} />
-          <DetailField label="Album" value={candidate.album} />
-          <DetailField label="Genre" value={candidate.genre} />
-          <DetailField label="Subgenre" value={candidate.subGenre} />
-          <DetailField label="BPM" value={candidate.bpm} />
-          <DetailField
-            label="Uploaded At"
-            value={candidate.createdAt ? formatDate(candidate.createdAt) : null}
-          />
-          <DetailField
-            label="Duration"
-            value={formatDuration(candidate.durationMs)}
-          />
-          <DetailField label="Confidence" value={`${candidate.confidence}%`} />
-          <DetailField label="Reason" value={candidate.relevanceReason} wide />
-        </div>
-
-        <h3>Tags</h3>
-        {tags.length ? (
-          <div className="remix-tags">
-            {tags.map((tag) => (
-              <span key={tag}>{tag}</span>
-            ))}
-          </div>
-        ) : (
-          <p className="muted-text">No tags returned.</p>
-        )}
-
-        <h3>Full Candidate</h3>
-        <pre>{JSON.stringify(candidate, null, 2)}</pre>
-      </div>
-    </aside>
-  );
-}
-
-type DetailFieldProps = {
-  label: string;
-  value: unknown;
-  wide?: boolean;
-};
-
-function DetailField({ label, value, wide = false }: DetailFieldProps) {
-  return (
-    <div className={wide ? "detail-field wide" : "detail-field"}>
-      <span>{label}</span>
-      <strong>{formatDetailValue(value)}</strong>
-    </div>
-  );
-}
-
-function formatDetailValue(value: unknown) {
-  if (value === null || value === undefined || value === "") {
-    return "N/A";
-  }
-
-  return String(value);
-}
-
-function formatDuration(value: number | null | undefined) {
-  if (!value) {
-    return null;
-  }
-
-  const totalSeconds = Math.round(value / 1000);
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = String(totalSeconds % 60).padStart(2, "0");
-  return `${minutes}:${seconds}`;
-}
-
-function getCandidateTags(candidate: RemixSearchCandidate) {
-  return Array.from(
-    new Set(
-      [candidate.genre, ...parseTags(candidate.subGenre)]
-        .map((tag) => tag?.trim())
-        .filter((tag): tag is string => Boolean(tag)),
-    ),
-  );
-}
-
-function parseTags(value: string | null | undefined) {
-  if (!value) {
-    return [];
-  }
-
-  return Array.from(value.matchAll(/"([^"]+)"|(\S+)/g))
-    .map((match) => match[1] ?? match[2] ?? "")
-    .filter(Boolean);
 }

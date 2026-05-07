@@ -9,6 +9,7 @@ export type AppRoute = {
 export function getRouteFromPath(pathname: string): AppRoute {
   const normalizedPath = normalizePath(pathname);
   const reviewJobMatch = normalizedPath.match(/^\/review\/jobs\/(\d+)$/);
+  const remixJobMatch = normalizedPath.match(/^\/remix-search\/jobs\/(\d+)$/);
 
   if (reviewJobMatch) {
     return {
@@ -18,12 +19,24 @@ export function getRouteFromPath(pathname: string): AppRoute {
     };
   }
 
+  if (remixJobMatch) {
+    return {
+      view: "remix-search",
+      path: normalizedPath,
+      jobId: Number(remixJobMatch[1]),
+    };
+  }
+
   if (normalizedPath === "/results") {
     return { view: "results", path: normalizedPath };
   }
 
   if (normalizedPath === "/remix-search") {
     return { view: "remix-search", path: normalizedPath };
+  }
+
+  if (normalizedPath === "/saved-remixes") {
+    return { view: "saved-remixes", path: normalizedPath };
   }
 
   if (normalizedPath === "/review") {
@@ -44,6 +57,10 @@ export function getPathForView(view: View) {
 
   if (view === "remix-search") {
     return "/remix-search";
+  }
+
+  if (view === "saved-remixes") {
+    return "/saved-remixes";
   }
 
   if (view === "review") {

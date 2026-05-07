@@ -190,6 +190,7 @@ function getResultStatus(
     activeJobs.find(
       (job) =>
         job.operation === "enrich" &&
+        job.payload.operation === "enrich" &&
         job.payload.source === "saved_result" &&
         job.payload.track.title === result.title &&
         job.payload.track.artists === result.artists,

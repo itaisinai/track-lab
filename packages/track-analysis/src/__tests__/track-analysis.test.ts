@@ -39,7 +39,13 @@ test("worker completes successful jobs", async () => {
     track: { title: "Strobe", artists: "deadmau5" },
   });
   const worker = new TrackAnalysisWorker(store, {
-    processor: async (payload) => ({ title: payload.track.title, ok: true }),
+    processor: async (payload) => {
+      if (payload.operation === "remix_search") {
+        throw new Error("unexpected remix search payload");
+      }
+
+      return { title: payload.track.title, ok: true };
+    },
   });
 
   const completed = await worker.processNextJob();
@@ -73,6 +79,31 @@ test("worker retries failures and dead letters exhausted jobs", async () => {
   assert.equal(dead?.id, queued.id);
   assert.equal(dead?.status, "dead_lettered");
   assert.equal(dead?.attemptCount, 2);
+});
+
+test("orchestrator validates and enqueues remix search requests", () => {
+  const store = createStore();
+  const orchestrator = new TrackAnalysisOrchestrator(store);
+
+  const queued = orchestrator.enqueue({
+    operation: "remix_search",
+    request: {
+      title: " Babatunde ",
+      artists: " Peekaboo ",
+      genre: " bass ",
+    },
+  });
+
+  assert.equal(queued.operation, "remix_search");
+  assert.deepEqual(queued.payload, {
+    operation: "remix_search",
+    request: {
+      title: "Babatunde",
+      artists: "Peekaboo",
+      spotifyUrl: null,
+      genre: "bass",
+    },
+  });
 });
 
 function createStore() {

@@ -1,7 +1,7 @@
 import { useMutation } from "@tanstack/react-query";
 import type {
+  EnqueueRemixSearchResponse,
   RemixSearchRequest,
-  RemixSearchResponse,
 } from "@track-lab/api-types";
 import { request } from "../request";
 import { apiRoutes } from "../routes";
@@ -11,7 +11,7 @@ export function useRemixSearchMutation() {
 }
 
 async function searchRemixes(requestBody: RemixSearchRequest) {
-  return request<RemixSearchResponse>(apiRoutes.remixSearch, {
+  return request<EnqueueRemixSearchResponse>(apiRoutes.remixSearch, {
     method: "POST",
     body: JSON.stringify(requestBody),
   });

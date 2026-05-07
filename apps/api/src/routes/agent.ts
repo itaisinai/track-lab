@@ -1,4 +1,4 @@
-import type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
+import type { TrackMetadataAnalysisPayload } from "@track-lab/api-types";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
@@ -7,7 +7,7 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
 
   router.post("/agent", (req: Request, res: Response) => {
     try {
-      const body = req.body as Partial<EnqueueTrackAnalysisRequest>;
+      const body = req.body as Partial<TrackMetadataAnalysisPayload>;
       const operation = body.operation === "enrich" ? "enrich" : "analyze";
 
       const job = orchestrator.enqueue({
@@ -37,7 +37,7 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
   return router;
 }
 
-function getTrackFromRequestBody(body: Partial<EnqueueTrackAnalysisRequest>) {
+function getTrackFromRequestBody(body: Partial<TrackMetadataAnalysisPayload>) {
   if (
     body.track &&
     typeof body.track.title === "string" &&

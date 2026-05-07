@@ -38,12 +38,12 @@ export function ReviewQueueView({
       {
         id: "title",
         header: "Title",
-        accessorFn: (job) => job.payload.track.title,
+        accessorFn: (job) => getJobTitle(job),
       },
       {
         id: "artists",
         header: "Artists",
-        accessorFn: (job) => job.payload.track.artists,
+        accessorFn: (job) => getJobArtists(job),
       },
       {
         accessorKey: "status",
@@ -128,7 +128,7 @@ export function ReviewQueueView({
               key={job.id}
               onClick={() => onOpen(job)}
             >
-              #{job.id} {job.operation} {job.status}: {job.payload.track.title}
+              #{job.id} {job.operation} {job.status}: {getJobTitle(job)}
             </button>
           ))}
         </div>
@@ -143,4 +143,20 @@ export function ReviewQueueView({
       />
     </section>
   );
+}
+
+function getJobTitle(job: TrackAnalysisJob) {
+  if (job.payload.operation === "remix_search") {
+    const title = job.payload.request.title ?? "Spotify track";
+    const artists = job.payload.request.artists;
+    return `${[title, artists].filter(Boolean).join(" - ")} Remixes`;
+  }
+
+  return job.payload.track.title;
+}
+
+function getJobArtists(job: TrackAnalysisJob) {
+  return job.payload.operation === "remix_search"
+    ? job.payload.request.artists ?? "N/A"
+    : job.payload.track.artists;
 }

@@ -18,6 +18,7 @@ import { useTrackAnalysisJobActions } from "../../features/review-queue/hooks/us
 import { getErrorMessage } from "../../lib/errors/app-errors";
 import { useResultDrawer } from "../../shared/hooks/useResultDrawer";
 import { useAppRouting } from "../routing/useAppRouting";
+import type { SavedTrackResult } from "../../types";
 import {
   AppShellContext,
   EnrichmentContext,
@@ -44,7 +45,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const retryJobMutation = useRetryTrackAnalysisJobMutation();
   const resolveJobMutation = useResolveTrackAnalysisJobMutation();
   const draft = useReviewDraftState();
-  const drawer = useResultDrawer();
+  const drawer = useResultDrawer<SavedTrackResult>();
   const savedResults = useSavedResultsData({
     closeDrawer: drawer.closeDrawer,
     deleteResultMutation,
@@ -56,6 +57,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     setShowSearchForm: draft.setShowSearchForm,
     loadSavedResults: savedResults.loadSavedResults,
     openJobFromRoute,
+    openRemixJobFromRoute,
     refreshAllJobs,
     refreshReviewJobs,
   });
@@ -100,6 +102,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     currentReviewJobId: draft.currentReviewJobId,
     jobsError: jobs.jobsError,
     notificationJobs: jobs.notificationJobs,
+    remixJobId: routing.remixJobId,
     view: routing.view,
     onAnalyzeClick: () => {
       draft.setShowSearchForm(true);
@@ -107,6 +110,9 @@ export function AppProviders({ children }: { children: ReactNode }) {
     },
     onRemixSearchClick: () => {
       routing.navigateToView("remix-search");
+    },
+    onSavedRemixesClick: () => {
+      routing.navigateToView("saved-remixes");
     },
     onDataStoreClick: () => {
       routing.navigateToView("datastore");
@@ -174,6 +180,10 @@ export function AppProviders({ children }: { children: ReactNode }) {
 
   async function openJobFromRoute(jobId: number) {
     await jobs.openJobFromRoute(jobId);
+  }
+
+  function openRemixJobFromRoute(_jobId: number) {
+    return;
   }
 
   async function refreshAllJobs() {

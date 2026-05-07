@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   flexRender,
   getCoreRowModel,
+  getExpandedRowModel,
   getFilteredRowModel,
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
   type ColumnDef,
+  type ExpandedState,
+  type Row,
   type SortingState,
 } from "@tanstack/react-table";
 
@@ -18,6 +21,8 @@ type DataTableProps<TData> = {
   searchPlaceholder?: string;
   minWidth?: number;
   initialSorting?: SortingState;
+  getRowCanExpand?: (row: TData) => boolean;
+  renderExpandedRow?: (row: TData) => ReactNode;
 };
 
 export function DataTable<TData>({
@@ -28,9 +33,12 @@ export function DataTable<TData>({
   searchPlaceholder = "Search table",
   minWidth = 1160,
   initialSorting = [],
+  getRowCanExpand,
+  renderExpandedRow,
 }: DataTableProps<TData>) {
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
+  const [expanded, setExpanded] = useState<ExpandedState>({});
   const stableColumns = useMemo(() => columns, [columns]);
   const initialSortingKey = JSON.stringify(initialSorting);
 
@@ -43,14 +51,20 @@ export function DataTable<TData>({
     columns: stableColumns,
     state: {
       globalFilter,
+      expanded,
       sorting,
     },
     onGlobalFilterChange: setGlobalFilter,
+    onExpandedChange: setExpanded,
     onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getExpandedRowModel: getExpandedRowModel(),
     getFilteredRowModel: getFilteredRowModel(),
     getSortedRowModel: getSortedRowModel(),
     getPaginationRowModel: getPaginationRowModel(),
+    getRowCanExpand: getRowCanExpand
+      ? (row: Row<TData>) => getRowCanExpand(row.original)
+      : undefined,
     initialState: {
       pagination: {
         pageSize: 10,
@@ -119,18 +133,27 @@ export function DataTable<TData>({
           </thead>
           <tbody>
             {table.getRowModel().rows.map((row) => (
-              <tr key={getRowKey(row.original)}>
-                {row.getVisibleCells().map((cell) => (
-                  <td key={cell.id}>
-                    {
-                      flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      ) as ReactNode
-                    }
-                  </td>
-                ))}
-              </tr>
+              <Fragment key={getRowKey(row.original)}>
+                <tr>
+                  {row.getVisibleCells().map((cell) => (
+                    <td key={cell.id}>
+                      {
+                        flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext(),
+                        ) as ReactNode
+                      }
+                    </td>
+                  ))}
+                </tr>
+                {row.getIsExpanded() && renderExpandedRow && (
+                  <tr>
+                    <td colSpan={visibleColumnCount}>
+                      {renderExpandedRow(row.original)}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
             ))}
             {table.getRowModel().rows.length === 0 && (
               <tr>

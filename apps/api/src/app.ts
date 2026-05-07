@@ -21,7 +21,7 @@ export function createApp(store = new TrackResultStore()) {
   app.use(express.urlencoded({ extended: true }));
   app.use(createCorsMiddleware());
   app.use(createAgentRouter(orchestrator));
-  app.use(createRemixSearchRouter(undefined, remixStore));
+  app.use(createRemixSearchRouter(orchestrator, remixStore));
   app.use(createResultsRouter(store, orchestrator));
   app.use(createTrackAnalysisRouter(jobStore));
 

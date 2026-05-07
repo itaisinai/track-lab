@@ -60,7 +60,7 @@ export type NormalizedTrackResult = Omit<
   "id" | "json" | "rawResponse" | "createdAt" | "updatedAt"
 >;
 
-export type TrackAnalysisOperation = "analyze" | "enrich";
+export type TrackAnalysisOperation = "analyze" | "enrich" | "remix_search";
 
 export type TrackAnalysisJobStatus =
   | "queued"
@@ -83,8 +83,8 @@ export type TrackAnalysisSource =
   | "saved_result"
   | "bulk_saved_results";
 
-export type TrackAnalysisPayload = {
-  operation: TrackAnalysisOperation;
+export type TrackMetadataAnalysisPayload = {
+  operation: "analyze" | "enrich";
   track: {
     title: string;
     artists: string;
@@ -92,6 +92,15 @@ export type TrackAnalysisPayload = {
   knownMetadata?: TrackAnalysisKnownMetadata;
   source?: TrackAnalysisSource;
 };
+
+export type RemixSearchJobPayload = {
+  operation: "remix_search";
+  request: RemixSearchRequest;
+};
+
+export type TrackAnalysisPayload =
+  | (TrackMetadataAnalysisPayload & { operation: "analyze" | "enrich" })
+  | RemixSearchJobPayload;
 
 export type TrackAnalysisJob = {
   id: number;
@@ -114,6 +123,8 @@ export type EnqueueTrackAnalysisRequest = TrackAnalysisPayload;
 export type EnqueueTrackAnalysisResponse = {
   job: Pick<TrackAnalysisJob, "id" | "status">;
 };
+
+export type EnqueueRemixSearchResponse = EnqueueTrackAnalysisResponse;
 
 export type ListSavedResultsResponse = {
   results: SavedTrackResult[];

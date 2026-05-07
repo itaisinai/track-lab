@@ -1,6 +1,6 @@
-import type { TrackAnalysisPayload } from "@track-lab/api-types";
+import type { TrackMetadataAnalysisPayload } from "@track-lab/api-types";
 
-export function createTrackAnalysisPrompt(payload: TrackAnalysisPayload) {
+export function createTrackAnalysisPrompt(payload: TrackMetadataAnalysisPayload) {
   const lines = [
     "I have a track and I want you to enrich the details:",
     `Title: ${payload.track.title}`,
@@ -24,7 +24,7 @@ export function createTrackAnalysisPrompt(payload: TrackAnalysisPayload) {
 
 function appendKnownMetadata(
   lines: string[],
-  knownMetadata: NonNullable<TrackAnalysisPayload["knownMetadata"]>,
+  knownMetadata: NonNullable<TrackMetadataAnalysisPayload["knownMetadata"]>,
 ) {
   const fields = [
     ["Album", knownMetadata.album],
