@@ -14,7 +14,7 @@ export const enrichTrackMetadataTool = tool(
   {
     name: "enrich_track_metadata",
     description:
-      "Enrich track BPM, genre, and key using datastore, Rekordbox XML, optional audio-analysis placeholder, and provider fallbacks.",
+      "Enrich track BPM, genre, and key using datastore, optional audio-analysis placeholder, and provider fallbacks.",
     schema: z.object({
       operation: z
         .enum(["analyze", "enrich"])

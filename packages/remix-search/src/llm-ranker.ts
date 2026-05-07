@@ -1,7 +1,7 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import type { RemixSearchCandidate } from "@track-lab/api-types";
-import { logRemixSearch } from "./logger.ts";
+import { logRemixSearch } from "@track-lab/logger";
 import {
   rankRemixCandidates,
   scoreAndDedupeRemixCandidates,

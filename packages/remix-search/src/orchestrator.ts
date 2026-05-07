@@ -5,7 +5,7 @@ import type {
 } from "@track-lab/api-types";
 import { createRemixSearchQueries } from "./query-planner.ts";
 import { rankAndFilterRemixCandidates } from "./llm-ranker.ts";
-import { logRemixSearch } from "./logger.ts";
+import { logRemixSearch } from "@track-lab/logger";
 import { soundCloudRemixProvider } from "./providers/soundcloud.ts";
 import { soundCloudWebSearchProvider } from "./providers/soundcloud-web-search.ts";
 import {

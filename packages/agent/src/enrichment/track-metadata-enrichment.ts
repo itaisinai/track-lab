@@ -1,10 +1,10 @@
-import { lookupBeatportTrack } from "../providers/beatport.ts";
-import { lookupGetSongBpmTrack } from "../providers/getsongbpm.ts";
-import { lookupSpotifyTrack } from "../providers/spotify.ts";
 import {
+  lookupBeatportTrack,
+  lookupGetSongBpmTrack,
+  lookupSpotifyTrack,
   lookupWikipediaContext,
   type WikipediaLookupResult,
-} from "../providers/wikipedia.ts";
+} from "@track-lab/providers";
 import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichmentResultStore } from "./enrichment-result-store.ts";
 import {
