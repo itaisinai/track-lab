@@ -17,6 +17,10 @@ export function useReviewDraftState() {
   const trackDetails = response ? parseTrackDetails(response) : null;
 
   function loadJobIntoReview(job: TrackAnalysisJob) {
+    if (job.payload.operation === "remix_search") {
+      return;
+    }
+
     setTitle(job.payload.track.title);
     setArtists(job.payload.track.artists);
     setShowSearchForm(false);

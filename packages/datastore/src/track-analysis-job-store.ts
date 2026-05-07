@@ -26,10 +26,23 @@ export class TrackAnalysisJobStore {
     this.db = new DatabaseSync(resolvedPath);
     this.db.exec("PRAGMA journal_mode = WAL");
     this.db.exec("PRAGMA foreign_keys = ON");
+    this.createJobsTable();
+    this.ensureRemixSearchOperation();
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_track_analysis_jobs_status_created
+      ON track_analysis_jobs(status, created_at, id)
+    `);
+    this.db.exec(`
+      CREATE INDEX IF NOT EXISTS idx_track_analysis_jobs_unresolved
+      ON track_analysis_jobs(resolved_at, completed_at, id)
+    `);
+  }
+
+  private createJobsTable() {
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS track_analysis_jobs (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        operation TEXT NOT NULL CHECK (operation IN ('analyze', 'enrich')),
+        operation TEXT NOT NULL CHECK (operation IN ('analyze', 'enrich', 'remix_search')),
         status TEXT NOT NULL CHECK (
           status IN ('queued', 'processing', 'completed', 'failed', 'dead_lettered')
         ),
@@ -45,14 +58,56 @@ export class TrackAnalysisJobStore {
         resolved_at TEXT
       )
     `);
+  }
+
+  private ensureRemixSearchOperation() {
+    const row = this.db
+      .prepare(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'track_analysis_jobs'",
+      )
+      .get() as { sql: string } | undefined;
+
+    if (!row?.sql || row.sql.includes("'remix_search'")) {
+      return;
+    }
+
+    this.db.exec("DROP INDEX IF EXISTS idx_track_analysis_jobs_status_created");
+    this.db.exec("DROP INDEX IF EXISTS idx_track_analysis_jobs_unresolved");
+    this.db.exec("ALTER TABLE track_analysis_jobs RENAME TO track_analysis_jobs_legacy");
+    this.createJobsTable();
     this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_track_analysis_jobs_status_created
-      ON track_analysis_jobs(status, created_at, id)
+      INSERT INTO track_analysis_jobs (
+        id,
+        operation,
+        status,
+        payload_json,
+        result_json,
+        error_message,
+        attempt_count,
+        max_attempts,
+        created_at,
+        updated_at,
+        completed_at,
+        notification_read_at,
+        resolved_at
+      )
+      SELECT
+        id,
+        operation,
+        status,
+        payload_json,
+        result_json,
+        error_message,
+        attempt_count,
+        max_attempts,
+        created_at,
+        updated_at,
+        completed_at,
+        notification_read_at,
+        resolved_at
+      FROM track_analysis_jobs_legacy
     `);
-    this.db.exec(`
-      CREATE INDEX IF NOT EXISTS idx_track_analysis_jobs_unresolved
-      ON track_analysis_jobs(resolved_at, completed_at, id)
-    `);
+    this.db.exec("DROP TABLE track_analysis_jobs_legacy");
   }
 
   enqueue(input: EnqueueTrackAnalysisJobInput): TrackAnalysisJob {

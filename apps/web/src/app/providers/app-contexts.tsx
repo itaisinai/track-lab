@@ -13,10 +13,13 @@ export type AppShellContextValue = {
   currentReviewJobId: number | null;
   jobsError: string;
   notificationJobs: TrackAnalysisJob[];
+  remixJobId: number | null;
   view: View;
   onAnalyzeClick: () => void;
   onDataStoreClick: () => void;
   onNotificationsClick: () => void;
+  onRemixSearchClick: () => void;
+  onSavedRemixesClick: () => void;
   onReviewClick: () => void;
   onSavedResultsClick: () => void;
 };

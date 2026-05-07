@@ -1,15 +1,12 @@
-import { useState } from "react";
-import type { SavedTrackResult } from "../../types";
+import { useCallback, useState } from "react";
 
 export type DrawerState = "opening" | "open" | "closing";
 
-export function useResultDrawer() {
-  const [selectedResult, setSelectedResult] = useState<SavedTrackResult | null>(
-    null,
-  );
+export function useResultDrawer<T>() {
+  const [selectedResult, setSelectedResult] = useState<T | null>(null);
   const [drawerState, setDrawerState] = useState<DrawerState>("opening");
 
-  function openDrawer(result: SavedTrackResult) {
+  const openDrawer = useCallback((result: T) => {
     setDrawerState("opening");
     setSelectedResult(result);
     window.requestAnimationFrame(() => {
@@ -17,9 +14,9 @@ export function useResultDrawer() {
         setDrawerState("open");
       });
     });
-  }
+  }, []);
 
-  function closeDrawer() {
+  const closeDrawer = useCallback(() => {
     if (!selectedResult || drawerState === "closing") {
       return;
     }
@@ -29,7 +26,7 @@ export function useResultDrawer() {
       setSelectedResult(null);
       setDrawerState("opening");
     }, 260);
-  }
+  }, [drawerState, selectedResult]);
 
   return {
     closeDrawer,

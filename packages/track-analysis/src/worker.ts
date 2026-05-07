@@ -4,6 +4,7 @@ import {
   type TrackAnalysisJob,
   type TrackAnalysisPayload,
 } from "@track-lab/datastore";
+import { RemixSearchOrchestrator } from "@track-lab/remix-search";
 import { createTrackAnalysisPrompt } from "./prompts/track-analysis-prompt.ts";
 
 export type TrackAnalysisProcessor = (
@@ -66,6 +67,10 @@ export class TrackAnalysisWorker {
 }
 
 export async function processTrackAnalysisPayload(payload: TrackAnalysisPayload) {
+  if (payload.operation === "remix_search") {
+    return new RemixSearchOrchestrator().search(payload.request);
+  }
+
   return invokeTrackMetadataAgent(
     createTrackAnalysisPrompt(payload),
     {

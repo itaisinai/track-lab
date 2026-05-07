@@ -17,6 +17,7 @@ type UseAppRoutingOptions = {
   setShowSearchForm: Dispatch<SetStateAction<boolean>>;
   loadSavedResults: () => Promise<void>;
   openJobFromRoute: (jobId: number) => Promise<void>;
+  openRemixJobFromRoute: (jobId: number) => void;
   refreshAllJobs: () => Promise<void>;
   refreshReviewJobs: () => Promise<void>;
 };
@@ -26,11 +27,15 @@ export function useAppRouting({
   setShowSearchForm,
   loadSavedResults,
   openJobFromRoute,
+  openRemixJobFromRoute,
   refreshAllJobs,
   refreshReviewJobs,
 }: UseAppRoutingOptions) {
   const initialRoute = getRouteFromPath(window.location.pathname);
   const [view, setView] = useState<View>(initialRoute.view);
+  const [remixJobId, setRemixJobId] = useState<number | null>(
+    initialRoute.view === "remix-search" ? initialRoute.jobId ?? null : null,
+  );
 
   useEffect(() => {
     void applyRoute(getRouteFromPath(window.location.pathname), {
@@ -59,6 +64,9 @@ export function useAppRouting({
     }
 
     setView(route.view);
+    setRemixJobId(
+      route.view === "remix-search" ? route.jobId ?? null : null,
+    );
 
     if (route.view === "enrich" && !route.jobId) {
       setShowSearchForm(true);
@@ -68,6 +76,14 @@ export function useAppRouting({
 
     if (route.view === "results") {
       await loadSavedResults();
+      return;
+    }
+
+    if (route.view === "remix-search") {
+      if (route.jobId) {
+        openRemixJobFromRoute(route.jobId);
+      }
+
       return;
     }
 
@@ -88,6 +104,7 @@ export function useAppRouting({
 
   function navigateToView(nextView: View, options: { replace?: boolean } = {}) {
     setView(nextView);
+    setRemixJobId(null);
     updateHistory(getPathForView(nextView), options.replace ?? false);
   }
 
@@ -95,9 +112,17 @@ export function useAppRouting({
     updateHistory(`/review/jobs/${jobId}`, false);
   }
 
+  function navigateToRemixJob(jobId: number) {
+    setView("remix-search");
+    setRemixJobId(jobId);
+    updateHistory(`/remix-search/jobs/${jobId}`, false);
+  }
+
   return {
     navigateToJob,
+    navigateToRemixJob,
     navigateToView,
+    remixJobId,
     setView,
     view,
   };

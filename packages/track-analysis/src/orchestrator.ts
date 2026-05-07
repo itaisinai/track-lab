@@ -24,8 +24,28 @@ export class TrackAnalysisOrchestrator {
 }
 
 function validateRequest(request: EnqueueTrackAnalysisRequest): TrackAnalysisPayload {
+  if (request.operation === "remix_search") {
+    const title = request.request.title?.trim();
+    const artists = request.request.artists?.trim();
+    const spotifyUrl = request.request.spotifyUrl?.trim();
+
+    if (!spotifyUrl && (!title || !artists)) {
+      throw new Error("Provide a Spotify URL or both title and artists.");
+    }
+
+    return {
+      operation: "remix_search",
+      request: {
+        title: title || null,
+        artists: artists || null,
+        spotifyUrl: spotifyUrl || null,
+        genre: request.request.genre?.trim() || null,
+      },
+    };
+  }
+
   if (request.operation !== "analyze" && request.operation !== "enrich") {
-    throw new Error("Operation must be analyze or enrich.");
+    throw new Error("Operation must be analyze, enrich, or remix_search.");
   }
 
   const title = request.track?.title?.trim();

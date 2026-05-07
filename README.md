@@ -8,6 +8,7 @@ local SQLite database, and reuses saved results before calling external provider
 - `apps/api` - Express API.
 - `apps/web` - React/Vite UI.
 - `packages/agent` - LangChain metadata agent.
+- `packages/remix-search` - Remix discovery providers and ranking.
 - `packages/datastore` - SQLite result store.
 
 ## Run
@@ -36,10 +37,20 @@ SPOTIFY_CLIENT_SECRET=
 GETSONGBPM_API_KEY=
 BEATPORT_CLIENT_ID=
 BEATPORT_CLIENT_SECRET=
+# Optional fallback search service for SoundCloud discovery.
+SEARXNG_SEARCH_URL=http://localhost:8080/search
 ```
 
 Provider credentials are optional for local wiring, but real enrichment quality
 depends on them.
+SoundCloud remix discovery can use SoundCloud's public search fallback directly.
+`SEARXNG_SEARCH_URL` is optional and can provide another free search source.
+
+Run SearXNG locally with Docker:
+
+```sh
+docker run --rm -p 8080:8080 searxng/searxng
+```
 
 ## Persistence
 
@@ -68,6 +79,7 @@ Saved tracks are unique by returned `Title + Artists`.
 ## API
 
 - `POST /agent` - run enrichment.
+- `POST /remix-search` - search remix candidates.
 - `GET /results` - list saved results.
 - `GET /results/:id` - get one saved result.
 - `POST /results` - save an agent response.

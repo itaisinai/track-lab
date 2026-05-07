@@ -14,7 +14,7 @@ import {
   getErrorMessage,
   getFirstErrorMessage,
 } from "../../../lib/errors/app-errors";
-import type { TrackAnalysisJob } from "../../../types";
+import type { TrackAnalysisJob, View } from "../../../types";
 
 type JobDraftActions = {
   clearCurrentReviewState: () => void;
@@ -25,8 +25,9 @@ type JobDraftActions = {
 
 type JobRoutingActions = {
   navigateToJob: (jobId: number) => void;
-  navigateToView: (view: "enrich" | "results" | "review" | "datastore") => void;
-  setView: (view: "enrich" | "results" | "review" | "datastore") => void;
+  navigateToRemixJob: (jobId: number) => void;
+  navigateToView: (view: View) => void;
+  setView: (view: View) => void;
 };
 
 type UseTrackAnalysisJobActionsOptions = {
@@ -97,6 +98,12 @@ export function useTrackAnalysisJobActions({
       await markJobNotificationRead(job);
     }
 
+    if (job.operation === "remix_search") {
+      routing.navigateToRemixJob(job.id);
+      await refreshJobs();
+      return;
+    }
+
     draft.loadJobIntoReview(job);
     routing.setView("enrich");
     routing.navigateToJob(job.id);
@@ -109,6 +116,12 @@ export function useTrackAnalysisJobActions({
 
       if (!job.notificationReadAt) {
         await markJobNotificationRead(job);
+      }
+
+      if (job.operation === "remix_search") {
+        routing.setView("remix-search");
+        await refreshJobs();
+        return;
       }
 
       draft.loadJobIntoReview(job);

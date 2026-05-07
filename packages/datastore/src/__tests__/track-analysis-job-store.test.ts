@@ -66,6 +66,26 @@ test("job store retries failed jobs until max attempts then dead letters", () =>
   assert.equal(retried?.errorMessage, null);
 });
 
+test("job store enqueues remix search jobs in the shared queue", () => {
+  const store = createStore();
+  const queued = store.enqueue({
+    operation: "remix_search",
+    payload: {
+      operation: "remix_search",
+      request: {
+        title: "Babatunde",
+        artists: "Peekaboo",
+        spotifyUrl: null,
+        genre: "bass",
+      },
+    },
+  });
+
+  assert.equal(queued.operation, "remix_search");
+  assert.equal(queued.payload.operation, "remix_search");
+  assert.equal(store.claimNextJob()?.id, queued.id);
+});
+
 function createStore() {
   const directory = mkdtempSync(join(tmpdir(), "track-lab-jobs-"));
   return new TrackAnalysisJobStore(join(directory, "test.sqlite"));

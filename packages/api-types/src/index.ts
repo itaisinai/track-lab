@@ -60,7 +60,7 @@ export type NormalizedTrackResult = Omit<
   "id" | "json" | "rawResponse" | "createdAt" | "updatedAt"
 >;
 
-export type TrackAnalysisOperation = "analyze" | "enrich";
+export type TrackAnalysisOperation = "analyze" | "enrich" | "remix_search";
 
 export type TrackAnalysisJobStatus =
   | "queued"
@@ -83,8 +83,8 @@ export type TrackAnalysisSource =
   | "saved_result"
   | "bulk_saved_results";
 
-export type TrackAnalysisPayload = {
-  operation: TrackAnalysisOperation;
+export type TrackMetadataAnalysisPayload = {
+  operation: "analyze" | "enrich";
   track: {
     title: string;
     artists: string;
@@ -92,6 +92,15 @@ export type TrackAnalysisPayload = {
   knownMetadata?: TrackAnalysisKnownMetadata;
   source?: TrackAnalysisSource;
 };
+
+export type RemixSearchJobPayload = {
+  operation: "remix_search";
+  request: RemixSearchRequest;
+};
+
+export type TrackAnalysisPayload =
+  | (TrackMetadataAnalysisPayload & { operation: "analyze" | "enrich" })
+  | RemixSearchJobPayload;
 
 export type TrackAnalysisJob = {
   id: number;
@@ -115,6 +124,8 @@ export type EnqueueTrackAnalysisResponse = {
   job: Pick<TrackAnalysisJob, "id" | "status">;
 };
 
+export type EnqueueRemixSearchResponse = EnqueueTrackAnalysisResponse;
+
 export type ListSavedResultsResponse = {
   results: SavedTrackResult[];
 };
@@ -129,4 +140,65 @@ export type ListTrackAnalysisJobsResponse = {
 
 export type TrackAnalysisJobResponse = {
   job: TrackAnalysisJob;
+};
+
+export type RemixSearchRequest = {
+  title?: string | null;
+  artists?: string | null;
+  spotifyUrl?: string | null;
+  genre?: string | null;
+};
+
+export type RemixSearchOriginalTrack = {
+  title: string;
+  artists: string;
+  spotifyUrl?: string | null;
+  album?: string | null;
+  durationMs?: number | null;
+};
+
+export type RemixSearchProvider = "SoundCloud" | "Spotify" | "Beatport";
+
+export type RemixSearchCandidate = {
+  title: string;
+  artists: string;
+  remixArtist?: string | null;
+  album?: string | null;
+  genre?: string | null;
+  subGenre?: string | null;
+  bpm?: number | null;
+  provider: RemixSearchProvider;
+  link: string;
+  createdAt?: string | null;
+  durationMs?: number | null;
+  confidence: number;
+  relevanceReason: string;
+};
+
+export type RemixSearchResponse = {
+  originalTrack: RemixSearchOriginalTrack;
+  requestedGenre?: string | null;
+  candidates: RemixSearchCandidate[];
+};
+
+export type SavedRemixCandidate = RemixSearchCandidate & {
+  id: number;
+  originalTrack: RemixSearchOriginalTrack;
+  requestedGenre?: string | null;
+  savedAt: string;
+  updatedAt: string;
+};
+
+export type SaveRemixCandidateRequest = {
+  candidate: RemixSearchCandidate;
+  originalTrack: RemixSearchOriginalTrack;
+  requestedGenre?: string | null;
+};
+
+export type ListSavedRemixCandidatesResponse = {
+  remixes: SavedRemixCandidate[];
+};
+
+export type SaveRemixCandidateResponse = {
+  remix: SavedRemixCandidate;
 };

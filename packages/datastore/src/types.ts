@@ -3,7 +3,9 @@ import type {
   ProviderStatus,
   ResultError,
   ResultStatus,
+  SaveRemixCandidateRequest,
   SaveTrackResultInput,
+  SavedRemixCandidate,
   SavedTrackResult,
   TrackAnalysisJob,
   TrackAnalysisJobStatus,
@@ -18,7 +20,9 @@ export type {
   ProviderStatus,
   ResultError,
   ResultStatus,
+  SaveRemixCandidateRequest,
   SaveTrackResultInput,
+  SavedRemixCandidate,
   SavedTrackResult,
   TrackAnalysisJob,
   TrackAnalysisJobStatus,
@@ -30,6 +34,7 @@ export type {
 
 export type ToolStatus = ProviderStatus;
 export type TrackResult = SavedTrackResult;
+export type SavedRemix = SavedRemixCandidate;
 
 export type TrackResultRow = {
   id: number;
@@ -70,4 +75,26 @@ export type TrackAnalysisJobRow = {
   completed_at: string | null;
   notification_read_at: string | null;
   resolved_at: string | null;
+};
+
+export type SavedRemixRow = {
+  id: number;
+  provider: string;
+  link: string;
+  title: string;
+  artists: string;
+  remix_artist: string | null;
+  album: string | null;
+  genre: string | null;
+  sub_genre: string | null;
+  bpm: number | null;
+  uploaded_at: string | null;
+  duration_ms: number | null;
+  confidence: number;
+  relevance_reason: string;
+  original_track_json: string;
+  requested_genre: string | null;
+  candidate_json: string;
+  saved_at: string;
+  updated_at: string;
 };

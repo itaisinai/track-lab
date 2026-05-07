@@ -222,6 +222,23 @@ tr:last-child td {
   font-size: 12px;
 }
 
+.nested-table {
+  min-width: 980px;
+  border: 1px solid #30434a;
+  border-radius: 8px;
+  background: rgb(8 16 20 / 72%);
+  overflow: hidden;
+}
+
+.nested-table th {
+  background: rgb(16 27 33 / 88%);
+}
+
+.nested-table td,
+.nested-table th {
+  padding: 9px 11px;
+}
+
 @keyframes results-enter {
   from {
     opacity: 0;

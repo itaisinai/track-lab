@@ -13,7 +13,8 @@
   "dependencies": {
     "@track-lab/agent": "workspace:*",
     "@track-lab/api-types": "workspace:*",
-    "@track-lab/datastore": "workspace:*"
+    "@track-lab/datastore": "workspace:*",
+    "@track-lab/remix-search": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",
