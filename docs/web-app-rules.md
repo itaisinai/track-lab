@@ -18,7 +18,7 @@ These rules capture the frontend practices we want Track Lab to follow as the ap
 - Dependency inversion: views receive data and callbacks; hooks own API/mutation details.
 - Avoid general-purpose controller hooks or contexts, such as `useAppController`, that collect unrelated state and actions. Split by feature responsibility and expose narrow contexts/contracts.
 - Keep `index.ts` files as export barrels or thin entrypoint delegates only. Do not implement behavior, domain types, components, hooks, services, or business logic directly in an `index.ts`. Create a named file that frames the responsibility clearly, then have `index.ts` re-export it or import/delegate to it.
-- Provider folders should have a short primary operation file, such as `metadata.ts`, `remix.ts`, or `web-search.ts`, that owns the exported operation. Put parsing, scoring, HTTP helpers, response normalization, and provider-specific private helpers in a colocated utilities file used by that primary file.
+- Provider folders should have a short primary operation file, such as `<provider>.provider.ts`, `remix.ts`, or `web-search.ts`, that owns the exported operation. Put parsing, scoring, HTTP helpers, response normalization, and provider-specific private helpers in a colocated utilities file used by that primary file.
 
 ## File Size
 

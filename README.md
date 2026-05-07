@@ -11,6 +11,10 @@ local SQLite database, and reuses saved results before calling external provider
 - `packages/remix-search` - Remix discovery providers and ranking.
 - `packages/datastore` - SQLite result store.
 
+## Architecture
+
+![Track Lab system architecture](docs/system-architecture.svg)
+
 ## Run
 
 ```sh

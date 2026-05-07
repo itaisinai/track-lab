@@ -1,0 +1,239 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1120" viewBox="0 0 1600 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Track Lab System Architecture</title>
+  <desc id="desc">High-level architecture graph from client through API, SQLite job queue, worker, provider services, and AI flows.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#78d9d0" />
+    </marker>
+    <marker id="arrow-ai" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto" markerUnits="strokeWidth">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#b68cff" />
+    </marker>
+    <style>
+      .bg { fill: #071116; }
+      .lane { fill: #0b171d; stroke: #24404a; stroke-width: 2; rx: 18; }
+      .lane-title { fill: #9fb2bb; font: 700 18px Inter, Arial, sans-serif; letter-spacing: .08em; text-transform: uppercase; }
+      .box { fill: #102129; stroke: #35535e; stroke-width: 2; rx: 14; }
+      .box-client { fill: #102629; stroke: #4fb9ae; }
+      .box-api { fill: #132232; stroke: #5f9bd8; }
+      .box-worker { fill: #182337; stroke: #8aa0ff; }
+      .box-data { fill: #1b241d; stroke: #91c978; }
+      .box-provider { fill: #191d25; stroke: #d0b36a; }
+      .box-ai { fill: #21172e; stroke: #b68cff; }
+      .box-title { fill: #f1f7f7; font: 700 22px Inter, Arial, sans-serif; }
+      .box-subtitle { fill: #b9c8ce; font: 500 15px Inter, Arial, sans-serif; }
+      .small { fill: #97a8af; font: 500 13px Inter, Arial, sans-serif; }
+      .pill { fill: #163c42; stroke: #4fb9ae; stroke-width: 1.5; rx: 18; }
+      .pill-text { fill: #b8fff6; font: 700 13px Inter, Arial, sans-serif; }
+      .arrow { fill: none; stroke: #78d9d0; stroke-width: 3; marker-end: url(#arrow); }
+      .arrow-muted { fill: none; stroke: #55727b; stroke-width: 2.5; marker-end: url(#arrow); }
+      .arrow-ai { fill: none; stroke: #b68cff; stroke-width: 3; stroke-dasharray: 8 7; marker-end: url(#arrow-ai); }
+      .label { fill: #c8f4ef; font: 700 13px Inter, Arial, sans-serif; }
+      .ai-label { fill: #dfcaff; font: 700 13px Inter, Arial, sans-serif; }
+      .note { fill: #c6d2d6; font: 600 15px Inter, Arial, sans-serif; }
+      .title { fill: #f7fbfb; font: 800 34px Inter, Arial, sans-serif; }
+      .subtitle { fill: #9fb2bb; font: 500 16px Inter, Arial, sans-serif; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1600" height="1120" />
+
+  <text class="title" x="52" y="58">Track Lab System Architecture</text>
+  <text class="subtitle" x="52" y="88">Client, API, async worker, SQLite datastore, providers, and AI decision flows</text>
+
+  <rect class="lane" x="40" y="120" width="300" height="880" />
+  <text class="lane-title" x="62" y="154">Client</text>
+
+  <rect class="lane" x="370" y="120" width="270" height="880" />
+  <text class="lane-title" x="392" y="154">Backend API</text>
+
+  <rect class="lane" x="670" y="120" width="300" height="880" />
+  <text class="lane-title" x="692" y="154">Async Runtime</text>
+
+  <rect class="lane" x="1000" y="120" width="260" height="880" />
+  <text class="lane-title" x="1022" y="154">Domain Packages</text>
+
+  <rect class="lane" x="1290" y="120" width="270" height="880" />
+  <text class="lane-title" x="1312" y="154">External Services</text>
+
+  <!-- Client -->
+  <rect class="box box-client" x="70" y="190" width="240" height="140" />
+  <text class="box-title" x="94" y="230">React Web App</text>
+  <text class="box-subtitle" x="94" y="260">Vite + React Query</text>
+  <text class="box-subtitle" x="94" y="284">TanStack Table</text>
+  <text class="small" x="94" y="312">Analyze, Review Queue,</text>
+  <text class="small" x="94" y="332">Remix Search, Saved Data</text>
+
+  <rect class="box box-client" x="70" y="390" width="240" height="128" />
+  <text class="box-title" x="94" y="430">Polling UI</text>
+  <text class="box-subtitle" x="94" y="460">Active jobs</text>
+  <text class="box-subtitle" x="94" y="484">Notifications</text>
+  <text class="small" x="94" y="512">Opens completed jobs</text>
+
+  <rect class="box box-client" x="70" y="580" width="240" height="136" />
+  <text class="box-title" x="94" y="620">Review + Save</text>
+  <text class="box-subtitle" x="94" y="650">Manual save only</text>
+  <text class="box-subtitle" x="94" y="674">Dismiss / resolve</text>
+  <text class="small" x="94" y="702">Drawers show full result</text>
+
+  <!-- API -->
+  <rect class="box box-api" x="400" y="190" width="210" height="155" />
+  <text class="box-title" x="424" y="230">Express API</text>
+  <text class="box-subtitle" x="424" y="260">/agent</text>
+  <text class="box-subtitle" x="424" y="284">/remix-search</text>
+  <text class="box-subtitle" x="424" y="308">/track-analysis/jobs</text>
+  <text class="box-subtitle" x="424" y="332">/results</text>
+
+  <rect class="box box-api" x="400" y="405" width="210" height="128" />
+  <text class="box-title" x="424" y="445">API Types</text>
+  <text class="box-subtitle" x="424" y="475">@track-lab/api-types</text>
+  <text class="small" x="424" y="506">Shared request/response</text>
+
+  <rect class="box box-api" x="400" y="605" width="210" height="125" />
+  <text class="box-title" x="424" y="645">Thin Routes</text>
+  <text class="box-subtitle" x="424" y="675">enqueue jobs</text>
+  <text class="box-subtitle" x="424" y="699">read stores</text>
+
+  <!-- Async runtime -->
+  <rect class="box box-data" x="700" y="185" width="240" height="160" />
+  <text class="box-title" x="724" y="225">SQLite Datastore</text>
+  <text class="box-subtitle" x="724" y="255">track_analysis_jobs</text>
+  <text class="box-subtitle" x="724" y="279">track_results</text>
+  <text class="box-subtitle" x="724" y="303">saved_remixes</text>
+  <text class="small" x="724" y="331">queue + persistent review data</text>
+
+  <rect class="box box-worker" x="700" y="410" width="240" height="142" />
+  <text class="box-title" x="724" y="450">Worker App</text>
+  <text class="box-subtitle" x="724" y="480">@track-lab/worker</text>
+  <text class="box-subtitle" x="724" y="504">polls + claims jobs</text>
+  <text class="small" x="724" y="532">sequential processing</text>
+
+  <rect class="box box-worker" x="700" y="610" width="240" height="150" />
+  <text class="box-title" x="724" y="650">TrackAnalysisWorker</text>
+  <text class="box-subtitle" x="724" y="680">analyze</text>
+  <text class="box-subtitle" x="724" y="704">enrich</text>
+  <text class="box-subtitle" x="724" y="728">remix_search</text>
+
+  <!-- Domain packages -->
+  <rect class="box" x="1030" y="180" width="200" height="120" />
+  <text class="box-title" x="1054" y="220">Orchestrator</text>
+  <text class="box-subtitle" x="1054" y="250">@track-lab/</text>
+  <text class="box-subtitle" x="1054" y="274">track-analysis</text>
+
+  <rect class="box box-ai" x="1030" y="360" width="200" height="150" />
+  <text class="box-title" x="1054" y="400">Metadata Agent</text>
+  <text class="box-subtitle" x="1054" y="430">@track-lab/agent</text>
+  <text class="small" x="1054" y="458">merge provider evidence</text>
+  <text class="small" x="1054" y="480">synthesize summary</text>
+
+  <rect class="box box-ai" x="1030" y="570" width="200" height="154" />
+  <text class="box-title" x="1054" y="610">Remix Search</text>
+  <text class="box-subtitle" x="1054" y="640">@track-lab/</text>
+  <text class="box-subtitle" x="1054" y="664">remix-search</text>
+  <text class="small" x="1054" y="692">plan queries + rank</text>
+
+  <rect class="box box-provider" x="1030" y="790" width="200" height="150" />
+  <text class="box-title" x="1054" y="830">Providers</text>
+  <text class="box-subtitle" x="1054" y="860">@track-lab/providers</text>
+  <text class="small" x="1054" y="888">shared provider interface</text>
+  <text class="small" x="1054" y="910">metadata + remix sources</text>
+
+  <!-- External -->
+  <rect class="box box-provider" x="1320" y="180" width="210" height="182" />
+  <text class="box-title" x="1344" y="220">Metadata Sources</text>
+  <text class="box-subtitle" x="1344" y="252">Spotify</text>
+  <text class="box-subtitle" x="1344" y="276">GetSongBPM</text>
+  <text class="box-subtitle" x="1344" y="300">Beatport</text>
+  <text class="box-subtitle" x="1344" y="324">Wikipedia</text>
+
+  <rect class="box box-provider" x="1320" y="430" width="210" height="152" />
+  <text class="box-title" x="1344" y="470">Remix Sources</text>
+  <text class="box-subtitle" x="1344" y="502">Spotify</text>
+  <text class="box-subtitle" x="1344" y="526">SoundCloud API</text>
+  <text class="box-subtitle" x="1344" y="550">SoundCloud Web</text>
+
+  <rect class="box box-ai" x="1320" y="650" width="210" height="150" />
+  <text class="box-title" x="1344" y="690">OpenAI</text>
+  <text class="box-subtitle" x="1344" y="720">LangChain</text>
+  <text class="small" x="1344" y="750">metadata synthesis</text>
+  <text class="small" x="1344" y="772">remix candidate ranking</text>
+
+  <rect class="box box-provider" x="1320" y="860" width="210" height="82" />
+  <text class="box-title" x="1344" y="900">SearXNG</text>
+  <text class="box-subtitle" x="1344" y="926">optional web search</text>
+
+  <!-- Arrows client -> API -->
+  <path class="arrow" d="M310 250 C345 250 358 250 400 250" />
+  <text class="label" x="316" y="238">HTTP API</text>
+
+  <path class="arrow-muted" d="M310 450 C350 450 360 450 400 450" />
+  <text class="label" x="318" y="438">poll jobs</text>
+
+  <path class="arrow-muted" d="M310 650 C350 650 360 650 400 650" />
+  <text class="label" x="318" y="638">save / resolve</text>
+
+  <!-- API -> queue/stores -->
+  <path class="arrow" d="M610 250 C648 250 658 250 700 250" />
+  <text class="label" x="618" y="238">enqueue</text>
+
+  <path class="arrow-muted" d="M610 675 C650 675 660 300 700 300" />
+  <text class="label" x="618" y="660">read/write</text>
+
+  <path class="arrow-muted" d="M505 345 L505 405" />
+  <text class="label" x="516" y="378">typed contracts</text>
+
+  <!-- runtime -->
+  <path class="arrow" d="M820 345 L820 410" />
+  <text class="label" x="834" y="382">claim</text>
+
+  <path class="arrow" d="M820 552 L820 610" />
+  <text class="label" x="834" y="588">run</text>
+
+  <path class="arrow-muted" d="M700 700 C652 700 652 310 700 310" />
+  <text class="label" x="604" y="515">complete / fail</text>
+
+  <!-- packages -->
+  <path class="arrow" d="M610 255 C790 120 900 210 1030 235" />
+  <text class="label" x="740" y="158">orchestrator API</text>
+
+  <path class="arrow" d="M940 685 C970 685 995 430 1030 430" />
+  <text class="label" x="940" y="535">analyze/enrich</text>
+
+  <path class="arrow" d="M940 700 C975 700 995 650 1030 650" />
+  <text class="label" x="946" y="720">remix_search</text>
+
+  <path class="arrow" d="M1130 510 L1130 790" />
+  <text class="label" x="1142" y="654">provider registry</text>
+
+  <path class="arrow-muted" d="M1130 724 L1130 790" />
+
+  <!-- providers to external -->
+  <path class="arrow" d="M1230 845 C1275 845 1270 270 1320 270" />
+  <text class="label" x="1248" y="535">lookup metadata</text>
+
+  <path class="arrow" d="M1230 866 C1275 866 1270 510 1320 510" />
+  <text class="label" x="1250" y="690">search remixes</text>
+
+  <path class="arrow-muted" d="M1425 860 L1425 582" />
+  <text class="label" x="1438" y="835">optional</text>
+
+  <!-- AI flows -->
+  <path class="arrow-ai" d="M1230 430 C1280 430 1268 720 1320 720" />
+  <text class="ai-label" x="1242" y="585">synthesize</text>
+
+  <path class="arrow-ai" d="M1230 650 C1270 650 1280 730 1320 735" />
+  <text class="ai-label" x="1244" y="674">rank</text>
+
+  <!-- UI review feedback -->
+  <path class="arrow-muted" d="M700 230 C560 112 235 116 190 190" />
+  <text class="label" x="382" y="126">completed jobs become notifications / review queue</text>
+
+  <!-- Legend -->
+  <rect class="lane" x="50" y="1030" width="1500" height="62" />
+  <rect class="pill" x="78" y="1048" width="122" height="28" />
+  <text class="pill-text" x="94" y="1068">HTTP + polling</text>
+  <line x1="230" y1="1062" x2="295" y2="1062" class="arrow" />
+  <text class="note" x="315" y="1068">Queue/store flow</text>
+  <line x1="480" y1="1062" x2="545" y2="1062" class="arrow-ai" />
+  <text class="note" x="565" y="1068">AI synthesis/ranking flow</text>
+  <text class="note" x="825" y="1068">Async jobs let users keep working while worker completes analyze, enrich, and remix search tasks.</text>
+</svg>
