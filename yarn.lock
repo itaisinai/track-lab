@@ -969,6 +969,8 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@track-lab/remix-search@workspace:packages/remix-search"
   dependencies:
+    "@langchain/core": "npm:1.1.42"
+    "@langchain/openai": "npm:^1.4.5"
     "@track-lab/api-types": "workspace:*"
     "@types/node": "npm:^25.6.0"
     typescript: "npm:^5.9.3"
@@ -982,6 +984,7 @@ __metadata:
     "@track-lab/agent": "workspace:*"
     "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
+    "@track-lab/remix-search": "workspace:*"
     "@types/node": "npm:^25.6.0"
     typescript: "npm:^5.9.3"
   languageName: unknown
