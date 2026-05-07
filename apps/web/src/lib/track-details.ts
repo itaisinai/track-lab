@@ -214,7 +214,6 @@ function extractSourceStatuses(record: Record<string, unknown>): ProviderStatus[
 function formatSourceName(source: string) {
   const names: Record<string, string> = {
     local_db: "Local DB",
-    rekordbox_xml: "Rekordbox XML",
     audio_analysis: "Audio Analysis",
     spotify: "Spotify",
     getsongbpm: "GetSongBPM",

@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { lookupSpotifyTrack } from "../providers/spotify.ts";
+import { lookupSpotifyTrack } from "@track-lab/providers";
 
 export const spotifyTrackLookupTool = tool(
   async (input) => JSON.stringify(await lookupSpotifyTrack(input)),

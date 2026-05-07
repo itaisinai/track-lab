@@ -1,5 +1,5 @@
 {
-  "name": "@track-lab/remix-search",
+  "name": "@track-lab/providers",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,11 +11,8 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@langchain/core": "1.1.42",
-    "@langchain/openai": "^1.4.5",
     "@track-lab/api-types": "workspace:*",
-    "@track-lab/logger": "workspace:*",
-    "@track-lab/providers": "workspace:*"
+    "@track-lab/logger": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^25.6.0",

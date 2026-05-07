@@ -1,7 +1,8 @@
-import type { ProviderTrackLookupResult, TrackLookupInput } from "./types.ts";
-import { logProviderSearch, normalize, parseNumericValue } from "./utils.ts";
-
-import { config } from "../config.ts";
+import {
+  logProviderSearch,
+  normalize,
+  parseNumericValue,
+} from "../shared/utils.ts";
 
 const BEATPORT_TOKEN_URL = "https://api.beatport.com/v4/auth/o/token/";
 const BEATPORT_API_URL = "https://api.beatport.com/v4";
@@ -60,132 +61,17 @@ type BeatportArtist = BeatportNamedField & {
 
 let cachedToken: BeatportToken | null = null;
 
-export async function lookupBeatportTrack({
-  title,
-  artists,
-}: TrackLookupInput): Promise<ProviderTrackLookupResult> {
-  logProviderSearch("beatport", "search started", { title, artists });
-
-  try {
-    if (!config.beatport.clientId || !config.beatport.clientSecret) {
-      logProviderSearch("beatport", "using public search page fallback");
-      return await lookupBeatportPublicSearch(title, artists);
-    }
-
-    const token = await getBeatportAccessToken();
-    const tracks = await searchBeatportTracks(token, title, artists);
-    const match =
-      findBestBeatportMatch(tracks, title, artists) ?? tracks[0] ?? null;
-    logProviderSearch("beatport", "api search results", {
-      candidates: tracks.length,
-      selected: match ? getTrackName(match) : null,
-    });
-
-    if (!match) {
-      logProviderSearch("beatport", "no match", { title, artists });
-      return {
-        found: false,
-        source: "beatport",
-        bpm: null,
-        genre: null,
-        key: null,
-        url: null,
-        error: null,
-        note: "No matching Beatport track found.",
-        candidates: tracks.slice(0, 5).map(toBeatportSummary),
-      };
-    }
-
-    logProviderSearch("beatport", "matched track", toBeatportSummary(match));
-
-    return {
-      found: true,
-      source: "beatport",
-      bpm: parseNumericValue(match.bpm),
-      genre: getBeatportGenre(match, 0),
-      subGenre: getName(match.sub_genre) ?? match.sub_genre_name ?? null,
-      key: getName(match.key) ?? match.key_name ?? null,
-      url: getBeatportUrl(match),
-      track: {
-        id: match.id,
-        title: getTrackName(match),
-        mixName: match.mix_name ?? null,
-        artists: getArtistNames(match),
-        release: getName(match.release) ?? match.release_name ?? null,
-        label: getName(match.label) ?? match.label_name ?? null,
-      },
-      error: null,
-      candidates: tracks.slice(0, 5).map(toBeatportSummary),
-    };
-  } catch (error) {
-    logProviderSearch("beatport", "search failed", {
-      error: error instanceof Error ? error.message : String(error),
-    });
-    return {
-      found: false,
-      source: "beatport",
-      bpm: null,
-      genre: null,
-      key: null,
-      url: null,
-      error: error instanceof Error ? error.message : String(error),
-    };
-  }
+export function hasBeatportCredentials() {
+  return Boolean(process.env.BEATPORT_CLIENT_ID && process.env.BEATPORT_CLIENT_SECRET);
 }
 
-async function lookupBeatportPublicSearch(title: string, artists: string) {
-  const tracks = await searchBeatportPublicTracks(title, artists);
-  const match = findBestBeatportMatch(tracks, title, artists) ?? null;
-  logProviderSearch("beatport", "public search results", {
-    candidates: tracks.length,
-    selected: match ? getTrackName(match) : null,
-  });
-
-  if (!match) {
-    logProviderSearch("beatport", "no match", { title, artists });
-    return {
-      found: false,
-      source: "beatport",
-      bpm: null,
-      genre: null,
-      key: null,
-      url: null,
-      error: null,
-      note: "No matching Beatport track found.",
-      candidates: [],
-    };
-  }
-
-  logProviderSearch("beatport", "matched public track", toBeatportSummary(match));
-
-  return {
-    found: true,
-    source: "beatport",
-    bpm: parseNumericValue(match.bpm),
-    genre: getBeatportGenre(match, 0),
-    subGenre: getBeatportGenre(match, 1),
-    key: match.key_name ?? getName(match.key) ?? null,
-    url: getBeatportUrl(match),
-    track: {
-      id: match.id ?? match.track_id,
-      title: getTrackName(match),
-      mixName: match.mix_name ?? null,
-      artists: getArtistNames(match),
-      release: getName(match.release) ?? match.release_name ?? null,
-      label: getName(match.label) ?? match.label_name ?? null,
-    },
-    error: null,
-    candidates: tracks.slice(0, 5).map(toBeatportSummary),
-  };
-}
-
-async function getBeatportAccessToken() {
+export async function getBeatportAccessToken() {
   if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
     return cachedToken.accessToken;
   }
 
-  const clientId = config.beatport.clientId;
-  const clientSecret = config.beatport.clientSecret;
+  const clientId = process.env.BEATPORT_CLIENT_ID;
+  const clientSecret = process.env.BEATPORT_CLIENT_SECRET;
 
   if (!clientId || !clientSecret) {
     throw new Error("Missing Beatport credentials.");
@@ -215,7 +101,7 @@ async function getBeatportAccessToken() {
   return cachedToken.accessToken;
 }
 
-async function searchBeatportTracks(
+export async function searchBeatportTracks(
   token: string,
   title: string,
   artists: string,
@@ -235,7 +121,7 @@ async function searchBeatportTracks(
   return data.results ?? [];
 }
 
-async function searchBeatportPublicTracks(title: string, artists: string) {
+export async function searchBeatportPublicTracks(title: string, artists: string) {
   const seenTrackIds = new Set<string>();
   const tracks: BeatportTrack[] = [];
 
@@ -333,7 +219,7 @@ async function parseBeatportResponse<T>(response: Response, step: string) {
   return data as T;
 }
 
-function findBestBeatportMatch(
+export function findBestBeatportMatch(
   tracks: BeatportTrack[],
   title: string,
   artists: string,
@@ -398,7 +284,7 @@ function splitArtistNames(artists: string) {
     .filter(Boolean);
 }
 
-function toBeatportSummary(track: BeatportTrack) {
+export function toBeatportSummary(track: BeatportTrack) {
   return {
     id: track.id ?? track.track_id,
     title: getTrackName(track),
@@ -411,23 +297,23 @@ function toBeatportSummary(track: BeatportTrack) {
   };
 }
 
-function getTrackName(track: BeatportTrack) {
+export function getTrackName(track: BeatportTrack) {
   return track.name ?? track.title ?? track.track_name ?? "";
 }
 
-function getArtistNames(track: BeatportTrack) {
+export function getArtistNames(track: BeatportTrack) {
   return track.artists
     ?.map((artist) => artist.name ?? artist.artist_name)
     .filter((name): name is string => Boolean(name)) ?? [];
 }
 
-function getName(field: BeatportNamedField | null | undefined) {
+export function getName(field: BeatportNamedField | null | undefined) {
   return (
     field?.name ?? field?.artist_name ?? field?.label_name ?? field?.release_name
   );
 }
 
-function getBeatportGenre(track: BeatportTrack, index: number) {
+export function getBeatportGenre(track: BeatportTrack, index: number) {
   if (Array.isArray(track.genre)) {
     return track.genre[index]?.genre_name ?? track.genre[index]?.name ?? null;
   }
@@ -439,7 +325,7 @@ function getBeatportGenre(track: BeatportTrack, index: number) {
   return getName(track.sub_genre) ?? track.sub_genre_name ?? null;
 }
 
-function getBeatportUrl(track: BeatportTrack) {
+export function getBeatportUrl(track: BeatportTrack) {
   if (track.url) {
     return track.url.startsWith("http")
       ? track.url

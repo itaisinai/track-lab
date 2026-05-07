@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { lookupGetSongBpmTrack } from "../providers/getsongbpm.ts";
+import { lookupGetSongBpmTrack } from "@track-lab/providers";
 
 export const getSongBpmLookupTool = tool(
   async (input) => JSON.stringify(await lookupGetSongBpmTrack(input)),

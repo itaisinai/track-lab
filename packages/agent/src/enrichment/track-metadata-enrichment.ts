@@ -1,16 +1,14 @@
-import { lookupBeatportTrack } from "../providers/beatport.ts";
-import { lookupGetSongBpmTrack } from "../providers/getsongbpm.ts";
-import { lookupSpotifyTrack } from "../providers/spotify.ts";
 import {
-  lookupWikipediaContext,
-  type WikipediaLookupResult,
-} from "../providers/wikipedia.ts";
+  createDefaultProviders,
+  createWikipediaContextProvider,
+  type TrackMetadataProvider,
+  type TrackMetadataProviderInput,
+  type TrackMetadataProviderResult,
+} from "@track-lab/providers";
 import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichmentResultStore } from "./enrichment-result-store.ts";
 import {
-  decideBeatportSearch,
   synthesizeEnrichedTrackMetadata,
-  type BeatportSearchDecision,
   type ProviderEvidence,
 } from "./llm-synthesis.ts";
 import type {
@@ -19,37 +17,10 @@ import type {
   EnrichmentSource,
 } from "./types.ts";
 
-export type ProviderLookup = (input: {
-  title: string;
-  artists: string;
-}) => Promise<{
-  found?: boolean;
-  source?: string;
-  bpm: number | null;
-  genre: string | null;
-  subGenre?: string | null;
-  key?: string | null;
-  album?: string | null;
-  url?: string | null;
-  track?: unknown;
-  error?: string | null;
-}>;
-
-export type WikipediaLookup = (input: {
-  title: string;
-  artists: string;
-}) => Promise<WikipediaLookupResult>;
-
 export type EnrichmentDependencies = {
   store?: EnrichmentResultStore;
-  spotifyLookup?: ProviderLookup;
-  beatportLookup?: ProviderLookup;
-  getSongBpmLookup?: ProviderLookup;
-  wikipediaLookup?: WikipediaLookup;
-  decideBeatportSearch?: (input: {
-    baseResult: EnrichedTrackMetadata;
-    providerEvidence: ProviderEvidence;
-  }) => Promise<BeatportSearchDecision>;
+  providers?: TrackMetadataProvider[];
+  contextProviders?: TrackMetadataProvider[];
   synthesize?: typeof synthesizeEnrichedTrackMetadata;
 };
 
@@ -132,17 +103,21 @@ async function applyContextProviders(
   errors: string[],
 ): Promise<ProviderEvidence> {
   const providerInput = {
-    title: result.trackName,
-    artists: result.artist ?? (input.artist as string),
+    trackName: result.trackName,
+    artist: result.artist ?? input.artist,
   };
-  const wikipedia = await safeWikipediaLookup(
-    dependencies.wikipediaLookup ?? lookupWikipediaContext,
-    providerInput,
-    errors,
-  );
-  addWikipediaToolStatus(result, wikipedia);
+  const evidence: ProviderEvidence = {};
 
-  return { wikipedia };
+  for (const provider of dependencies.contextProviders ?? [createWikipediaContextProvider()]) {
+    const providerResult = await safeProviderLookup(provider, providerInput, errors);
+    addToolStatus(result, provider, providerResult);
+
+    if (providerResult?.raw) {
+      setProviderEvidence(evidence, providerResult.source, providerResult.raw);
+    }
+  }
+
+  return evidence;
 }
 
 function applyLocalResult(
@@ -181,10 +156,10 @@ function applyKnownMetadata(
     return;
   }
 
-  applyAlbum(result, knownMetadata.album, "unknown", 0.5);
-  applyValue(result, "bpm", knownMetadata.bpm, "unknown", 0.5);
-  applyValue(result, "genre", knownMetadata.genre, "unknown", 0.5);
-  applyValue(result, "key", knownMetadata.key, "unknown", 0.5);
+  applyAlbum(result, knownMetadata.album, "unknown", 0.9);
+  applyValue(result, "bpm", knownMetadata.bpm, "unknown", 0.9);
+  applyValue(result, "genre", knownMetadata.genre, "unknown", 0.9);
+  applyValue(result, "key", knownMetadata.key, "unknown", 0.9);
 }
 
 async function applyProviderFallbacks(
@@ -195,56 +170,29 @@ async function applyProviderFallbacks(
 ): Promise<ProviderEvidence> {
   const evidence: ProviderEvidence = {};
   const providerInput = {
-    title: result.trackName,
-    artists: result.artist ?? (input.artist as string),
+    trackName: result.trackName,
+    artist: result.artist ?? input.artist,
   };
-  const shouldForceProviders = result.operation === "enrich";
+  const providers = dependencies.providers ?? createDefaultProviders();
 
-  if (shouldForceProviders || !result.genre) {
-    const spotify = await safeLookup(
-      dependencies.spotifyLookup ?? lookupSpotifyTrack,
-      providerInput,
-      errors,
-    );
-    evidence.spotify = spotify;
-    addToolStatus(result, "Spotify", spotify);
-    applyProviderIdentity(result, spotify?.track);
-    applyAlbum(result, getProviderAlbum(spotify), "spotify", 0.85);
-    result.spotifyUrl ??= getProviderUrl(spotify);
-    applyValue(result, "genre", spotify?.genre ?? null, "spotify", 0.65);
-  }
+  for (const provider of providers) {
+    const providerResult = await safeProviderLookup(provider, providerInput, errors);
+    addToolStatus(result, provider, providerResult);
 
-  if (shouldForceProviders || !result.bpm || !result.genre) {
-    const getSongBpm = await safeLookup(
-      dependencies.getSongBpmLookup ?? lookupGetSongBpmTrack,
-      providerInput,
-      errors,
-    );
-    evidence.getSongBpm = getSongBpm;
-    addToolStatus(result, "GetSongBPM", getSongBpm);
-    applyAlbum(result, getProviderAlbum(getSongBpm), "getsongbpm", 0.65);
-    applyValue(result, "bpm", getSongBpm?.bpm ?? null, "getsongbpm", 0.7);
-    applyValue(result, "genre", getSongBpm?.genre ?? null, "getsongbpm", 0.55);
-    applySubGenre(result, getSongBpm?.subGenre ?? null);
-
-    if (!result.key) {
-      applyValue(result, "key", getSongBpm?.key ?? null, "getsongbpm", 0.4);
+    if (!providerResult) {
+      continue;
     }
-  }
 
-  if (await shouldCallBeatport(result, evidence, dependencies)) {
-    const beatport = await safeLookup(
-      dependencies.beatportLookup ?? lookupBeatportTrack,
-      providerInput,
-      errors,
+    setProviderEvidence(
+      evidence,
+      providerResult.source,
+      providerResult.raw ?? providerResult,
     );
-    evidence.beatport = beatport;
-    addToolStatus(result, "Beatport", beatport);
-    applyAlbum(result, getProviderAlbum(beatport), "beatport", 0.75);
-    applyValue(result, "bpm", beatport?.bpm ?? null, "beatport", 0.85);
-    applyValue(result, "genre", beatport?.genre ?? null, "beatport", 0.8);
-    applyValue(result, "key", beatport?.key ?? null, "beatport", 0.8);
-    applySubGenre(result, beatport?.subGenre ?? null);
+    applyProviderResult(result, providerResult);
+
+    if (hasAcceptableBpmAndGenre(result)) {
+      break;
+    }
   }
 
   return evidence;
@@ -252,122 +200,27 @@ async function applyProviderFallbacks(
 
 function addToolStatus(
   result: EnrichedTrackMetadata,
-  name: string,
-  lookupResult:
-    | {
-        found?: boolean;
-        bpm: number | null;
-        genre: string | null;
-        subGenre?: string | null;
-        album?: string | null;
-        url?: string | null;
-        track?: unknown;
-        error?: string | null;
-      }
-    | null,
+  provider: TrackMetadataProvider,
+  lookupResult: TrackMetadataProviderResult | null,
 ) {
   result.toolsUsed ??= [];
   result.toolsUsed.push({
-    name,
-    matched: lookupResult ? isProviderMatched(lookupResult) : false,
-    url: lookupResult?.url ?? getTrackSpotifyUrl(lookupResult?.track),
-    error: lookupResult?.error ?? null,
-  });
-}
-
-function addWikipediaToolStatus(
-  result: EnrichedTrackMetadata,
-  lookupResult: WikipediaLookupResult | null,
-) {
-  result.toolsUsed ??= [];
-  result.toolsUsed.push({
-    name: "Wikipedia",
-    matched: lookupResult?.found ?? false,
+    name: provider.name,
+    matched: Boolean(lookupResult),
     url: lookupResult?.url ?? null,
-    error: lookupResult?.error ?? null,
+    error: null,
   });
 }
 
-function isProviderMatched(lookupResult: ProviderLookupResultLike | null | undefined) {
-  if (!lookupResult) {
-    return false;
-  }
-
-  return Boolean(
-    lookupResult.found ||
-      lookupResult.bpm ||
-      lookupResult.genre ||
-      lookupResult.album ||
-      lookupResult.url ||
-      lookupResult.track,
-  );
-}
-
-async function shouldCallBeatport(
-  result: EnrichedTrackMetadata,
-  evidence: ProviderEvidence,
-  dependencies: EnrichmentDependencies,
-): Promise<boolean> {
-  const identifiedOutsideBeatport = Boolean(
-    isProviderMatched(evidence.spotify as ProviderLookupResultLike | null) ||
-      isProviderMatched(evidence.getSongBpm as ProviderLookupResultLike | null),
-  );
-
-  if (!identifiedOutsideBeatport) {
-    return true;
-  }
-
-  const decision = await (dependencies.decideBeatportSearch ?? decideBeatportSearch)({
-    baseResult: result,
-    providerEvidence: evidence,
-  });
-
-  return decision.shouldSearch;
-}
-
-type ProviderLookupResultLike = {
-  found?: boolean;
-  bpm: number | null;
-  genre: string | null;
-  album?: string | null;
-  url?: string | null;
-  track?: unknown;
-};
-
-async function safeLookup(
-  lookup: ProviderLookup,
-  input: { title: string; artists: string },
+async function safeProviderLookup(
+  provider: TrackMetadataProvider,
+  input: TrackMetadataProviderInput,
   errors: string[],
 ) {
   try {
-    const result = await lookup(input);
-
-    if (result.error) {
-      errors.push(result.error);
-    }
-
-    return result;
+    return await provider.lookup(input);
   } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
-    return null;
-  }
-}
-
-async function safeWikipediaLookup(
-  lookup: WikipediaLookup,
-  input: { title: string; artists: string },
-  errors: string[],
-) {
-  try {
-    const result = await lookup(input);
-
-    if (result.error) {
-      errors.push(result.error);
-    }
-
-    return result;
-  } catch (error) {
-    errors.push(error instanceof Error ? error.message : String(error));
+    errors.push(`${provider.name}: ${error instanceof Error ? error.message : String(error)}`);
     return null;
   }
 }
@@ -383,7 +236,7 @@ function applyValue(
     return;
   }
 
-  if (result[field]) {
+  if (result[field] && (result.confidence[field] ?? 0) >= confidence) {
     return;
   }
 
@@ -397,6 +250,69 @@ function applyValue(
   result[field] = String(value);
   result.sources[field] = source as never;
   result.confidence[field] = confidence;
+}
+
+function applyProviderResult(
+  result: EnrichedTrackMetadata,
+  providerResult: TrackMetadataProviderResult,
+) {
+  const source = getEnrichmentSource(providerResult.source);
+
+  applyProviderIdentity(result, providerResult.matchedTrack);
+  applyAlbum(
+    result,
+    providerResult.album,
+    getAlbumSource(source),
+    providerResult.confidence,
+  );
+  result.spotifyUrl ??= providerResult.source === "spotify"
+    ? providerResult.url ?? undefined
+    : undefined;
+  applyValue(result, "bpm", providerResult.bpm, source, providerResult.confidence);
+  applyValue(result, "genre", providerResult.genre, source, providerResult.confidence);
+  applyValue(result, "key", providerResult.key, source, providerResult.confidence);
+  applySubGenre(result, providerResult.subGenre ?? null);
+}
+
+function hasAcceptableBpmAndGenre(result: EnrichedTrackMetadata) {
+  return Boolean(
+    result.bpm &&
+      result.genre &&
+      (result.confidence.bpm ?? 0) >= 0.6 &&
+      (result.confidence.genre ?? 0) >= 0.6,
+  );
+}
+
+function setProviderEvidence(
+  evidence: ProviderEvidence,
+  source: string,
+  value: unknown,
+) {
+  const key = source === "getsongbpm" ? "getSongBpm" : source;
+
+  if (
+    key === "spotify" ||
+    key === "beatport" ||
+    key === "getSongBpm" ||
+    key === "wikipedia"
+  ) {
+    evidence[key] = value;
+  }
+}
+
+function getEnrichmentSource(source: string): EnrichmentSource {
+  return source === "spotify" ||
+    source === "beatport" ||
+    source === "getsongbpm" ||
+    source === "lastfm"
+    ? source
+    : "unknown";
+}
+
+function getAlbumSource(
+  source: EnrichmentSource,
+): EnrichedTrackMetadata["sources"]["album"] {
+  return source === "lastfm" ? "unknown" : source;
 }
 
 function isMissingBpmOrGenre(result: EnrichedTrackMetadata) {
@@ -492,46 +408,18 @@ function applyProviderIdentity(
   const record = track as Record<string, unknown>;
   const title = getStringValue(record.title);
   const artists =
-    getStringListValue(record.artists) ?? getStringValue(record.artist);
+    getStringListValue(record.artists) ??
+    getStringValue(record.artists) ??
+    getStringValue(record.artist);
 
   result.trackName = title ?? result.trackName;
   result.artist = artists ?? result.artist;
 }
 
-function getProviderAlbum(
-  providerResult: { album?: string | null; track?: unknown } | null | undefined,
-) {
-  return providerResult?.album ?? getTrackAlbum(providerResult?.track);
-}
-
-function getTrackAlbum(track: unknown) {
-  if (!track || typeof track !== "object") {
-    return null;
-  }
-
-  return getStringValue((track as Record<string, unknown>).album);
-}
-
-function getProviderUrl(providerResult: { url?: string | null; track?: unknown } | null | undefined) {
-  return providerResult?.url ?? getTrackSpotifyUrl(providerResult?.track);
-}
-
-function getTrackSpotifyUrl(track: unknown) {
-  if (!track || typeof track !== "object") {
-    return null;
-  }
-
-  const record = track as Record<string, unknown>;
-  return getStringValue(record.spotifyUrl) ?? getStringValue(record.url);
-}
-
 function applyAlbum(
   result: EnrichedTrackMetadata,
   album: string | null | undefined,
-  source: Extract<
-    EnrichmentSource,
-    "local_db" | "spotify" | "beatport" | "getsongbpm" | "unknown"
-  >,
+  source: EnrichedTrackMetadata["sources"]["album"],
   confidence: number,
 ) {
   if (!album || result.album) {
