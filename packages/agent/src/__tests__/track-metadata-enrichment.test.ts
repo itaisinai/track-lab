@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
+import type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "@track-lab/providers";
 import type { EnrichmentResultStore } from "../enrichment/enrichment-result-store.ts";
+import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
 
 test("analyze reuses local DB data before provider lookup", async () => {
   let providerCalls = 0;
@@ -10,23 +15,13 @@ test("analyze reuses local DB data before provider lookup", async () => {
     { operation: "analyze", trackName: "HUMBLE.", artist: "Kendrick Lamar" },
     {
       store: localStore(),
-      spotifyLookup: async () => {
-        providerCalls += 1;
-        return { bpm: null, genre: "Should not call" };
-      },
-      beatportLookup: async () => {
-        providerCalls += 1;
-        return { bpm: 999, genre: "Should not call" };
-      },
-      getSongBpmLookup: async () => {
-        providerCalls += 1;
-        return { bpm: 999, genre: "Should not call" };
-      },
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: false,
-        classification: "not_edm",
-      }),
+      providers: [
+        metadataProvider("Spotify", "spotify", () => {
+          providerCalls += 1;
+          return { genre: "Should not call", source: "spotify", confidence: 0.65 };
+        }),
+      ],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -40,7 +35,7 @@ test("analyze reuses local DB data before provider lookup", async () => {
   assert.equal(result.status, "complete");
 });
 
-test("enrich skips local DB and refreshes provider evidence", async () => {
+test("enrich skips local DB and keeps higher-confidence known metadata", async () => {
   const calledProviders: string[] = [];
 
   const result = await enrichTrackMetadata(
@@ -58,137 +53,217 @@ test("enrich skips local DB and refreshes provider evidence", async () => {
     },
     {
       store: localStore(),
-      spotifyLookup: async () => {
-        calledProviders.push("spotify");
-        return {
-          found: true,
-          bpm: null,
-          genre: "Rap",
-          track: {
-            title: "HUMBLE.",
-            artists: ["Kendrick Lamar"],
+      providers: [
+        metadataProvider("Spotify", "spotify", () => {
+          calledProviders.push("spotify");
+          return {
+            genre: "Rap",
             album: "DAMN.",
-            spotifyUrl: "https://open.spotify.com/track/demo",
-          },
-          url: "https://open.spotify.com/track/demo",
-        };
-      },
-      beatportLookup: async () => {
-        calledProviders.push("beatport");
-        return {
-          found: true,
-          bpm: 76,
-          genre: "Hip-Hop",
-          subGenre: "Rap",
-          key: "A Minor",
-        };
-      },
-      getSongBpmLookup: async () => {
-        calledProviders.push("getsongbpm");
-        return {
-          found: true,
-          bpm: 78,
-          genre: null,
-          key: "C#m",
-        };
-      },
-      wikipediaLookup: async () => noWikipedia(),
+            url: "https://open.spotify.com/track/demo",
+            matchedTrack: {
+              title: "HUMBLE.",
+              artists: "Kendrick Lamar",
+            },
+            source: "spotify",
+            confidence: 0.65,
+          };
+        }),
+        metadataProvider("GetSongBPM", "getsongbpm", () => {
+          calledProviders.push("getsongbpm");
+          return {
+            bpm: 78,
+            key: "C#m",
+            source: "getsongbpm",
+            confidence: 0.65,
+          };
+        }),
+      ],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
 
-  assert.deepEqual(calledProviders, ["spotify", "getsongbpm"]);
+  assert.deepEqual(calledProviders, ["spotify"]);
   assert.equal(result.bpm, 76);
   assert.equal(result.genre, "Hip Hop");
+  assert.equal(result.key, "A Minor");
   assert.equal(result.album, "DAMN.");
   assert.equal(result.spotifyUrl, "https://open.spotify.com/track/demo");
   assert.deepEqual(
     result.toolsUsed?.map((tool) => tool.name),
-    ["Spotify", "GetSongBPM", "Wikipedia"],
+    ["Spotify"],
   );
   assert.deepEqual(result.changedFields, ["album", "spotifyUrl"]);
 });
 
-test("provider data completes missing analyze results", async () => {
+test("enrichment calls metadata providers in order and fills missing fields later", async () => {
+  const calledProviders: string[] = [];
+
   const result = await enrichTrackMetadata(
     { operation: "analyze", trackName: "Strobe", artist: "Deadmau5" },
     {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: "Progressive House",
-        track: {
-          title: "Strobe",
-          artists: ["deadmau5"],
-          album: "For Lack of a Better Name",
-        },
-      }),
-      beatportLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-        key: null,
-      }),
-      getSongBpmLookup: async () => ({
-        found: true,
-        bpm: 128,
-        genre: null,
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: true,
-        classification: "edm",
-      }),
-      synthesize: async ({ baseResult }) => ({
-        ...baseResult,
-        summary: "Provider evidence found BPM and genre.",
-      }),
+      providers: [
+        metadataProvider("Spotify", "spotify", () => {
+          calledProviders.push("spotify");
+          return {
+            genre: "Progressive House",
+            album: "For Lack of a Better Name",
+            matchedTrack: {
+              title: "Strobe",
+              artists: "deadmau5",
+            },
+            source: "spotify",
+            confidence: 0.65,
+            raw: { providerShape: "spotify" },
+          };
+        }),
+        metadataProvider("GetSongBPM", "getsongbpm", () => {
+          calledProviders.push("getsongbpm");
+          return {
+            bpm: 128,
+            source: "getsongbpm",
+            confidence: 0.65,
+            raw: { providerShape: "getsongbpm" },
+          };
+        }),
+        metadataProvider("Beatport", "beatport", () => {
+          calledProviders.push("beatport");
+          return {
+            bpm: 130,
+            genre: "Techno",
+            source: "beatport",
+            confidence: 0.85,
+          };
+        }),
+      ],
+      contextProviders: [],
+      synthesize: async ({ baseResult, providerEvidence }) => {
+        assert.deepEqual(providerEvidence.spotify, { providerShape: "spotify" });
+        assert.deepEqual(providerEvidence.getSongBpm, {
+          providerShape: "getsongbpm",
+        });
+        return {
+          ...baseResult,
+          summary: "Provider evidence found BPM and genre.",
+        };
+      },
     },
   );
 
+  assert.deepEqual(calledProviders, ["spotify", "getsongbpm"]);
   assert.equal(result.bpm, 128);
   assert.equal(result.genre, "Progressive House");
   assert.equal(result.album, "For Lack of a Better Name");
+  assert.equal(result.sources.bpm, "getsongbpm");
+  assert.equal(result.sources.genre, "spotify");
   assert.equal(result.status, "complete");
   assert.equal(result.summary, "Provider evidence found BPM and genre.");
 });
 
-test("wikipedia context is passed to synthesis when genre context is missing", async () => {
+test("higher-confidence provider can replace weaker metadata before early stop", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
+    {
+      providers: [
+        metadataProvider("Spotify", "spotify", () => ({
+          bpm: 144,
+          genre: "Electronic",
+          album: "RENAGADES OF LIGHT",
+          matchedTrack: {
+            title: "I AM BASS",
+            artists: "LSDREAM",
+          },
+          source: "spotify",
+          confidence: 0.55,
+        })),
+        metadataProvider("Beatport", "beatport", () => ({
+          bpm: 145,
+          genre: "Dance / Pop",
+          key: "E Major",
+          source: "beatport",
+          confidence: 0.85,
+        })),
+      ],
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.bpm, 145);
+  assert.equal(result.genre, "Dance / Pop");
+  assert.equal(result.key, "E Major");
+  assert.equal(result.sources.bpm, "beatport");
+  assert.equal(result.sources.genre, "beatport");
+  assert.equal(result.sources.key, "beatport");
+});
+
+test("lower-confidence provider does not overwrite higher-confidence data", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "Feeling Good", artist: "Avicii" },
+    {
+      providers: [
+        metadataProvider("Beatport", "beatport", () => ({
+          bpm: 104,
+          genre: "House",
+          key: "B Minor",
+          source: "beatport",
+          confidence: 0.85,
+        })),
+        metadataProvider("Last.fm", "lastfm", () => ({
+          genre: "Pop",
+          tags: ["pop", "dance"],
+          source: "lastfm",
+          confidence: 0.45,
+        })),
+      ],
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.bpm, 104);
+  assert.equal(result.genre, "House");
+  assert.equal(result.key, "B Minor");
+  assert.equal(result.sources.genre, "beatport");
+});
+
+test("context provider raw evidence is isolated from output and passed to synthesis", async () => {
   let synthesisWikipediaEvidence: unknown = null;
 
   const result = await enrichTrackMetadata(
     { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
     {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: null,
-        genres: [],
-        track: {
-          title: "I AM BASS",
-          artists: ["LSDREAM"],
+      providers: [
+        metadataProvider("Spotify", "spotify", () => ({
           album: "RENAGADES OF LIGHT",
-          artistGenres: [],
-        },
-      }),
-      beatportLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-        key: null,
-      }),
-      getSongBpmLookup: async () => ({
-        found: true,
-        bpm: 144,
-        genre: null,
-      }),
-      wikipediaLookup: async () => ({
-        found: true,
-        source: "wikipedia",
-        title: "LSDREAM",
-        extract: "LSDREAM is associated with bass music.",
-        url: "https://en.wikipedia.org/wiki/LSDREAM",
-      }),
+          matchedTrack: {
+            title: "I AM BASS",
+            artists: "LSDREAM",
+          },
+          source: "spotify",
+          confidence: 0.65,
+        })),
+        metadataProvider("GetSongBPM", "getsongbpm", () => ({
+          bpm: 144,
+          source: "getsongbpm",
+          confidence: 0.65,
+        })),
+      ],
+      contextProviders: [
+        metadataProvider("Wikipedia", "wikipedia", () => ({
+          tags: ["bass music"],
+          url: "https://en.wikipedia.org/wiki/LSDREAM",
+          source: "wikipedia",
+          confidence: 0.45,
+          raw: {
+            found: true,
+            source: "wikipedia",
+            title: "LSDREAM",
+            extract: "LSDREAM is associated with bass music.",
+            url: "https://en.wikipedia.org/wiki/LSDREAM",
+          },
+        })),
+      ],
       synthesize: async ({ baseResult, providerEvidence }) => {
         synthesisWikipediaEvidence = providerEvidence.wikipedia;
         return {
@@ -211,6 +286,7 @@ test("wikipedia context is passed to synthesis when genre context is missing", a
   assert.equal(result.genre, "Bass");
   assert.equal(result.subGenre, "Experimental bass");
   assert.equal(result.summary, "Artist context suggests this fits bass-focused sets.");
+  assert.equal("raw" in result, false);
   assert.deepEqual(result.toolsUsed?.at(-1), {
     name: "Wikipedia",
     matched: true,
@@ -219,227 +295,22 @@ test("wikipedia context is passed to synthesis when genre context is missing", a
   });
 });
 
-test("beatport evidence fills DJ catalog metadata", async () => {
-  const result = await enrichTrackMetadata(
-    { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
-    {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: null,
-        track: {
-          title: "I AM BASS",
-          artists: ["LSDREAM"],
-          album: "RENAGADES OF LIGHT",
-        },
-      }),
-      beatportLookup: async () => ({
-        found: true,
-        bpm: 145,
-        genre: "Dance / Pop",
-        subGenre: null,
-        key: "E Major",
-        url: "https://www.beatport.com/track/i-am-bass/11777847",
-        track: {
-          title: "I AM BASS",
-          artists: ["LSDREAM"],
-          album: "RENAGADES OF LIGHT",
-        },
-      }),
-      getSongBpmLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: true,
-        classification: "edm",
-      }),
-      synthesize: async ({ baseResult, providerEvidence }) => ({
-        ...baseResult,
-        summary: providerEvidence.beatport
-          ? "Beatport found track-level DJ metadata."
-          : null,
-      }),
-    },
-  );
-
-  assert.equal(result.bpm, 145);
-  assert.equal(result.genre, "Dance / Pop");
-  assert.equal(result.key, "E Major");
-  assert.equal(result.sources.bpm, "beatport");
-  assert.equal(result.sources.genre, "beatport");
-  assert.equal(result.sources.key, "beatport");
-  assert.deepEqual(
-    result.toolsUsed?.map((tool) => tool.name),
-    ["Spotify", "GetSongBPM", "Beatport", "Wikipedia"],
-  );
-});
-
-test("beatport accepts featured-title matches with partial artist overlap", async () => {
-  const result = await enrichTrackMetadata(
-    {
-      operation: "analyze",
-      trackName: "Push",
-      artist: "Skrillex, Hamdi, TAICHU, OFFAIAH, contra",
-    },
-    {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: null,
-        track: {
-          title: "Push",
-          artists: ["Skrillex", "Hamdi", "TAICHU", "OFFAIAH", "contra"],
-          album: null,
-        },
-      }),
-      getSongBpmLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-      }),
-      beatportLookup: async () => ({
-        found: true,
-        bpm: 140,
-        genre: "Deep Dubstep",
-        key: "Ab Minor",
-        track: {
-          title: "Push (feat. OFFAIAH)",
-          artists: ["Skrillex", "Taichu", "Hamdi", "OFFAIAH"],
-        },
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: true,
-        classification: "edm",
-      }),
-      synthesize: async ({ baseResult }) => baseResult,
-    },
-  );
-
-  assert.equal(result.bpm, 140);
-  assert.equal(result.genre, "Deep Dubstep");
-  assert.equal(result.key, "Ab Minor");
-  assert.equal(result.trackName, "Push");
-});
-
-test("beatport ignores public first row when artist does not match", async () => {
-  let beatportCalled = false;
-  const result = await enrichTrackMetadata(
-    { operation: "enrich", trackName: "כנפיים", artist: "טונה" },
-    {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: null,
-        track: {
-          title: "כנפיים",
-          artists: ["Tuna"],
-          album: null,
-        },
-      }),
-      beatportLookup: async () => {
-        beatportCalled = true;
-        return {
-          found: true,
-          bpm: 134,
-          genre: "Pop",
-          key: "A Minor",
-          track: {
-            title: "שורשים/כנפיים",
-            artists: ["גיא ויהל"],
-            album: "ועכשיו לחלק האינטרגלקטי",
-          },
-        };
-      },
-      getSongBpmLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: false,
-        classification: "not_edm",
-      }),
-      synthesize: async ({ baseResult }) => baseResult,
-    },
-  );
-
-  assert.equal(result.trackName, "כנפיים");
-  assert.equal(result.artist, "Tuna");
-  assert.equal(beatportCalled, false);
-});
-
-test("beatport runs when other providers do not identify the track", async () => {
-  const result = await enrichTrackMetadata(
-    { operation: "analyze", trackName: "Unknown EDM Cut", artist: "Unknown DJ" },
-    {
-      spotifyLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-        track: null,
-        url: null,
-      }),
-      getSongBpmLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-        track: null,
-        url: null,
-      }),
-      beatportLookup: async () => ({
-        found: true,
-        bpm: 128,
-        genre: "Tech House",
-        key: "G Minor",
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      synthesize: async ({ baseResult }) => baseResult,
-    },
-  );
-
-  assert.equal(result.bpm, 128);
-  assert.equal(result.genre, "Tech House");
-  assert.equal(result.key, "G Minor");
-  assert.deepEqual(
-    result.toolsUsed?.map((tool) => tool.name),
-    ["Spotify", "GetSongBPM", "Beatport", "Wikipedia"],
-  );
-});
-
 test("synthesis cannot replace matched track identity", async () => {
   const result = await enrichTrackMetadata(
     { operation: "analyze", trackName: "כנפיים", artist: "טונה" },
     {
-      spotifyLookup: async () => ({
-        found: true,
-        bpm: null,
-        genre: "Pop",
-        track: {
-          title: "כנפיים",
-          artists: ["Tuna"],
-          album: null,
-        },
-      }),
-      beatportLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-      }),
-      getSongBpmLookup: async () => ({
-        found: false,
-        bpm: null,
-        genre: null,
-      }),
-      wikipediaLookup: async () => noWikipedia(),
-      decideBeatportSearch: async () => ({
-        shouldSearch: false,
-        classification: "not_edm",
-      }),
+      providers: [
+        metadataProvider("Spotify", "spotify", () => ({
+          genre: "Pop",
+          matchedTrack: {
+            title: "כנפיים",
+            artists: "Tuna",
+          },
+          source: "spotify",
+          confidence: 0.65,
+        })),
+      ],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => ({
         ...baseResult,
         trackName: "שורשים/כנפיים",
@@ -456,30 +327,41 @@ test("output status reflects complete, partial, and missing states", async () =>
   const complete = await enrichTrackMetadata(
     { trackName: "A", artist: "B" },
     {
-      spotifyLookup: async () => ({ bpm: null, genre: "House" }),
-      beatportLookup: async () => ({ bpm: null, genre: null }),
-      getSongBpmLookup: async () => ({ bpm: 120, genre: null }),
-      wikipediaLookup: async () => noWikipedia(),
+      providers: [
+        metadataProvider("Spotify", "spotify", () => ({
+          genre: "House",
+          source: "spotify",
+          confidence: 0.65,
+        })),
+        metadataProvider("GetSongBPM", "getsongbpm", () => ({
+          bpm: 120,
+          source: "getsongbpm",
+          confidence: 0.65,
+        })),
+      ],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
   const partial = await enrichTrackMetadata(
     { trackName: "A", artist: "B" },
     {
-      spotifyLookup: async () => ({ bpm: null, genre: null }),
-      beatportLookup: async () => ({ bpm: null, genre: null }),
-      getSongBpmLookup: async () => ({ bpm: 120, genre: null }),
-      wikipediaLookup: async () => noWikipedia(),
+      providers: [
+        metadataProvider("GetSongBPM", "getsongbpm", () => ({
+          bpm: 120,
+          source: "getsongbpm",
+          confidence: 0.65,
+        })),
+      ],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
   const missing = await enrichTrackMetadata(
     { trackName: "A", artist: "B" },
     {
-      spotifyLookup: async () => ({ bpm: null, genre: null }),
-      beatportLookup: async () => ({ bpm: null, genre: null }),
-      getSongBpmLookup: async () => ({ bpm: null, genre: null }),
-      wikipediaLookup: async () => noWikipedia(),
+      providers: [],
+      contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
   );
@@ -488,6 +370,30 @@ test("output status reflects complete, partial, and missing states", async () =>
   assert.equal(partial.status, "partial");
   assert.equal(missing.status, "missing");
 });
+
+function metadataProvider(
+  name: string,
+  source: string,
+  lookup: (
+    input: TrackMetadataProviderInput,
+  ) => TrackMetadataProviderResult | null | Promise<TrackMetadataProviderResult | null>,
+): TrackMetadataProvider {
+  return {
+    name,
+    lookup: async (input) => {
+      const result = await lookup(input);
+
+      if (!result) {
+        return null;
+      }
+
+      return {
+        ...result,
+        source: result.source || source,
+      };
+    },
+  };
+}
 
 function localStore(): EnrichmentResultStore {
   return {
@@ -509,16 +415,5 @@ function localStore(): EnrichmentResultStore {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }),
-  };
-}
-
-function noWikipedia() {
-  return {
-    found: false,
-    source: "wikipedia" as const,
-    title: null,
-    extract: null,
-    url: null,
-    error: null,
   };
 }

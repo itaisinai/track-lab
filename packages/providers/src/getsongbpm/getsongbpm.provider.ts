@@ -2,6 +2,15 @@ import type {
   ProviderTrackLookupResult,
   TrackLookupInput,
 } from "../shared/types.ts";
+import type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "../base/types.ts";
+import {
+  getTrackString,
+  hasUsefulTrackLookupResult,
+} from "../shared/provider-result-utils.ts";
 import { logProviderSearch, parseNumericValue } from "../shared/utils.ts";
 import {
   firstGetSongBpmArtist,
@@ -9,6 +18,49 @@ import {
   searchGetSongBpmTrack,
   toGetSongBpmTrackSummary,
 } from "./metadata-utils.ts";
+
+export function createGetSongBpmMetadataProvider(): TrackMetadataProvider {
+  return {
+    name: "GetSongBPM",
+    lookup(input: TrackMetadataProviderInput) {
+      return lookupTrackMetadata(input);
+    },
+  };
+}
+
+async function lookupTrackMetadata({
+  trackName,
+  artist,
+}: TrackMetadataProviderInput): Promise<TrackMetadataProviderResult | null> {
+  if (!artist) {
+    return null;
+  }
+
+  const result = await lookupGetSongBpmTrack({
+    title: trackName,
+    artists: artist,
+  });
+
+  if (!hasUsefulTrackLookupResult(result)) {
+    return null;
+  }
+
+  return {
+    bpm: result.bpm,
+    genre: result.genre,
+    key: result.key,
+    tags: result.genres,
+    album: getTrackString(result.track, "album"),
+    url: result.url,
+    matchedTrack: {
+      title: getTrackString(result.track, "title"),
+      artists: getTrackString(result.track, "artist"),
+    },
+    source: "getsongbpm",
+    confidence: 0.65,
+    raw: result,
+  };
+}
 
 export async function lookupGetSongBpmTrack({
   title,

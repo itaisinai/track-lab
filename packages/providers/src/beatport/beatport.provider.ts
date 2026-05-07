@@ -2,6 +2,16 @@ import type {
   ProviderTrackLookupResult,
   TrackLookupInput,
 } from "../shared/types.ts";
+import type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "../base/types.ts";
+import {
+  getTrackArtists,
+  getTrackString,
+  hasUsefulTrackLookupResult,
+} from "../shared/provider-result-utils.ts";
 import { logProviderSearch, parseNumericValue } from "../shared/utils.ts";
 import {
   findBestBeatportMatch,
@@ -18,6 +28,46 @@ import {
   toBeatportSummary,
   type BeatportTrack,
 } from "./metadata-utils.ts";
+
+export function createBeatportMetadataProvider(): TrackMetadataProvider {
+  return {
+    name: "Beatport",
+    lookup(input: TrackMetadataProviderInput) {
+      return lookupTrackMetadata(input);
+    },
+  };
+}
+
+async function lookupTrackMetadata({
+  trackName,
+  artist,
+}: TrackMetadataProviderInput): Promise<TrackMetadataProviderResult | null> {
+  if (!artist) {
+    return null;
+  }
+
+  const result = await lookupBeatportTrack({ title: trackName, artists: artist });
+
+  if (!hasUsefulTrackLookupResult(result)) {
+    return null;
+  }
+
+  return {
+    bpm: result.bpm,
+    genre: result.genre,
+    key: result.key,
+    subGenre: result.subGenre,
+    album: getTrackString(result.track, "release"),
+    url: result.url,
+    matchedTrack: {
+      title: getTrackString(result.track, "title"),
+      artists: getTrackArtists(result.track),
+    },
+    source: "beatport",
+    confidence: 0.85,
+    raw: result,
+  };
+}
 
 export async function lookupBeatportTrack({
   title,

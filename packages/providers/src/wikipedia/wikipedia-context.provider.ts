@@ -1,4 +1,9 @@
 import type { TrackLookupInput } from "../shared/types.ts";
+import type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "../base/types.ts";
 import { logProviderSearch } from "../shared/utils.ts";
 import {
   fetchWikipediaExtract,
@@ -7,6 +12,41 @@ import {
   searchWikipedia,
   type WikipediaLookupResult,
 } from "./context-utils.ts";
+
+export function createWikipediaContextProvider(): TrackMetadataProvider {
+  return {
+    name: "Wikipedia",
+    lookup(input: TrackMetadataProviderInput) {
+      return lookupTrackContext(input);
+    },
+  };
+}
+
+async function lookupTrackContext({
+  trackName,
+  artist,
+}: TrackMetadataProviderInput): Promise<TrackMetadataProviderResult | null> {
+  if (!artist) {
+    return null;
+  }
+
+  const result = await lookupWikipediaContext({
+    title: trackName,
+    artists: artist,
+  });
+
+  if (!result.found && !result.extract) {
+    return null;
+  }
+
+  return {
+    tags: result.title ? [result.title] : [],
+    source: "wikipedia",
+    confidence: 0.45,
+    url: result.url,
+    raw: result,
+  };
+}
 
 export async function lookupWikipediaContext({
   title,

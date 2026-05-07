@@ -1,12 +1,29 @@
 export {
+  createDefaultProviders,
+} from "./base/registry.ts";
+
+export type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "./base/types.ts";
+
+export {
+  createBeatportMetadataProvider,
   lookupBeatportTrack,
   parseBeatportSearchHtml,
   type BeatportTrack,
-} from "./beatport/metadata.ts";
+} from "./beatport/beatport.provider.ts";
 
-export { lookupGetSongBpmTrack } from "./getsongbpm/metadata.ts";
+export {
+  createGetSongBpmMetadataProvider,
+  lookupGetSongBpmTrack,
+} from "./getsongbpm/getsongbpm.provider.ts";
 
-export { lookupSpotifyTrack } from "./spotify/metadata.ts";
+export {
+  createSpotifyMetadataProvider,
+  lookupSpotifyTrack,
+} from "./spotify/spotify.provider.ts";
 
 export {
   createSpotifyRemixSearchProvider,
@@ -39,9 +56,10 @@ export {
 } from "./soundcloud/api-remix.ts";
 
 export {
+  createWikipediaContextProvider,
   lookupWikipediaContext,
   type WikipediaLookupResult,
-} from "./wikipedia/context.ts";
+} from "./wikipedia/wikipedia-context.provider.ts";
 
 export type {
   ProviderTrackLookupResult,

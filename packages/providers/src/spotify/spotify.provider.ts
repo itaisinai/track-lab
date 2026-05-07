@@ -2,6 +2,16 @@ import type {
   ProviderTrackLookupResult,
   TrackLookupInput,
 } from "../shared/types.ts";
+import type {
+  TrackMetadataProvider,
+  TrackMetadataProviderInput,
+  TrackMetadataProviderResult,
+} from "../base/types.ts";
+import {
+  getTrackArtists,
+  getTrackString,
+  hasUsefulTrackLookupResult,
+} from "../shared/provider-result-utils.ts";
 import { logProviderSearch } from "../shared/utils.ts";
 import {
   getSpotifyAccessToken,
@@ -10,6 +20,45 @@ import {
   hasSpotifyCredentials,
   searchSpotifyTrack,
 } from "./metadata-utils.ts";
+
+export function createSpotifyMetadataProvider(): TrackMetadataProvider {
+  return {
+    name: "Spotify",
+    lookup(input: TrackMetadataProviderInput) {
+      return lookupTrackMetadata(input);
+    },
+  };
+}
+
+async function lookupTrackMetadata({
+  trackName,
+  artist,
+}: TrackMetadataProviderInput): Promise<TrackMetadataProviderResult | null> {
+  if (!artist) {
+    return null;
+  }
+
+  const result = await lookupSpotifyTrack({ title: trackName, artists: artist });
+
+  if (!hasUsefulTrackLookupResult(result)) {
+    return null;
+  }
+
+  return {
+    bpm: result.bpm,
+    genre: result.genre,
+    tags: result.genres,
+    album: getTrackString(result.track, "album"),
+    url: result.url ?? getTrackString(result.track, "spotifyUrl"),
+    matchedTrack: {
+      title: getTrackString(result.track, "title"),
+      artists: getTrackArtists(result.track),
+    },
+    source: "spotify",
+    confidence: 0.65,
+    raw: result,
+  };
+}
 
 export async function lookupSpotifyTrack({
   title,
