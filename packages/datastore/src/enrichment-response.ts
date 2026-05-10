@@ -2,7 +2,7 @@ import type { SaveTrackResultInput } from "./types.ts";
 import { parseJsonFromResponse, stringifyJson } from "./lib/json.ts";
 import { findValue } from "./lib/object.ts";
 
-export function extractAgentResponse(value: unknown): SaveTrackResultInput {
+export function extractEnrichmentResponse(value: unknown): SaveTrackResultInput {
   const rawResponse = findContent(value) ?? stringifyJson(value);
   const json = parseJsonFromResponse(rawResponse) ?? value;
 

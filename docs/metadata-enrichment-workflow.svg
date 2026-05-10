@@ -1,0 +1,135 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1680" height="1080" viewBox="0 0 1680 1080" role="img" aria-labelledby="title desc">
+  <title id="title">Track Lab Metadata Enrichment Workflow</title>
+  <desc id="desc">Track Lab metadata enrichment graph showing client, API, queue, worker, metadata enrichment package, providers, tool planner, synthesis, datastore, notifications, and review queue.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10" fill="none" stroke="#1d2830" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="llm-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10" fill="none" stroke="#7f4ac7" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .bg { fill: #fbfbf6; }
+      .title { fill: #2f6cc7; font: 700 34px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .section { fill: #fbfbf6; stroke: #22313a; stroke-width: 3; rx: 18; }
+      .client { fill: #eef8ff; stroke: #2f6cc7; }
+      .runtime { fill: #eefbf5; stroke: #2f8b63; }
+      .domain { fill: #fff8df; stroke: #9b7a22; }
+      .llm { fill: #f8efff; stroke: #7f4ac7; }
+      .provider { fill: #fff3ee; stroke: #c15d4a; }
+      .store { fill: #f1f4f6; stroke: #4c5962; }
+      .heading { fill: #1d2830; font: 700 21px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .text { fill: #1d2830; font: 500 16px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .small { fill: #1d2830; font: 500 13px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .arrow { fill: none; stroke: #1d2830; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .llm-arrow { fill: none; stroke: #7f4ac7; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 7; marker-end: url(#llm-arrow); }
+      .note { fill: #fbfbf6; stroke: #7f4ac7; stroke-width: 2.5; rx: 14; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1680" height="1080"/>
+  <text class="title" x="575" y="58">Track Lab Metadata Enrichment Workflow</text>
+
+  <rect class="section client" x="60" y="110" width="250" height="130"/>
+  <text class="heading" x="112" y="150">apps/web</text>
+  <text class="text" x="90" y="182">Analyze / Enrich UI</text>
+  <text class="small" x="90" y="212">POST /track-analysis</text>
+
+  <rect class="section runtime" x="400" y="95" width="280" height="160"/>
+  <text class="heading" x="438" y="135">apps/api</text>
+  <text class="text" x="430" y="168">TrackAnalysisOrchestrator</text>
+  <text class="small" x="430" y="198">validates request</text>
+  <text class="small" x="430" y="224">enqueues job</text>
+
+  <rect class="section store" x="770" y="105" width="250" height="140"/>
+  <text class="heading" x="814" y="145">SQLite Queue</text>
+  <text class="text" x="805" y="178">track_analysis_jobs</text>
+  <text class="small" x="805" y="208">queued / processing</text>
+
+  <rect class="section runtime" x="1110" y="95" width="270" height="160"/>
+  <text class="heading" x="1160" y="135">apps/worker</text>
+  <text class="text" x="1140" y="168">TrackAnalysisWorker</text>
+  <text class="small" x="1140" y="198">claims one job</text>
+  <text class="small" x="1140" y="224">runs processor</text>
+
+  <path class="arrow" d="M310 175 C350 175 360 175 400 175"/>
+  <path class="arrow" d="M680 175 C720 175 730 175 770 175"/>
+  <path class="arrow" d="M1020 175 C1060 175 1070 175 1110 175"/>
+
+  <rect class="section domain" x="80" y="360" width="300" height="175"/>
+  <text class="heading" x="120" y="402">packages/track-analysis</text>
+  <text class="text" x="112" y="438">processTrackAnalysisPayload</text>
+  <text class="small" x="112" y="468">operation: analyze | enrich</text>
+  <text class="small" x="112" y="492">operation: remix_search</text>
+  <text class="small" x="112" y="516">stores result on completion</text>
+
+  <rect class="section domain" x="485" y="330" width="360" height="235"/>
+  <text class="heading" x="535" y="372">packages/metadata-enrichment</text>
+  <text class="text" x="520" y="410">enrichTrackMetadata()</text>
+  <text class="small" x="520" y="440">merge provider evidence</text>
+  <text class="small" x="520" y="464">confidence + source rules</text>
+  <text class="small" x="520" y="488">manual save remains outside worker</text>
+  <text class="small" x="520" y="520">optional conversationalMetadataAgent</text>
+
+  <rect class="section store" x="930" y="350" width="260" height="190"/>
+  <text class="heading" x="980" y="392">Datastore</text>
+  <text class="text" x="970" y="426">saved results lookup</text>
+  <text class="text" x="970" y="454">job result_json</text>
+  <text class="small" x="970" y="484">review artifact</text>
+  <text class="small" x="970" y="510">not auto-saved</text>
+
+  <rect class="section client" x="1280" y="350" width="300" height="190"/>
+  <text class="heading" x="1330" y="392">Review Queue</text>
+  <text class="text" x="1320" y="426">notifications</text>
+  <text class="text" x="1320" y="454">open completed job</text>
+  <text class="small" x="1320" y="484">save manually</text>
+  <text class="small" x="1320" y="510">dismiss / resolve</text>
+
+  <path class="arrow" d="M1245 255 C1245 315 290 300 230 360"/>
+  <path class="arrow" d="M380 448 C425 448 440 448 485 448"/>
+  <path class="arrow" d="M845 448 C880 448 895 448 930 448"/>
+  <path class="arrow" d="M1190 448 C1230 448 1240 448 1280 448"/>
+
+  <rect class="section provider" x="80" y="700" width="260" height="165"/>
+  <text class="heading" x="128" y="742">Required Providers</text>
+  <text class="text" x="118" y="778">Spotify</text>
+  <text class="small" x="118" y="808">identity, album, URL</text>
+  <text class="small" x="118" y="832">artist genre context</text>
+
+  <rect class="section llm" x="425" y="670" width="330" height="220"/>
+  <text class="heading" x="475" y="712">Tool Planner</text>
+  <text class="text" x="462" y="748">planMetadataTools()</text>
+  <text class="small" x="462" y="778">LLM when key configured</text>
+  <text class="small" x="462" y="802">fallback heuristic otherwise</text>
+  <text class="small" x="462" y="832">decides optional tool groups</text>
+  <text class="small" x="462" y="858">uses strategy context</text>
+
+  <rect class="section provider" x="835" y="640" width="335" height="280"/>
+  <text class="heading" x="910" y="682">Optional Providers</text>
+  <text class="text" x="875" y="720">GetSongBPM</text>
+  <text class="small" x="875" y="748">BPM/key when missing</text>
+  <text class="text" x="875" y="790">EDM evidence group</text>
+  <text class="small" x="875" y="818">Beatport: official/released EDM</text>
+  <text class="small" x="875" y="844">SoundCloud: user-uploaded EDM</text>
+  <text class="small" x="875" y="870">call both or neither</text>
+  <text class="text" x="875" y="902">Wikipedia context</text>
+
+  <rect class="section llm" x="1255" y="700" width="300" height="165"/>
+  <text class="heading" x="1322" y="742">Synthesis</text>
+  <text class="text" x="1295" y="778">synthesizeEnrichedTrackMetadata()</text>
+  <text class="small" x="1295" y="808">LLM interprets evidence</text>
+  <text class="small" x="1295" y="832">summary, notes, conflicts</text>
+
+  <rect class="note" x="1180" y="570" width="390" height="75"/>
+  <text class="small" x="1212" y="602">Terminology rule: providers fetch evidence.</text>
+  <text class="small" x="1212" y="626">The planner and synthesis are the AI reasoning steps.</text>
+
+  <path class="arrow" d="M600 565 C560 610 500 635 500 670"/>
+  <path class="arrow" d="M520 565 C430 645 350 715 340 778"/>
+  <path class="llm-arrow" d="M755 780 C790 780 800 780 835 780"/>
+  <path class="arrow" d="M1170 780 C1205 780 1220 780 1255 780"/>
+  <path class="arrow" d="M1405 700 C1420 625 1400 575 1430 540"/>
+
+  <text class="small" x="78" y="940">Rule enforced in code: Beatport and SoundCloud metadata search are EDM-only and run as one group.</text>
+  <text class="small" x="78" y="966">Beatport covers official/released EDM catalog metadata. SoundCloud covers user-uploaded EDM tracks, edits, flips, bootlegs, and underground uploads.</text>
+</svg>

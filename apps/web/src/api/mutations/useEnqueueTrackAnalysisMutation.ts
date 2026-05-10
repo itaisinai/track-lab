@@ -6,12 +6,12 @@ import type {
 import { request } from "../request";
 import { apiRoutes } from "../routes";
 
-export function useRunAgentMutation() {
+export function useEnqueueTrackAnalysisMutation() {
   return useMutation({ mutationFn: enqueueTrackAnalysis });
 }
 
 async function enqueueTrackAnalysis(requestBody: EnqueueTrackAnalysisRequest) {
-  return request<EnqueueTrackAnalysisResponse>(apiRoutes.agent, {
+  return request<EnqueueTrackAnalysisResponse>(apiRoutes.trackAnalysis, {
     method: "POST",
     body: JSON.stringify(requestBody),
   });

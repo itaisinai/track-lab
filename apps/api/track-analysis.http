@@ -1,0 +1,11 @@
+POST http://localhost:3000/track-analysis
+Content-Type: application/json
+
+{
+  "operation": "analyze",
+  "track": {
+    "title": "Hot Honey",
+    "artists": "LIAD MEIR, Eden Derso"
+  },
+  "source": "manual"
+}

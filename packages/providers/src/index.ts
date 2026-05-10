@@ -1,5 +1,8 @@
 export {
+  createBpmMetadataProviders,
   createDefaultProviders,
+  createEdmCatalogMetadataProviders,
+  createRequiredMetadataProviders,
 } from "./base/registry.ts";
 
 export type {
@@ -45,6 +48,10 @@ export {
   type SoundCloudWebSearchProvider,
   type SoundCloudWebSearchResult,
 } from "./soundcloud/web-search.ts";
+
+export {
+  createSoundCloudMetadataProvider,
+} from "./soundcloud/soundcloud.provider.ts";
 
 export {
   createSoundCloudRemixSearchProvider,

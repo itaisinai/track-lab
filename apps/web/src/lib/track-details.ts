@@ -134,7 +134,7 @@ function extractProviderStatuses(record: Record<string, unknown>): ProviderStatu
     return explicitStatuses;
   }
 
-  const providerStatuses = ["Spotify", "Beatport", "GetSongBPM"]
+  const providerStatuses = ["Spotify", "Beatport", "SoundCloud", "GetSongBPM", "Wikipedia"]
     .map((name) => {
       const value = findValue(record, [name]);
 
@@ -233,7 +233,7 @@ function extractResponseErrors(record: Record<string, unknown>) {
   return errors
     .map((error) => valueToString(error))
     .filter((error): error is string => Boolean(error))
-    .map((message) => ({ source: "Agent", message }));
+    .map((message) => ({ source: "Metadata Enrichment", message }));
 }
 
 function parseJsonFromResponse(response: string): unknown {

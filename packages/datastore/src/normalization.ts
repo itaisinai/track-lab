@@ -25,7 +25,7 @@ export function normalizeTrackResult(
     stringifyArtistList(findValue(record, ["artistList", "artist_list"]));
 
   if (!title || !artists) {
-    throw new Error("Saved agent response must include Title and Artists.");
+    throw new Error("Saved enrichment response must include Title and Artists.");
   }
 
   const toolsUsed = extractToolStatuses(record);
@@ -99,7 +99,7 @@ function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
     return explicitStatuses;
   }
 
-  const providerStatuses = ["Spotify", "Beatport", "GetSongBPM"]
+  const providerStatuses = ["Spotify", "Beatport", "SoundCloud", "GetSongBPM", "Wikipedia"]
     .map((name) => {
       const value = findValue(record, [name]);
 
@@ -206,7 +206,7 @@ function extractResponseErrors(record: Record<string, unknown>): ResultError[] {
   return errors
     .map((error) => valueToString(error))
     .filter((error): error is string => Boolean(error))
-    .map((message) => ({ source: "Agent", message }));
+    .map((message) => ({ source: "Metadata Enrichment", message }));
 }
 
 function formatSourceName(source: string) {

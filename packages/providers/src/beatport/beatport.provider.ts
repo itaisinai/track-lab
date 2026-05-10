@@ -16,15 +16,12 @@ import { logProviderSearch, parseNumericValue } from "../shared/utils.ts";
 import {
   findBestBeatportMatch,
   getArtistNames,
-  getBeatportAccessToken,
   getBeatportGenre,
   getBeatportUrl,
   getName,
   getTrackName,
-  hasBeatportCredentials,
   parseBeatportSearchHtml,
   searchBeatportPublicTracks,
-  searchBeatportTracks,
   toBeatportSummary,
   type BeatportTrack,
 } from "./metadata-utils.ts";
@@ -76,9 +73,7 @@ export async function lookupBeatportTrack({
   logProviderSearch("beatport", "search started", { title, artists });
 
   try {
-    const { match, tracks, source } = hasBeatportCredentials()
-      ? await searchAuthenticatedBeatport(title, artists)
-      : await searchPublicBeatport(title, artists);
+    const { match, tracks, source } = await searchPublicBeatport(title, artists);
 
     logProviderSearch("beatport", `${source} search results`, {
       candidates: tracks.length,
@@ -125,18 +120,8 @@ export async function lookupBeatportTrack({
 
 export { parseBeatportSearchHtml, type BeatportTrack };
 
-async function searchAuthenticatedBeatport(title: string, artists: string) {
-  const token = await getBeatportAccessToken();
-  const tracks = await searchBeatportTracks(token, title, artists);
-  return {
-    source: "api",
-    tracks,
-    match: findBestBeatportMatch(tracks, title, artists) ?? tracks[0] ?? null,
-  };
-}
-
 async function searchPublicBeatport(title: string, artists: string) {
-  logProviderSearch("beatport", "using public search page fallback");
+  logProviderSearch("beatport", "using public search page");
   const tracks = await searchBeatportPublicTracks(title, artists);
   return {
     source: "public",

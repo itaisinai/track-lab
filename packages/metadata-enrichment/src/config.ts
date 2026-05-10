@@ -4,10 +4,6 @@ export const config = {
     clientId: process.env.SPOTIFY_CLIENT_ID,
     clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
   },
-  beatport: {
-    clientId: process.env.BEATPORT_CLIENT_ID,
-    clientSecret: process.env.BEATPORT_CLIENT_SECRET,
-  },
   getSongBpm: {
     apiKey: process.env.GETSONGBPM_API_KEY,
   },

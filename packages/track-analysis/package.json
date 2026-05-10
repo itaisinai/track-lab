@@ -11,9 +11,9 @@
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
-    "@track-lab/agent": "workspace:*",
     "@track-lab/api-types": "workspace:*",
     "@track-lab/datastore": "workspace:*",
+    "@track-lab/metadata-enrichment": "workspace:*",
     "@track-lab/remix-search": "workspace:*"
   },
   "devDependencies": {

@@ -1,5 +1,5 @@
 {
-  "name": "@track-lab/agent",
+  "name": "@track-lab/metadata-enrichment",
   "version": "0.1.0",
   "private": true,
   "type": "module",

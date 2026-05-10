@@ -4,18 +4,7 @@ import {
   parseNumericValue,
 } from "../shared/utils.ts";
 
-const BEATPORT_TOKEN_URL = "https://api.beatport.com/v4/auth/o/token/";
-const BEATPORT_API_URL = "https://api.beatport.com/v4";
 const BEATPORT_WEB_URL = "https://www.beatport.com";
-
-type BeatportToken = {
-  accessToken: string;
-  expiresAt: number;
-};
-
-type BeatportTrackResponse = {
-  results?: BeatportTrack[];
-};
 
 export type BeatportTrack = {
   id?: number;
@@ -58,68 +47,6 @@ type BeatportGenreField = BeatportNamedField & {
 type BeatportArtist = BeatportNamedField & {
   url?: string | null;
 };
-
-let cachedToken: BeatportToken | null = null;
-
-export function hasBeatportCredentials() {
-  return Boolean(process.env.BEATPORT_CLIENT_ID && process.env.BEATPORT_CLIENT_SECRET);
-}
-
-export async function getBeatportAccessToken() {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
-    return cachedToken.accessToken;
-  }
-
-  const clientId = process.env.BEATPORT_CLIENT_ID;
-  const clientSecret = process.env.BEATPORT_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Missing Beatport credentials.");
-  }
-
-  const response = await fetch(BEATPORT_TOKEN_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/x-www-form-urlencoded",
-    },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: "client_credentials",
-    }),
-  });
-  const data = await parseBeatportResponse<{
-    access_token: string;
-    expires_in: number;
-  }>(response, "token");
-
-  cachedToken = {
-    accessToken: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
-  };
-
-  return cachedToken.accessToken;
-}
-
-export async function searchBeatportTracks(
-  token: string,
-  title: string,
-  artists: string,
-) {
-  const params = new URLSearchParams({
-    name: title,
-    artist_name: artists.split(",")[0]?.trim() ?? artists.trim(),
-    per_page: "10",
-    page: "1",
-  });
-  const response = await beatportFetch(token, `/catalog/tracks/?${params}`);
-  const data = await parseBeatportResponse<BeatportTrackResponse>(
-    response,
-    "tracks",
-  );
-
-  return data.results ?? [];
-}
 
 export async function searchBeatportPublicTracks(title: string, artists: string) {
   const seenTrackIds = new Set<string>();
@@ -196,27 +123,6 @@ export function parseBeatportSearchHtml(html: string): BeatportTrack[] {
       Array.isArray(query.state?.data?.tracks?.data),
     )?.state?.data?.tracks?.data ?? []
   );
-}
-
-function beatportFetch(token: string, path: string) {
-  return fetch(`${BEATPORT_API_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-async function parseBeatportResponse<T>(response: Response, step: string) {
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    throw new Error(
-      `Beatport ${step} API error ${response.status}: ${JSON.stringify(data)}`,
-    );
-  }
-
-  return data as T;
 }
 
 export function findBestBeatportMatch(

@@ -4,8 +4,8 @@ import { useMarkTrackAnalysisNotificationReadMutation } from "../../api/mutation
 import { useReenrichSavedResultMutation } from "../../api/mutations/useReenrichSavedResultMutation";
 import { useResolveTrackAnalysisJobMutation } from "../../api/mutations/useResolveTrackAnalysisJobMutation";
 import { useRetryTrackAnalysisJobMutation } from "../../api/mutations/useRetryTrackAnalysisJobMutation";
-import { useRunAgentMutation } from "../../api/mutations/useRunAgentMutation";
-import { useSaveAgentResponseMutation } from "../../api/mutations/useSaveAgentResponseMutation";
+import { useEnqueueTrackAnalysisMutation } from "../../api/mutations/useEnqueueTrackAnalysisMutation";
+import { useSaveEnrichmentResponseMutation } from "../../api/mutations/useSaveEnrichmentResponseMutation";
 import { useActiveJobsQuery } from "../../api/queries/useActiveJobsQuery";
 import { useAllJobsQuery } from "../../api/queries/useAllJobsQuery";
 import { useNotificationJobsQuery } from "../../api/queries/useNotificationJobsQuery";
@@ -36,8 +36,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const notificationJobsQuery = useNotificationJobsQuery();
   const reviewJobsQuery = useReviewJobsQuery();
   const allJobsQuery = useAllJobsQuery();
-  const runAgentMutation = useRunAgentMutation();
-  const saveResultMutation = useSaveAgentResponseMutation();
+  const enqueueTrackAnalysisMutation = useEnqueueTrackAnalysisMutation();
+  const saveEnrichmentResponseMutation = useSaveEnrichmentResponseMutation();
   const reenrichResultMutation = useReenrichSavedResultMutation();
   const deleteResultMutation = useDeleteSavedResultMutation();
   const markNotificationReadMutation =
@@ -87,8 +87,8 @@ export function AppProviders({ children }: { children: ReactNode }) {
     reenrichResultMutation,
     refreshJobs,
     resolveJob: jobs.resolveJob,
-    runAgentMutation,
-    saveResultMutation,
+    enqueueTrackAnalysisMutation,
+    saveEnrichmentResponseMutation,
     setResultsError: savedResults.setResultsError,
   });
   const results = resultsQuery.data ?? [];
@@ -133,7 +133,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   };
   const enrichmentValue: EnrichmentContextValue = {
     artists: draft.artists,
-    canSave: Boolean(draft.lastAgentResponse),
+    canSave: Boolean(draft.lastEnrichmentResponse),
     currentReviewJobId: draft.currentReviewJobId,
     error: draft.error,
     isLoading: analysis.isLoading,

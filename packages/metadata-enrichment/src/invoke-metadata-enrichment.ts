@@ -1,11 +1,11 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { agent } from "./track-metadata-agent.ts";
-import { agentTrackResultStore } from "./datastore/agent-track-result-store.ts";
+import { conversationalMetadataAgent } from "./conversational-metadata-agent.ts";
+import { enrichmentTrackResultStore } from "./datastore/enrichment-track-result-store.ts";
 import { createDatastoreEnrichmentStore } from "./enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "./enrichment/track-metadata-enrichment.ts";
 import { parseTrackRequest } from "./input/track-request.ts";
 
-export type TrackMetadataAgentOptions = {
+export type MetadataEnrichmentOptions = {
   operation?: "analyze" | "enrich";
   preferDatastore?: boolean;
   knownMetadata?: Partial<{
@@ -18,9 +18,9 @@ export type TrackMetadataAgentOptions = {
   }>;
 };
 
-export async function invokeTrackMetadataAgent(
+export async function invokeMetadataEnrichment(
   message: string,
-  options: TrackMetadataAgentOptions = {},
+  options: MetadataEnrichmentOptions = {},
 ) {
   const preferDatastore = options.preferDatastore ?? true;
   const request = parseTrackRequest(message);
@@ -35,7 +35,7 @@ export async function invokeTrackMetadataAgent(
       },
       {
         store: preferDatastore && options.operation !== "enrich"
-          ? createDatastoreEnrichmentStore(agentTrackResultStore)
+          ? createDatastoreEnrichmentStore(enrichmentTrackResultStore)
           : undefined,
       },
     );
@@ -43,7 +43,7 @@ export async function invokeTrackMetadataAgent(
     return result;
   }
 
-  const result = await agent.invoke({
+  const result = await conversationalMetadataAgent.invoke({
     messages: [new HumanMessage(message)],
   });
 

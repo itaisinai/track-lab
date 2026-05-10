@@ -1,13 +1,13 @@
 import { useState, type FormEvent } from "react";
 import type { useReenrichSavedResultMutation } from "../../../api/mutations/useReenrichSavedResultMutation";
-import type { useRunAgentMutation } from "../../../api/mutations/useRunAgentMutation";
-import type { useSaveAgentResponseMutation } from "../../../api/mutations/useSaveAgentResponseMutation";
+import type { useEnqueueTrackAnalysisMutation } from "../../../api/mutations/useEnqueueTrackAnalysisMutation";
+import type { useSaveEnrichmentResponseMutation } from "../../../api/mutations/useSaveEnrichmentResponseMutation";
 import type { SavedTrackResult, TrackAnalysisJob } from "../../../types";
 import { getErrorMessage } from "../../../lib/errors/app-errors";
 
 type AnalysisDraftState = {
   artists: string;
-  lastAgentResponse: unknown;
+  lastEnrichmentResponse: unknown;
   title: string;
   trackDetails: {
     album?: string | null;
@@ -20,7 +20,7 @@ type AnalysisDraftState = {
   clearCurrentReviewState: () => void;
   setCurrentReviewJobId: (jobId: number | null) => void;
   setError: (error: string) => void;
-  setLastAgentResponse: (response: unknown) => void;
+  setLastEnrichmentResponse: (response: unknown) => void;
   setResponse: (response: string) => void;
   setSaveMessage: (message: string) => void;
   setShowSearchForm: (showSearchForm: boolean) => void;
@@ -34,8 +34,8 @@ type UseTrackAnalysisActionsOptions = {
   reenrichResultMutation: ReturnType<typeof useReenrichSavedResultMutation>;
   refreshJobs: () => Promise<unknown>;
   resolveJob: (job: TrackAnalysisJob) => Promise<void>;
-  runAgentMutation: ReturnType<typeof useRunAgentMutation>;
-  saveResultMutation: ReturnType<typeof useSaveAgentResponseMutation>;
+  enqueueTrackAnalysisMutation: ReturnType<typeof useEnqueueTrackAnalysisMutation>;
+  saveEnrichmentResponseMutation: ReturnType<typeof useSaveEnrichmentResponseMutation>;
   navigateToView: (view: "enrich" | "results" | "review" | "datastore") => void;
   setResultsError: (error: string) => void;
 };
@@ -49,13 +49,13 @@ export function useTrackAnalysisActions({
   reenrichResultMutation,
   refreshJobs,
   resolveJob,
-  runAgentMutation,
-  saveResultMutation,
+  enqueueTrackAnalysisMutation,
+  saveEnrichmentResponseMutation,
   setResultsError,
 }: UseTrackAnalysisActionsOptions) {
   const [reenrichingId, setReenrichingId] = useState<number | null>(null);
-  const isLoading = runAgentMutation.isPending;
-  const isSaving = saveResultMutation.isPending;
+  const isLoading = enqueueTrackAnalysisMutation.isPending;
+  const isSaving = saveEnrichmentResponseMutation.isPending;
 
   async function submitPrompt(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,11 +78,11 @@ export function useTrackAnalysisActions({
     draft.setError("");
     draft.setResponse("");
     draft.setSaveMessage("");
-    draft.setLastAgentResponse(null);
+    draft.setLastEnrichmentResponse(null);
     draft.setCurrentReviewJobId(null);
 
     try {
-      const data = await runAgentMutation.mutateAsync({
+      const data = await enqueueTrackAnalysisMutation.mutateAsync({
         operation,
         track: {
           title: draft.title.trim(),
@@ -147,7 +147,7 @@ export function useTrackAnalysisActions({
   }
 
   async function saveCurrentResponse() {
-    if (!draft.lastAgentResponse || isSaving) {
+    if (!draft.lastEnrichmentResponse || isSaving) {
       return false;
     }
 
@@ -155,7 +155,7 @@ export function useTrackAnalysisActions({
     draft.setError("");
 
     try {
-      await saveResultMutation.mutateAsync(draft.lastAgentResponse);
+      await saveEnrichmentResponseMutation.mutateAsync(draft.lastEnrichmentResponse);
       draft.setSaveMessage("Saved");
       await loadSavedResults();
       return true;

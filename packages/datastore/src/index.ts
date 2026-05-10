@@ -1,4 +1,4 @@
-export { extractAgentResponse } from "./agent-response.ts";
+export { extractEnrichmentResponse } from "./enrichment-response.ts";
 export { TrackAnalysisJobStore } from "./track-analysis-job-store.ts";
 export { RemixResultStore } from "./remix-result-store.ts";
 export { TrackResultStore } from "./track-result-store.ts";

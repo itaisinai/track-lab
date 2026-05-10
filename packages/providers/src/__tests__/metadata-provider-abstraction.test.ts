@@ -11,7 +11,7 @@ test("default metadata provider registry exposes provider interface objects", ()
 
   assert.deepEqual(
     providers.map((provider) => provider.name),
-    ["Spotify", "GetSongBPM", "Beatport"],
+    ["Spotify", "GetSongBPM", "Beatport", "SoundCloud"],
   );
 
   for (const provider of providers) {
