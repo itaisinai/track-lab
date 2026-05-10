@@ -1,3 +1,5 @@
+@import "tailwindcss";
+
 * {
   box-sizing: border-box;
 }
@@ -9,10 +11,35 @@ body {
     sans-serif;
   color: #ecf4f2;
   background:
-    radial-gradient(circle at 12% 8%, rgb(42 157 143 / 22%), transparent 30%),
-    radial-gradient(circle at 88% 6%, rgb(233 196 106 / 16%), transparent 28%),
-    linear-gradient(180deg, #091014 0%, #101923 48%, #121417 100%);
+    radial-gradient(circle at 18% 12%, rgb(139 92 246 / 22%), transparent 34%),
+    radial-gradient(circle at 83% 0%, rgb(6 182 212 / 24%), transparent 30%),
+    radial-gradient(circle at 80% 76%, rgb(37 99 235 / 16%), transparent 30%),
+    linear-gradient(145deg, #02030a 0%, #070b17 48%, #03050d 100%);
   min-height: 100vh;
+}
+
+body::before {
+  position: fixed;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  content: "";
+  background-image:
+    linear-gradient(rgb(148 163 184 / 4%) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(148 163 184 / 4%) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(circle at 70% 18%, #000 0%, transparent 62%);
+}
+
+body::after {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  content: "";
+  background:
+    linear-gradient(120deg, rgb(168 85 247 / 8%), transparent 28%),
+    linear-gradient(300deg, rgb(34 211 238 / 10%), transparent 30%);
 }
 
 button,

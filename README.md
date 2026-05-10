@@ -78,6 +78,80 @@ TRACK_LAB_DB_PATH=/path/to/track-lab.sqlite
 
 Saved tracks are unique by returned `Title + Artists`.
 
+## Worker Jobs
+
+Background work is stored in the `track_analysis_jobs` SQLite table and exposed
+as `TrackAnalysisJob` API objects.
+
+Job operations:
+
+- `analyze` - enrich track metadata, preferring saved datastore results.
+- `enrich` - fresh metadata enrichment using optional known metadata.
+- `remix_search` - find remix candidates for a track or Spotify URL.
+
+Job statuses:
+
+- `queued` - waiting for the worker to claim it.
+- `processing` - claimed by the worker; `attemptCount` has been incremented.
+- `completed` - worker stored a JSON result and `completedAt`.
+- `failed` - reserved retryable failure status.
+- `dead_lettered` - exhausted `maxAttempts`; stores `errorMessage` and
+  `completedAt`.
+
+Job payloads:
+
+```ts
+type TrackAnalysisPayload =
+  | {
+      operation: "analyze" | "enrich";
+      track: { title: string; artists: string };
+      knownMetadata?: {
+        album?: string | null;
+        bpm?: number | null;
+        genre?: string | null;
+        subGenre?: string | null;
+        key?: string | null;
+        spotifyUrl?: string | null;
+      };
+      source?: "manual" | "saved_result" | "bulk_saved_results";
+    }
+  | {
+      operation: "remix_search";
+      request: {
+        title?: string | null;
+        artists?: string | null;
+        spotifyUrl?: string | null;
+        genre?: string | null;
+      };
+    };
+```
+
+Job API shape:
+
+```ts
+type TrackAnalysisJob = {
+  id: number;
+  operation: "analyze" | "enrich" | "remix_search";
+  status: "queued" | "processing" | "completed" | "failed" | "dead_lettered";
+  payload: TrackAnalysisPayload;
+  result: unknown | null;
+  errorMessage: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  notificationReadAt: string | null;
+  resolvedAt: string | null;
+};
+```
+
+Persisted columns use snake_case names: `id`, `operation`, `status`,
+`payload_json`, `result_json`, `error_message`, `attempt_count`, `max_attempts`,
+`created_at`, `updated_at`, `completed_at`, `notification_read_at`, and
+`resolved_at`. The worker claims the oldest queued job, writes `result_json` on
+success, and requeues failures until `attempt_count >= max_attempts`.
+
 ## Behavior
 
 - The metadata enrichment pipeline returns `Title`, `Artists`, `Album`, `BPM`, `Genre`, `SubGenre`,
@@ -101,6 +175,13 @@ Saved tracks are unique by returned `Title + Artists`.
 - `POST /track-analysis` - enqueue analyze/enrich metadata work.
 - `POST /agent` - legacy alias for enqueueing analyze/enrich metadata work.
 - `POST /remix-search` - search remix candidates.
+- `GET /track-analysis/jobs` - list worker jobs; supports `status`,
+  `unresolved=true`, and `unread=true`.
+- `GET /track-analysis/jobs/:id` - get one worker job.
+- `POST /track-analysis/jobs/:id/retry` - requeue a failed or dead-lettered job.
+- `POST /track-analysis/jobs/:id/resolve` - mark a terminal job resolved.
+- `POST /track-analysis/jobs/:id/notification-read` - mark a job notification
+  read.
 - `GET /results` - list saved results.
 - `GET /results/:id` - get one saved result.
 - `POST /results` - save an enrichment response.
