@@ -45,6 +45,8 @@ export function normalizeTrackResult(
       "summary",
     ]),
   );
+  const bpm = valueToNumber(findValue(record, ["bpm"]));
+  const genre = valueToString(findValue(record, ["genre"]));
 
   return {
     title,
@@ -53,12 +55,12 @@ export function normalizeTrackResult(
       valueToString(findValue(record, ["album", "albumName", "album_name"])) ??
       findNestedAlbum(record) ??
       inferAlbumFromSummary(summary),
-    bpm: valueToNumber(findValue(record, ["bpm"])),
-    genre: valueToString(findValue(record, ["genre"])),
+    bpm,
+    genre,
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
     summary,
-    status: determineStatus(record, toolsUsed, errors),
+    status: determineStatus(record, toolsUsed, errors, bpm, genre),
     toolsUsed,
     errors,
   };
@@ -157,11 +159,17 @@ function determineStatus(
   record: Record<string, unknown>,
   toolsUsed: ToolStatus[],
   errors: ResultError[],
+  bpm: number | null,
+  genre: string | null,
 ): ResultStatus {
   const enrichedStatus = valueToString(findValue(record, ["status"]));
 
-  if (enrichedStatus === "complete" || enrichedStatus === "partial") {
-    return enrichedStatus;
+  if (bpm && genre) {
+    return "complete";
+  }
+
+  if (bpm || genre || enrichedStatus === "partial") {
+    return "partial";
   }
 
   if (toolsUsed.length === 0 || toolsUsed.every((tool) => tool.error)) {

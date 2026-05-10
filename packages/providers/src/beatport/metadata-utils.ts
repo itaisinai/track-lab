@@ -37,6 +37,9 @@ export type BeatportTrack = {
   label_name?: string | null;
   url?: string | null;
   slug?: string | null;
+  remixers?: BeatportArtist[];
+  is_ugc_remix?: boolean | null;
+  is_dj_edit?: boolean | null;
   track_id?: number;
   track_name?: string;
   release_slug?: string | null;
@@ -117,7 +120,7 @@ export async function searchCratesBeatportTracks(title: string, artists: string)
       throw new Error(`Crates search proxy error: ${result.error}`);
     }
 
-    for (const track of result.tracks ?? []) {
+    for (const track of (result.tracks ?? []).filter((track) => !isBeatportRemixTrack(track))) {
       const id = String(
         track.id ??
           track.track_id ??
@@ -197,7 +200,9 @@ export async function searchBeatportPublicTracks(title: string, artists: string)
       throw new Error(`Beatport search page error ${response.status}.`);
     }
 
-    for (const track of parseBeatportSearchHtml(await response.text())) {
+    for (const track of parseBeatportSearchHtml(await response.text()).filter(
+      (track) => !isBeatportRemixTrack(track),
+    )) {
       const id = String(
         track.id ??
           track.track_id ??
@@ -276,6 +281,10 @@ function scoreBeatportMatch(
   normalizedTitle: string,
   normalizedArtists: string[],
 ) {
+  if (isBeatportRemixTrack(track)) {
+    return 0;
+  }
+
   const trackTitle = normalize(getTrackName(track));
   const titleMatches =
     trackTitle === normalizedTitle ||
@@ -316,6 +325,16 @@ export function toBeatportSummary(track: BeatportTrack) {
     key: getName(track.key) ?? track.key_name ?? null,
     url: getBeatportUrl(track),
   };
+}
+
+export function isBeatportRemixTrack(track: BeatportTrack) {
+  if (track.is_ugc_remix || (track.remixers?.length ?? 0) > 0) {
+    return true;
+  }
+
+  return [track.mix_name, getTrackName(track), getName(track.release) ?? track.release_name]
+    .filter((value): value is string => Boolean(value))
+    .some(hasRemixMarker);
 }
 
 export function getTrackName(track: BeatportTrack) {
@@ -380,4 +399,8 @@ export function getBeatportUrl(track: BeatportTrack) {
 
 function slugify(value: string) {
   return normalize(value).replace(/\s+/g, "-");
+}
+
+function hasRemixMarker(value: string) {
+  return /\b(remix|bootleg|flip|vip|rework)\b/i.test(normalize(value));
 }

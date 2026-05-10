@@ -1,5 +1,6 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
+import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichedTrackMetadata } from "./types.ts";
 
 export type ProviderEvidence = {
@@ -165,6 +166,8 @@ function mergeSynthesis(
   if (!parsed) {
     return addFallbackReviewNotes(baseResult);
   }
+  const bpm = getNullableNumber(parsed.bpm) ?? baseResult.bpm;
+  const genre = getNullableString(parsed.genre) ?? baseResult.genre;
 
   return {
     ...baseResult,
@@ -173,13 +176,13 @@ function mergeSynthesis(
     album: getNullableString(parsed.album) ?? baseResult.album,
     spotifyUrl: getNullableString(parsed.spotifyUrl) ?? baseResult.spotifyUrl,
     summary: getNullableString(parsed.summary) ?? baseResult.summary,
-    bpm: getNullableNumber(parsed.bpm) ?? baseResult.bpm,
-    genre: getNullableString(parsed.genre) ?? baseResult.genre,
+    bpm,
+    genre,
     subGenre: getNullableString(parsed.subGenre) ?? baseResult.subGenre,
     key: getNullableString(parsed.key) ?? baseResult.key,
     reviewNotes: getStringArray(parsed.reviewNotes) ?? baseResult.reviewNotes,
     conflicts: getStringArray(parsed.conflicts) ?? baseResult.conflicts,
-    status: isStatus(parsed.status) ? parsed.status : baseResult.status,
+    status: getEnrichmentStatus(bpm, genre),
   };
 }
 
@@ -335,8 +338,4 @@ function getStringArray(value: unknown) {
     (item): item is string => typeof item === "string" && item.trim().length > 0,
   );
   return values.length > 0 ? values : null;
-}
-
-function isStatus(value: unknown): value is EnrichedTrackMetadata["status"] {
-  return value === "complete" || value === "partial" || value === "missing";
 }
