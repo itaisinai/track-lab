@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import { formatDate } from "../../lib/format";
+import { formatJobTrackLabel } from "../../lib/job-labels";
 import type { TrackAnalysisJob } from "../../types";
 import { DataTable } from "../../shared/components/DataTable";
 import "../results/ResultsView.css";
@@ -128,7 +129,7 @@ export function ReviewQueueView({
               key={job.id}
               onClick={() => onOpen(job)}
             >
-              #{job.id} {job.operation} {job.status}: {getJobTitle(job)}
+              #{job.id} {job.operation} {job.status}: {formatJobTrackLabel(job)}
             </button>
           ))}
         </div>

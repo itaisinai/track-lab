@@ -4,6 +4,10 @@ import type {
   TrackMetadataProviderResult,
 } from "../base/types.ts";
 import { logProviderSearch } from "../shared/utils.ts";
+import {
+  createTitleFirstTrackQueries,
+  normalizeTrackLookupInput,
+} from "../shared/track-query.ts";
 import { searchSoundCloudWebTracks } from "./web-search.ts";
 
 export function createSoundCloudMetadataProvider(): TrackMetadataProvider {
@@ -22,14 +26,15 @@ async function lookupTrackMetadata({
   if (!artist) {
     return null;
   }
+  const input = normalizeTrackLookupInput(trackName, artist);
 
   logProviderSearch("soundcloud", "metadata search started", {
-    title: trackName,
-    artists: artist,
+    title: input.title,
+    artists: input.artists,
   });
   const candidates = await searchSoundCloudWebTracks(
     {
-      queries: createSoundCloudTrackQueries(trackName, artist),
+      queries: createSoundCloudTrackQueries(input.title, input.artists),
       genre: null,
     },
     {
@@ -42,8 +47,8 @@ async function lookupTrackMetadata({
 
   if (!match) {
     logProviderSearch("soundcloud", "metadata no match", {
-      title: trackName,
-      artists: artist,
+      title: input.title,
+      artists: input.artists,
     });
     return null;
   }
@@ -72,11 +77,7 @@ async function lookupTrackMetadata({
 }
 
 function createSoundCloudTrackQueries(trackName: string, artist: string) {
-  return [
-    `${artist} ${trackName}`,
-    `${trackName} ${artist}`,
-    `${artist} ${trackName} original`,
-  ];
+  return createTitleFirstTrackQueries(trackName, artist);
 }
 
 function getTags(value: string | null | undefined) {
