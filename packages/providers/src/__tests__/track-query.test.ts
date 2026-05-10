@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   createTitleFirstTrackQueries,
+  createTitleFirstTrackQueriesWithArtistVariants,
   normalizeTrackLookupInput,
 } from "../shared/track-query.ts";
 
@@ -24,5 +25,22 @@ test("track queries are title first when title does not include artist", () => {
   assert.deepEqual(
     createTitleFirstTrackQueries("Losing It", "FISHER"),
     ["Losing It FISHER", "Losing It", "Losing It original"],
+  );
+});
+
+test("track queries try each artist variant for SoundCloud searches", () => {
+  assert.deepEqual(
+    createTitleFirstTrackQueriesWithArtistVariants(
+      "Smack Talk",
+      "RL Grime, Isoxo, Knock2, ISOKNOCK",
+    ),
+    [
+      "Smack Talk RL Grime",
+      "Smack Talk",
+      "Smack Talk original",
+      "Smack Talk Isoxo",
+      "Smack Talk Knock2",
+      "Smack Talk ISOKNOCK",
+    ],
   );
 });

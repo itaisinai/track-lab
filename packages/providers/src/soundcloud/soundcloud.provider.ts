@@ -5,10 +5,12 @@ import type {
 } from "../base/types.ts";
 import { logProviderSearch } from "../shared/utils.ts";
 import {
-  createTitleFirstTrackQueries,
+  createTitleFirstTrackQueriesWithArtistVariants,
   normalizeTrackLookupInput,
 } from "../shared/track-query.ts";
-import { findBestSoundCloudMetadataMatch } from "./metadata-match.ts";
+import {
+  findBestSoundCloudMetadataMatch,
+} from "./metadata-match.ts";
 import { searchSoundCloudWebTracks } from "./web-search.ts";
 
 export function createSoundCloudMetadataProvider(): TrackMetadataProvider {
@@ -44,6 +46,7 @@ async function lookupTrackMetadata({
       },
     },
   );
+
   const match = findBestSoundCloudMetadataMatch(
     candidates,
     input.matchTitle,
@@ -82,7 +85,7 @@ async function lookupTrackMetadata({
 }
 
 function createSoundCloudTrackQueries(trackName: string, artist: string) {
-  return createTitleFirstTrackQueries(trackName, artist);
+  return createTitleFirstTrackQueriesWithArtistVariants(trackName, artist);
 }
 
 function getTags(value: string | null | undefined) {

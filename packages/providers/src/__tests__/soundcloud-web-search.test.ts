@@ -65,6 +65,20 @@ test("soundcloud web search parses track page uploaded date", () => {
     createdAt: "2020-09-29T20:06:47Z",
     durationMs: 168855,
     genre: "Dance & EDM",
-    subGenre: "house remix",
+    subGenre: "house",
+  });
+});
+
+test("soundcloud web search ignores noisy tag lists without a clear genre", () => {
+  const metadata =
+    soundCloudWebSearchInternals.parseSoundCloudTrackPageMetadata(`
+      <script>window.__sc_hydration = [{"hydratable":"sound","data":{"genre":"Dubstep","tag_list":"WAKAAN \\"Liquid Stranger\\" LSDREAM \\"Champagne Drip\\" Lucii LUZCID DMVU Mersiv G-REX Peekaboo \\"Zeds Dead\\" Excision Zomboy \\"12th Planet\\" sfam G-Space Subtronics \\"Boogie T\\" SubDocta Shlump Esseks \\"Dirt Monkey\\""}}];</script>
+    `);
+
+  assert.deepEqual(metadata, {
+    createdAt: null,
+    durationMs: null,
+    genre: "Dubstep",
+    subGenre: null,
   });
 });

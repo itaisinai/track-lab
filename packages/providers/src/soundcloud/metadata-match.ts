@@ -9,7 +9,21 @@ type ScoredSoundCloudMatch = {
   score: number;
 };
 
+export type SoundCloudMetadataMatchDebug = {
+  candidate: SoundCloudWebSearchResult;
+  score: number;
+};
+
 export function findBestSoundCloudMetadataMatch(
+  candidates: SoundCloudWebSearchResult[],
+  title: string,
+  artists: string,
+) {
+  return rankSoundCloudMetadataCandidates(candidates, title, artists)[0]
+    ?.candidate ?? null;
+}
+
+export function rankSoundCloudMetadataCandidates(
   candidates: SoundCloudWebSearchResult[],
   title: string,
   artists: string,
@@ -27,7 +41,10 @@ export function findBestSoundCloudMetadataMatch(
     .filter((match): match is ScoredSoundCloudMatch => Boolean(match))
     .sort((left, right) => right.score - left.score);
 
-  return scored[0]?.candidate ?? null;
+  return scored.map((match) => ({
+    candidate: match.candidate,
+    score: match.score,
+  }));
 }
 
 export function isSoundCloudRemixCandidate(
