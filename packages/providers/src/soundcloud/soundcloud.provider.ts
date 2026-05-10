@@ -8,6 +8,7 @@ import {
   createTitleFirstTrackQueries,
   normalizeTrackLookupInput,
 } from "../shared/track-query.ts";
+import { findBestSoundCloudMetadataMatch } from "./metadata-match.ts";
 import { searchSoundCloudWebTracks } from "./web-search.ts";
 
 export function createSoundCloudMetadataProvider(): TrackMetadataProvider {
@@ -43,7 +44,11 @@ async function lookupTrackMetadata({
       },
     },
   );
-  const match = candidates.find((candidate) => candidate.link);
+  const match = findBestSoundCloudMetadataMatch(
+    candidates,
+    input.matchTitle,
+    input.artists,
+  );
 
   if (!match) {
     logProviderSearch("soundcloud", "metadata no match", {
