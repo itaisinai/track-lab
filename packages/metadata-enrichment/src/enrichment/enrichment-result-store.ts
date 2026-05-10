@@ -26,14 +26,14 @@ export function createDatastoreEnrichmentStore(
       }
 
       store.saveResult({
-        rawResponse: JSON.stringify(toAgentResult(result, input)),
-        json: toAgentResult(result, input),
+        rawResponse: JSON.stringify(toEnrichmentResult(result, input)),
+        json: toEnrichmentResult(result, input),
       });
     },
   };
 }
 
-function toAgentResult(
+function toEnrichmentResult(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
 ) {

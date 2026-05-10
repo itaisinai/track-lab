@@ -17,6 +17,7 @@ export type EnrichmentSource =
   | "spotify"
   | "beatport"
   | "getsongbpm"
+  | "soundcloud"
   | "lastfm"
   | "unknown";
 

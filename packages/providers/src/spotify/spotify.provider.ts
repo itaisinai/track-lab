@@ -13,6 +13,7 @@ import {
   hasUsefulTrackLookupResult,
 } from "../shared/provider-result-utils.ts";
 import { logProviderSearch } from "../shared/utils.ts";
+import { normalizeTrackLookupInput } from "../shared/track-query.ts";
 import {
   getSpotifyAccessToken,
   getSpotifyArtists,
@@ -64,7 +65,11 @@ export async function lookupSpotifyTrack({
   title,
   artists,
 }: TrackLookupInput): Promise<ProviderTrackLookupResult> {
-  logProviderSearch("spotify", "search started", { title, artists });
+  const input = normalizeTrackLookupInput(title, artists);
+  logProviderSearch("spotify", "search started", {
+    title: input.title,
+    artists: input.artists,
+  });
 
   if (!hasSpotifyCredentials()) {
     logProviderSearch("spotify", "skipped missing credentials");
@@ -82,10 +87,13 @@ export async function lookupSpotifyTrack({
 
   try {
     const token = await getSpotifyAccessToken();
-    const track = await searchSpotifyTrack(token, title, artists);
+    const track = await searchSpotifyTrack(token, input.title, input.artists);
 
     if (!track) {
-      logProviderSearch("spotify", "no match", { title, artists });
+      logProviderSearch("spotify", "no match", {
+        title: input.title,
+        artists: input.artists,
+      });
       return {
         found: false,
         source: "spotify",

@@ -25,7 +25,7 @@ export function normalizeTrackResult(
     stringifyArtistList(findValue(record, ["artistList", "artist_list"]));
 
   if (!title || !artists) {
-    throw new Error("Saved agent response must include Title and Artists.");
+    throw new Error("Saved enrichment response must include Title and Artists.");
   }
 
   const toolsUsed = extractToolStatuses(record);
@@ -45,6 +45,8 @@ export function normalizeTrackResult(
       "summary",
     ]),
   );
+  const bpm = valueToNumber(findValue(record, ["bpm"]));
+  const genre = valueToString(findValue(record, ["genre"]));
 
   return {
     title,
@@ -53,12 +55,12 @@ export function normalizeTrackResult(
       valueToString(findValue(record, ["album", "albumName", "album_name"])) ??
       findNestedAlbum(record) ??
       inferAlbumFromSummary(summary),
-    bpm: valueToNumber(findValue(record, ["bpm"])),
-    genre: valueToString(findValue(record, ["genre"])),
+    bpm,
+    genre,
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
     summary,
-    status: determineStatus(record, toolsUsed, errors),
+    status: determineStatus(record, toolsUsed, errors, bpm, genre),
     toolsUsed,
     errors,
   };
@@ -99,7 +101,7 @@ function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
     return explicitStatuses;
   }
 
-  const providerStatuses = ["Spotify", "Beatport", "GetSongBPM"]
+  const providerStatuses = ["Spotify", "Beatport", "SoundCloud", "GetSongBPM", "Wikipedia"]
     .map((name) => {
       const value = findValue(record, [name]);
 
@@ -157,11 +159,17 @@ function determineStatus(
   record: Record<string, unknown>,
   toolsUsed: ToolStatus[],
   errors: ResultError[],
+  bpm: number | null,
+  genre: string | null,
 ): ResultStatus {
   const enrichedStatus = valueToString(findValue(record, ["status"]));
 
-  if (enrichedStatus === "complete" || enrichedStatus === "partial") {
-    return enrichedStatus;
+  if (bpm && genre) {
+    return "complete";
+  }
+
+  if (bpm || genre || enrichedStatus === "partial") {
+    return "partial";
   }
 
   if (toolsUsed.length === 0 || toolsUsed.every((tool) => tool.error)) {
@@ -206,7 +214,7 @@ function extractResponseErrors(record: Record<string, unknown>): ResultError[] {
   return errors
     .map((error) => valueToString(error))
     .filter((error): error is string => Boolean(error))
-    .map((message) => ({ source: "Agent", message }));
+    .map((message) => ({ source: "Metadata Enrichment", message }));
 }
 
 function formatSourceName(source: string) {

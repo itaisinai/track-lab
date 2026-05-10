@@ -1,4 +1,8 @@
 import { logProviderSearch, normalize, unique } from "../shared/utils.ts";
+import {
+  createTitleFirstTrackQueries,
+  normalizeTrackLookupInput,
+} from "../shared/track-query.ts";
 
 const SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token";
 const SPOTIFY_API_URL = "https://api.spotify.com/v1";
@@ -92,29 +96,39 @@ export async function searchSpotifyTrack(
   title: string,
   artists: string,
 ) {
-  const primaryArtist = artists.split(",")[0]?.trim() ?? artists.trim();
-  const query = `track:"${title}" artist:"${primaryArtist}"`;
-  const params = new URLSearchParams({
-    q: query,
-    type: "track",
-    limit: "5",
-  });
+  const input = normalizeTrackLookupInput(title, artists);
+  const queries = [
+    `track:"${input.matchTitle}" artist:"${input.primaryArtist}"`,
+    ...createTitleFirstTrackQueries(input.title, input.artists),
+  ];
 
-  const response = await spotifyFetch(token, `/search?${params.toString()}`);
-  const data = await parseSpotifyResponse<SpotifySearchResponse>(
-    response,
-    "search",
-  );
-  const tracks = data.tracks?.items ?? [];
-  const match = findBestTrackMatch(tracks, title, artists) ?? tracks[0] ?? null;
+  for (const query of unique(queries)) {
+    const params = new URLSearchParams({
+      q: query,
+      type: "track",
+      limit: "5",
+    });
 
-  logProviderSearch("spotify", "search results", {
-    query,
-    candidates: tracks.length,
-    selected: match?.name ?? null,
-  });
+    const response = await spotifyFetch(token, `/search?${params.toString()}`);
+    const data = await parseSpotifyResponse<SpotifySearchResponse>(
+      response,
+      "search",
+    );
+    const tracks = data.tracks?.items ?? [];
+    const match = findBestTrackMatch(tracks, input.matchTitle, input.artists) ?? null;
 
-  return match;
+    logProviderSearch("spotify", "search results", {
+      query,
+      candidates: tracks.length,
+      selected: match?.name ?? null,
+    });
+
+    if (match) {
+      return match;
+    }
+  }
+
+  return null;
 }
 
 export async function getSpotifyArtists(token: string, artistIds: string[]) {
@@ -172,8 +186,9 @@ function findBestTrackMatch(
   title: string,
   artists: string,
 ) {
-  const normalizedTitle = normalize(title);
-  const normalizedArtists = artists.split(",").map(normalize).filter(Boolean);
+  const input = normalizeTrackLookupInput(title, artists);
+  const normalizedTitle = normalize(input.matchTitle);
+  const normalizedArtists = input.artists.split(",").map(normalize).filter(Boolean);
 
   return tracks.find((track) => {
     const titleMatches = normalize(track.name) === normalizedTitle;

@@ -1,6 +1,6 @@
 export function assertRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
-    throw new Error("Saved agent response must be a JSON object.");
+    throw new Error("Saved enrichment response must be a JSON object.");
   }
 
   return value as Record<string, unknown>;

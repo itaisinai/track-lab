@@ -3,19 +3,20 @@ import {
   normalize,
   parseNumericValue,
 } from "../shared/utils.ts";
+import {
+  createTitleFirstTrackQueries,
+  normalizeTrackLookupInput,
+  splitArtistNames,
+} from "../shared/track-query.ts";
 
-const BEATPORT_TOKEN_URL = "https://api.beatport.com/v4/auth/o/token/";
-const BEATPORT_API_URL = "https://api.beatport.com/v4";
 const BEATPORT_WEB_URL = "https://www.beatport.com";
+const CRATES_URL = "https://crates.co";
+const CRATES_TOKEN_EXPIRY_BUFFER_MS = 60_000;
 
-type BeatportToken = {
+let cratesBrowseToken: {
   accessToken: string;
   expiresAt: number;
-};
-
-type BeatportTrackResponse = {
-  results?: BeatportTrack[];
-};
+} | null = null;
 
 export type BeatportTrack = {
   id?: number;
@@ -30,12 +31,15 @@ export type BeatportTrack = {
   sub_genre?: BeatportNamedField | null;
   sub_genre_name?: string | null;
   artists?: BeatportArtist[];
-  release?: BeatportNamedField;
+  release?: BeatportReleaseField;
   release_name?: string | null;
   label?: BeatportNamedField | null;
   label_name?: string | null;
   url?: string | null;
   slug?: string | null;
+  remixers?: BeatportArtist[];
+  is_ugc_remix?: boolean | null;
+  is_dj_edit?: boolean | null;
   track_id?: number;
   track_name?: string;
   release_slug?: string | null;
@@ -50,6 +54,10 @@ type BeatportNamedField = {
   release_name?: string;
 };
 
+type BeatportReleaseField = BeatportNamedField & {
+  label?: BeatportNamedField | null;
+};
+
 type BeatportGenreField = BeatportNamedField & {
   genre_id?: number;
   genre_name?: string;
@@ -59,73 +67,123 @@ type BeatportArtist = BeatportNamedField & {
   url?: string | null;
 };
 
-let cachedToken: BeatportToken | null = null;
+type CratesClientCredentialsResponse = {
+  access_token?: string;
+  expires_in?: number;
+  error?: string;
+};
 
-export function hasBeatportCredentials() {
-  return Boolean(process.env.BEATPORT_CLIENT_ID && process.env.BEATPORT_CLIENT_SECRET);
+type CratesSearchResponse = {
+  tracks?: BeatportTrack[];
+  error?: string;
+};
+
+export async function searchCratesBeatportTracks(title: string, artists: string) {
+  const seenTrackIds = new Set<string>();
+  const tracks: BeatportTrack[] = [];
+  const accessToken = await getCratesBrowseToken();
+  const input = normalizeTrackLookupInput(title, artists);
+
+  for (const query of getBeatportPublicSearchQueries(input.title, input.artists)) {
+    const apiParams = new URLSearchParams({
+      q: query,
+      per_page: "50",
+      page: "1",
+    });
+    const apiCall = `catalog/search/?${apiParams}`;
+
+    logProviderSearch("beatport", "requesting crates search", {
+      query,
+      url: `${CRATES_URL}/search?${new URLSearchParams({ q: query })}`,
+    });
+
+    const response = await fetch(`${CRATES_URL}/oauth_proxy_v4.php`, {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/x-www-form-urlencoded",
+        Cookie: `browse_token=${accessToken}`,
+        "User-Agent": "track-lab/1.0 (+https://github.com/itaisinai/track-lab)",
+      },
+      body: new URLSearchParams({
+        method: "GET",
+        apiCall,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Crates search proxy error ${response.status}.`);
+    }
+
+    const result = (await response.json()) as CratesSearchResponse;
+    if (result.error) {
+      throw new Error(`Crates search proxy error: ${result.error}`);
+    }
+
+    for (const track of (result.tracks ?? []).filter((track) => !isBeatportRemixTrack(track))) {
+      const id = String(
+        track.id ??
+          track.track_id ??
+          `${getTrackName(track)}:${getArtistNames(track).join(",")}`,
+      );
+      if (seenTrackIds.has(id)) {
+        continue;
+      }
+
+      seenTrackIds.add(id);
+      tracks.push(track);
+    }
+
+    if (findBestBeatportMatch(tracks, input.matchTitle, input.artists)) {
+      break;
+    }
+  }
+
+  return tracks;
 }
 
-export async function getBeatportAccessToken() {
-  if (cachedToken && cachedToken.expiresAt > Date.now() + 30_000) {
-    return cachedToken.accessToken;
+async function getCratesBrowseToken() {
+  if (
+    cratesBrowseToken &&
+    cratesBrowseToken.expiresAt > Date.now() + CRATES_TOKEN_EXPIRY_BUFFER_MS
+  ) {
+    return cratesBrowseToken.accessToken;
   }
 
-  const clientId = process.env.BEATPORT_CLIENT_ID;
-  const clientSecret = process.env.BEATPORT_CLIENT_SECRET;
-
-  if (!clientId || !clientSecret) {
-    throw new Error("Missing Beatport credentials.");
-  }
-
-  const response = await fetch(BEATPORT_TOKEN_URL, {
+  logProviderSearch("beatport", "requesting crates browse token");
+  const response = await fetch(`${CRATES_URL}/oauth_proxy_v4.php`, {
     method: "POST",
     headers: {
+      Accept: "application/json",
       "Content-Type": "application/x-www-form-urlencoded",
+      "User-Agent": "track-lab/1.0 (+https://github.com/itaisinai/track-lab)",
     },
-    body: new URLSearchParams({
-      client_id: clientId,
-      client_secret: clientSecret,
-      grant_type: "client_credentials",
-    }),
+    body: new URLSearchParams({ clientCredentials: "1" }),
   });
-  const data = await parseBeatportResponse<{
-    access_token: string;
-    expires_in: number;
-  }>(response, "token");
 
-  cachedToken = {
-    accessToken: data.access_token,
-    expiresAt: Date.now() + data.expires_in * 1000,
+  if (!response.ok) {
+    throw new Error(`Crates browse token error ${response.status}.`);
+  }
+
+  const result = (await response.json()) as CratesClientCredentialsResponse;
+  if (!result.access_token) {
+    throw new Error(result.error ?? "Crates browse token response did not include an access token.");
+  }
+
+  cratesBrowseToken = {
+    accessToken: result.access_token,
+    expiresAt: Date.now() + (result.expires_in ?? 3600) * 1000,
   };
 
-  return cachedToken.accessToken;
-}
-
-export async function searchBeatportTracks(
-  token: string,
-  title: string,
-  artists: string,
-) {
-  const params = new URLSearchParams({
-    name: title,
-    artist_name: artists.split(",")[0]?.trim() ?? artists.trim(),
-    per_page: "10",
-    page: "1",
-  });
-  const response = await beatportFetch(token, `/catalog/tracks/?${params}`);
-  const data = await parseBeatportResponse<BeatportTrackResponse>(
-    response,
-    "tracks",
-  );
-
-  return data.results ?? [];
+  return cratesBrowseToken.accessToken;
 }
 
 export async function searchBeatportPublicTracks(title: string, artists: string) {
   const seenTrackIds = new Set<string>();
   const tracks: BeatportTrack[] = [];
+  const input = normalizeTrackLookupInput(title, artists);
 
-  for (const query of getBeatportPublicSearchQueries(title, artists)) {
+  for (const query of getBeatportPublicSearchQueries(input.title, input.artists)) {
     const params = new URLSearchParams({ q: query });
     logProviderSearch("beatport", "requesting public search", {
       query,
@@ -142,7 +200,9 @@ export async function searchBeatportPublicTracks(title: string, artists: string)
       throw new Error(`Beatport search page error ${response.status}.`);
     }
 
-    for (const track of parseBeatportSearchHtml(await response.text())) {
+    for (const track of parseBeatportSearchHtml(await response.text()).filter(
+      (track) => !isBeatportRemixTrack(track),
+    )) {
       const id = String(
         track.id ??
           track.track_id ??
@@ -156,7 +216,7 @@ export async function searchBeatportPublicTracks(title: string, artists: string)
       tracks.push(track);
     }
 
-    if (findBestBeatportMatch(tracks, title, artists)) {
+    if (findBestBeatportMatch(tracks, input.matchTitle, input.artists)) {
       break;
     }
   }
@@ -198,34 +258,14 @@ export function parseBeatportSearchHtml(html: string): BeatportTrack[] {
   );
 }
 
-function beatportFetch(token: string, path: string) {
-  return fetch(`${BEATPORT_API_URL}${path}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-async function parseBeatportResponse<T>(response: Response, step: string) {
-  const text = await response.text();
-  const data = text ? JSON.parse(text) : null;
-
-  if (!response.ok) {
-    throw new Error(
-      `Beatport ${step} API error ${response.status}: ${JSON.stringify(data)}`,
-    );
-  }
-
-  return data as T;
-}
-
 export function findBestBeatportMatch(
   tracks: BeatportTrack[],
   title: string,
   artists: string,
 ) {
-  const normalizedTitle = normalize(title);
-  const normalizedArtists = splitArtistNames(artists).map(normalize).filter(Boolean);
+  const input = normalizeTrackLookupInput(title, artists);
+  const normalizedTitle = normalize(input.matchTitle);
+  const normalizedArtists = splitArtistNames(input.artists).map(normalize).filter(Boolean);
 
   return tracks
     .map((track) => ({
@@ -241,6 +281,10 @@ function scoreBeatportMatch(
   normalizedTitle: string,
   normalizedArtists: string[],
 ) {
+  if (isBeatportRemixTrack(track)) {
+    return 0;
+  }
+
   const trackTitle = normalize(getTrackName(track));
   const titleMatches =
     trackTitle === normalizedTitle ||
@@ -267,21 +311,7 @@ function scoreBeatportMatch(
 }
 
 function getBeatportPublicSearchQueries(title: string, artists: string) {
-  const artistList = splitArtistNames(artists);
-  const queries = [
-    [artists, title].filter(Boolean).join(" "),
-    ...artistList.slice(0, 3).map((artist) => `${artist} ${title}`),
-    title,
-  ];
-
-  return [...new Set(queries.map((query) => query.trim()).filter(Boolean))];
-}
-
-function splitArtistNames(artists: string) {
-  return artists
-    .split(",")
-    .map((artist) => artist.trim())
-    .filter(Boolean);
+  return createTitleFirstTrackQueries(title, artists);
 }
 
 export function toBeatportSummary(track: BeatportTrack) {
@@ -295,6 +325,16 @@ export function toBeatportSummary(track: BeatportTrack) {
     key: getName(track.key) ?? track.key_name ?? null,
     url: getBeatportUrl(track),
   };
+}
+
+export function isBeatportRemixTrack(track: BeatportTrack) {
+  if (track.is_ugc_remix || (track.remixers?.length ?? 0) > 0) {
+    return true;
+  }
+
+  return [track.mix_name, getTrackName(track), getName(track.release) ?? track.release_name]
+    .filter((value): value is string => Boolean(value))
+    .some(hasRemixMarker);
 }
 
 export function getTrackName(track: BeatportTrack) {
@@ -313,6 +353,15 @@ export function getName(field: BeatportNamedField | null | undefined) {
   );
 }
 
+export function getBeatportLabel(track: BeatportTrack) {
+  return (
+    getName(track.label) ??
+    track.label_name ??
+    getName(track.release?.label) ??
+    null
+  );
+}
+
 export function getBeatportGenre(track: BeatportTrack, index: number) {
   if (Array.isArray(track.genre)) {
     return track.genre[index]?.genre_name ?? track.genre[index]?.name ?? null;
@@ -326,7 +375,7 @@ export function getBeatportGenre(track: BeatportTrack, index: number) {
 }
 
 export function getBeatportUrl(track: BeatportTrack) {
-  if (track.url) {
+  if (track.url && !track.url.includes("api.beatport.com")) {
     return track.url.startsWith("http")
       ? track.url
       : `${BEATPORT_WEB_URL}${track.url}`;
@@ -350,4 +399,8 @@ export function getBeatportUrl(track: BeatportTrack) {
 
 function slugify(value: string) {
   return normalize(value).replace(/\s+/g, "-");
+}
+
+function hasRemixMarker(value: string) {
+  return /\b(remix|bootleg|flip|vip|rework)\b/i.test(normalize(value));
 }

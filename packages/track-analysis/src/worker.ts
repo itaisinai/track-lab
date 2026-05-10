@@ -1,4 +1,4 @@
-import { invokeTrackMetadataAgent } from "@track-lab/agent";
+import { invokeMetadataEnrichment } from "@track-lab/metadata-enrichment";
 import {
   TrackAnalysisJobStore,
   type TrackAnalysisJob,
@@ -71,7 +71,7 @@ export async function processTrackAnalysisPayload(payload: TrackAnalysisPayload)
     return new RemixSearchOrchestrator().search(payload.request);
   }
 
-  return invokeTrackMetadataAgent(
+  return invokeMetadataEnrichment(
     createTrackAnalysisPrompt(payload),
     {
       operation: payload.operation,

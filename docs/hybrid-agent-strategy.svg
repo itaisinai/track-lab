@@ -1,0 +1,125 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="980" viewBox="0 0 1500 980" role="img" aria-labelledby="title desc">
+  <title id="title">Hybrid Agent Strategy</title>
+  <desc id="desc">Visual graph for a hybrid Track Lab agent strategy with required tools, RAG context, an LLM planner, optional tools, synthesis, validation, and review queue.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10" fill="none" stroke="#202020" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <marker id="purple-arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10" fill="none" stroke="#7b4bb4" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+    </marker>
+    <style>
+      .bg { fill: #fbfbf6; }
+      .box { fill: #fbfbf6; stroke: #202020; stroke-width: 3; rx: 16; }
+      .blue { fill: #eef5ff; stroke: #2f6cc7; }
+      .green { fill: #eefbf5; stroke: #2f8b63; }
+      .yellow { fill: #fff8df; stroke: #9b7a22; }
+      .purple { fill: #f7f0ff; stroke: #7b4bb4; }
+      .red { fill: #fff1ef; stroke: #b2574b; }
+      .title { fill: #2f6cc7; font: 700 34px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .heading { fill: #202020; font: 700 21px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .text { fill: #202020; font: 500 16px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .small { fill: #202020; font: 500 14px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .arrow { fill: none; stroke: #202020; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .purple-arrow { fill: none; stroke: #7b4bb4; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 7; marker-end: url(#purple-arrow); }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1500" height="980"/>
+  <text class="title" x="555" y="54">Better Hybrid Agent Strategy</text>
+
+  <rect class="box blue" x="60" y="110" width="220" height="120"/>
+  <text class="heading" x="92" y="150">User Request</text>
+  <text class="text" x="86" y="180">title + artist</text>
+  <text class="text" x="86" y="205">or Spotify URL</text>
+
+  <rect class="box green" x="380" y="80" width="260" height="185"/>
+  <text class="heading" x="424" y="120">Always-run Tools</text>
+  <text class="text" x="410" y="156">1. Saved results lookup</text>
+  <text class="text" x="410" y="184">2. Spotify identity lookup</text>
+  <text class="small" x="410" y="218">cheap, predictable, stable</text>
+  <text class="small" x="410" y="242">builds initial evidence</text>
+
+  <rect class="box yellow" x="740" y="80" width="270" height="185"/>
+  <text class="heading" x="782" y="120">RAG Context</text>
+  <text class="text" x="770" y="156">provider reliability rules</text>
+  <text class="text" x="770" y="184">genre policy</text>
+  <text class="text" x="770" y="212">previous corrections</text>
+  <text class="text" x="770" y="240">reviewed saved results</text>
+
+  <rect class="box purple" x="1090" y="110" width="270" height="130"/>
+  <text class="heading" x="1140" y="150">LLM Planner</text>
+  <text class="text" x="1120" y="180">decides optional tools</text>
+  <text class="small" x="1120" y="208">based on missing fields,</text>
+  <text class="small" x="1120" y="230">genre/context, confidence</text>
+
+  <path class="arrow" d="M280 170 C320 170 340 170 380 170"/>
+  <path class="arrow" d="M640 170 C680 170 700 170 740 170"/>
+  <path class="purple-arrow" d="M1010 170 C1050 170 1065 170 1090 170"/>
+
+  <rect class="box" x="610" y="340" width="280" height="120"/>
+  <text class="heading" x="663" y="380">Planner Question</text>
+  <text class="text" x="645" y="412">What is missing?</text>
+  <text class="text" x="645" y="438">Which source is worth calling?</text>
+
+  <path class="purple-arrow" d="M1225 240 C1190 310 1000 350 890 388"/>
+
+  <rect class="box yellow" x="80" y="560" width="230" height="130"/>
+  <text class="heading" x="116" y="600">GetSongBPM</text>
+  <text class="text" x="112" y="630">use when BPM/key</text>
+  <text class="text" x="112" y="655">is missing</text>
+
+  <rect class="box yellow" x="380" y="560" width="230" height="130"/>
+  <text class="heading" x="432" y="600">Beatport</text>
+  <text class="text" x="410" y="630">use for EDM, DJ,</text>
+  <text class="text" x="410" y="655">club catalog tracks</text>
+
+  <rect class="box yellow" x="680" y="560" width="230" height="130"/>
+  <text class="heading" x="725" y="600">SoundCloud</text>
+  <text class="text" x="710" y="630">use for EDM, bass,</text>
+  <text class="text" x="710" y="655">underground, remixes</text>
+
+  <rect class="box yellow" x="980" y="560" width="230" height="130"/>
+  <text class="heading" x="1029" y="600">Wikipedia</text>
+  <text class="text" x="1010" y="630">use when artist, genre,</text>
+  <text class="text" x="1010" y="655">or context is unclear</text>
+
+  <rect class="box" x="1260" y="560" width="180" height="130"/>
+  <text class="heading" x="1296" y="600">Skip</text>
+  <text class="text" x="1290" y="630">if evidence is</text>
+  <text class="text" x="1290" y="655">already enough</text>
+
+  <path class="arrow" d="M610 398 C410 420 250 500 195 560"/>
+  <path class="arrow" d="M675 460 C590 500 535 535 495 560"/>
+  <path class="arrow" d="M750 460 C770 500 785 535 795 560"/>
+  <path class="arrow" d="M830 460 C935 500 1040 535 1095 560"/>
+  <path class="arrow" d="M890 400 C1110 420 1285 500 1350 560"/>
+
+  <rect class="box green" x="430" y="785" width="260" height="120"/>
+  <text class="heading" x="472" y="825">Merge Evidence</text>
+  <text class="text" x="460" y="855">confidence rules</text>
+  <text class="text" x="460" y="882">sources per field</text>
+
+  <rect class="box purple" x="800" y="785" width="260" height="120"/>
+  <text class="heading" x="842" y="825">LLM Synthesis</text>
+  <text class="text" x="830" y="855">summary, conflicts,</text>
+  <text class="text" x="830" y="882">genre normalization</text>
+
+  <rect class="box red" x="1170" y="785" width="250" height="120"/>
+  <text class="heading" x="1205" y="825">Validator + Review</text>
+  <text class="text" x="1200" y="855">strict schema</text>
+  <text class="text" x="1200" y="882">manual save/dismiss</text>
+
+  <path class="arrow" d="M195 690 C250 760 360 810 430 840"/>
+  <path class="arrow" d="M495 690 C500 735 525 765 550 785"/>
+  <path class="arrow" d="M795 690 C745 755 690 800 690 840"/>
+  <path class="arrow" d="M1095 690 C990 760 820 800 690 840"/>
+  <path class="arrow" d="M1350 690 C1180 760 880 810 690 848"/>
+
+  <path class="purple-arrow" d="M690 845 C735 845 760 845 800 845"/>
+  <path class="arrow" d="M1060 845 C1105 845 1130 845 1170 845"/>
+
+  <text class="heading" x="60" y="840">Core principle:</text>
+  <text class="text" x="60" y="872">Code owns execution, schema, persistence.</text>
+  <text class="text" x="60" y="900">LLM owns optional-tool planning and interpretation.</text>
+</svg>

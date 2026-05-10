@@ -3,14 +3,14 @@ import { request } from "../request";
 import { apiRoutes } from "../routes";
 import type { SavedTrackResult } from "../../types";
 
-export function useSaveAgentResponseMutation() {
-  return useMutation({ mutationFn: saveAgentResponse });
+export function useSaveEnrichmentResponseMutation() {
+  return useMutation({ mutationFn: saveEnrichmentResponse });
 }
 
-async function saveAgentResponse(agentResponse: unknown) {
+async function saveEnrichmentResponse(enrichmentResponse: unknown) {
   const data = await request<{ result: SavedTrackResult }>(apiRoutes.results, {
     method: "POST",
-    body: JSON.stringify({ agentResponse }),
+    body: JSON.stringify({ enrichmentResponse }),
   });
 
   return data.result;

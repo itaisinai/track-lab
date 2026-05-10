@@ -13,18 +13,17 @@ import {
   hasUsefulTrackLookupResult,
 } from "../shared/provider-result-utils.ts";
 import { logProviderSearch, parseNumericValue } from "../shared/utils.ts";
+import { normalizeTrackLookupInput } from "../shared/track-query.ts";
 import {
   findBestBeatportMatch,
   getArtistNames,
-  getBeatportAccessToken,
+  getBeatportLabel,
   getBeatportGenre,
   getBeatportUrl,
   getName,
   getTrackName,
-  hasBeatportCredentials,
   parseBeatportSearchHtml,
-  searchBeatportPublicTracks,
-  searchBeatportTracks,
+  searchCratesBeatportTracks,
   toBeatportSummary,
   type BeatportTrack,
 } from "./metadata-utils.ts";
@@ -73,12 +72,14 @@ export async function lookupBeatportTrack({
   title,
   artists,
 }: TrackLookupInput): Promise<ProviderTrackLookupResult> {
-  logProviderSearch("beatport", "search started", { title, artists });
+  const input = normalizeTrackLookupInput(title, artists);
+  logProviderSearch("beatport", "search started", {
+    title: input.title,
+    artists: input.artists,
+  });
 
   try {
-    const { match, tracks, source } = hasBeatportCredentials()
-      ? await searchAuthenticatedBeatport(title, artists)
-      : await searchPublicBeatport(title, artists);
+    const { match, tracks, source } = await searchCratesBeatport(input.title, input.artists);
 
     logProviderSearch("beatport", `${source} search results`, {
       candidates: tracks.length,
@@ -86,7 +87,10 @@ export async function lookupBeatportTrack({
     });
 
     if (!match) {
-      logProviderSearch("beatport", "no match", { title, artists });
+      logProviderSearch("beatport", "no match", {
+        title: input.title,
+        artists: input.artists,
+      });
       return {
         found: false,
         source: "beatport",
@@ -96,13 +100,13 @@ export async function lookupBeatportTrack({
         url: null,
         error: null,
         note: "No matching Beatport track found.",
-        candidates: source === "public" ? [] : tracks.slice(0, 5).map(toBeatportSummary),
+        candidates: tracks.slice(0, 5).map(toBeatportSummary),
       };
     }
 
     logProviderSearch(
       "beatport",
-      source === "public" ? "matched public track" : "matched track",
+      "matched crates track",
       toBeatportSummary(match),
     );
 
@@ -125,21 +129,11 @@ export async function lookupBeatportTrack({
 
 export { parseBeatportSearchHtml, type BeatportTrack };
 
-async function searchAuthenticatedBeatport(title: string, artists: string) {
-  const token = await getBeatportAccessToken();
-  const tracks = await searchBeatportTracks(token, title, artists);
+async function searchCratesBeatport(title: string, artists: string) {
+  logProviderSearch("beatport", "using crates search proxy");
+  const tracks = await searchCratesBeatportTracks(title, artists);
   return {
-    source: "api",
-    tracks,
-    match: findBestBeatportMatch(tracks, title, artists) ?? tracks[0] ?? null,
-  };
-}
-
-async function searchPublicBeatport(title: string, artists: string) {
-  logProviderSearch("beatport", "using public search page fallback");
-  const tracks = await searchBeatportPublicTracks(title, artists);
-  return {
-    source: "public",
+    source: "crates",
     tracks,
     match: findBestBeatportMatch(tracks, title, artists) ?? null,
   };
@@ -163,7 +157,7 @@ function toLookupResult(
       mixName: match.mix_name ?? null,
       artists: getArtistNames(match),
       release: getName(match.release) ?? match.release_name ?? null,
-      label: getName(match.label) ?? match.label_name ?? null,
+      label: getBeatportLabel(match),
     },
     error: null,
     candidates: tracks.slice(0, 5).map(toBeatportSummary),

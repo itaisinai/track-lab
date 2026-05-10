@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "@langchain/core": "1.1.42",
-    "@track-lab/agent": "workspace:*",
     "@track-lab/api-types": "workspace:*",
     "@track-lab/datastore": "workspace:*",
     "@track-lab/remix-search": "workspace:*",

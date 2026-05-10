@@ -164,7 +164,7 @@ test("higher-confidence provider can replace weaker metadata before early stop",
   const result = await enrichTrackMetadata(
     { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
     {
-      providers: [
+      requiredProviders: [
         metadataProvider("Spotify", "spotify", () => ({
           bpm: 144,
           genre: "Electronic",
@@ -176,6 +176,9 @@ test("higher-confidence provider can replace weaker metadata before early stop",
           source: "spotify",
           confidence: 0.55,
         })),
+      ],
+      bpmProviders: [],
+      edmCatalogProviders: [
         metadataProvider("Beatport", "beatport", () => ({
           bpm: 145,
           genre: "Dance / Pop",
@@ -184,6 +187,13 @@ test("higher-confidence provider can replace weaker metadata before early stop",
           confidence: 0.85,
         })),
       ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: false,
+        lookupEdmCatalogProviders: true,
+        lookupContextProvider: false,
+        reasons: ["EDM evidence group should run."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+      }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
     },
@@ -195,6 +205,144 @@ test("higher-confidence provider can replace weaker metadata before early stop",
   assert.equal(result.sources.bpm, "beatport");
   assert.equal(result.sources.genre, "beatport");
   assert.equal(result.sources.key, "beatport");
+});
+
+test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks", async () => {
+  const calledProviders: string[] = [];
+
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "I AM BASS", artist: "LSDREAM" },
+    {
+      requiredProviders: [
+        metadataProvider("Spotify", "spotify", () => {
+          calledProviders.push("spotify");
+          return {
+            genre: "Electronic",
+            matchedTrack: {
+              title: "I AM BASS",
+              artists: "LSDREAM",
+            },
+            source: "spotify",
+            confidence: 0.55,
+          };
+        }),
+      ],
+      bpmProviders: [
+        metadataProvider("GetSongBPM", "getsongbpm", () => {
+          calledProviders.push("getsongbpm");
+          return {
+            bpm: 144,
+            source: "getsongbpm",
+            confidence: 0.65,
+          };
+        }),
+      ],
+      edmCatalogProviders: [
+        metadataProvider("Beatport", "beatport", () => {
+          calledProviders.push("beatport");
+          return {
+            bpm: 145,
+            genre: "Dubstep",
+            key: "E Major",
+            source: "beatport",
+            confidence: 0.85,
+          };
+        }),
+        metadataProvider("SoundCloud", "soundcloud", () => {
+          calledProviders.push("soundcloud");
+          return {
+            genre: "Bass Music",
+            subGenre: "freeform bass lsdream",
+            url: "https://soundcloud.com/lsdream/i-am-bass",
+            source: "soundcloud",
+            confidence: 0.55,
+          };
+        }),
+      ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: true,
+        lookupEdmCatalogProviders: true,
+        lookupContextProvider: false,
+        reasons: ["EDM evidence group should run."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+      }),
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.deepEqual(calledProviders, [
+    "spotify",
+    "getsongbpm",
+    "beatport",
+    "soundcloud",
+  ]);
+  assert.equal(result.bpm, 145);
+  assert.equal(result.genre, "Dubstep");
+  assert.equal(result.subGenre, "freeform bass lsdream");
+  assert.equal(result.sources.bpm, "beatport");
+  assert.equal(result.sources.genre, "beatport");
+  assert.deepEqual(
+    result.toolsUsed?.map((provider) => provider.name),
+    ["Spotify", "GetSongBPM", "Beatport", "SoundCloud"],
+  );
+});
+
+test("tool planner skips both Beatport and SoundCloud for non-EDM tracks", async () => {
+  const calledProviders: string[] = [];
+
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "HUMBLE.", artist: "Kendrick Lamar" },
+    {
+      requiredProviders: [
+        metadataProvider("Spotify", "spotify", () => {
+          calledProviders.push("spotify");
+          return {
+            genre: "Hip Hop",
+            matchedTrack: {
+              title: "HUMBLE.",
+              artists: "Kendrick Lamar",
+            },
+            source: "spotify",
+            confidence: 0.65,
+          };
+        }),
+      ],
+      bpmProviders: [
+        metadataProvider("GetSongBPM", "getsongbpm", () => {
+          calledProviders.push("getsongbpm");
+          return {
+            bpm: 76,
+            source: "getsongbpm",
+            confidence: 0.65,
+          };
+        }),
+      ],
+      edmCatalogProviders: [
+        metadataProvider("Beatport", "beatport", () => {
+          calledProviders.push("beatport");
+          return { source: "beatport", confidence: 0.85 };
+        }),
+        metadataProvider("SoundCloud", "soundcloud", () => {
+          calledProviders.push("soundcloud");
+          return { source: "soundcloud", confidence: 0.55 };
+        }),
+      ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: true,
+        lookupEdmCatalogProviders: false,
+        lookupContextProvider: false,
+        reasons: ["No EDM catalog signal."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+      }),
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.deepEqual(calledProviders, ["spotify", "getsongbpm"]);
+  assert.equal(result.bpm, 76);
+  assert.equal(result.genre, "Hip Hop");
 });
 
 test("lower-confidence provider does not overwrite higher-confidence data", async () => {
@@ -415,5 +563,17 @@ function localStore(): EnrichmentResultStore {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }),
+  };
+}
+
+function testStrategyContext(
+  _input: unknown,
+  _currentResult: unknown,
+  _providerEvidence: unknown,
+) {
+  return {
+    policy: [],
+    providerRules: [],
+    userPreferences: [],
   };
 }

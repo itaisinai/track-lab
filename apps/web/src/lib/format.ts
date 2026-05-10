@@ -1,6 +1,6 @@
 import type { ProviderStatus } from "../types";
 
-export function formatAgentResponse(data: unknown) {
+export function formatEnrichmentResponse(data: unknown) {
   if (
     data &&
     typeof data === "object" &&

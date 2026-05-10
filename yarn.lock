@@ -911,22 +911,6 @@ __metadata:
   languageName: node
   linkType: hard
 
-"@track-lab/agent@workspace:*, @track-lab/agent@workspace:packages/agent":
-  version: 0.0.0-use.local
-  resolution: "@track-lab/agent@workspace:packages/agent"
-  dependencies:
-    "@langchain/core": "npm:1.1.42"
-    "@langchain/langgraph": "npm:^1.2.9"
-    "@langchain/openai": "npm:^1.4.5"
-    "@track-lab/datastore": "workspace:*"
-    "@track-lab/providers": "workspace:*"
-    "@types/node": "npm:^25.6.0"
-    langchain: "npm:^1.3.5"
-    typescript: "npm:^5.9.3"
-    zod: "npm:^3.25.32"
-  languageName: unknown
-  linkType: soft
-
 "@track-lab/api-types@workspace:*, @track-lab/api-types@workspace:packages/api-types":
   version: 0.0.0-use.local
   resolution: "@track-lab/api-types@workspace:packages/api-types"
@@ -940,7 +924,6 @@ __metadata:
   resolution: "@track-lab/api@workspace:apps/api"
   dependencies:
     "@langchain/core": "npm:1.1.42"
-    "@track-lab/agent": "workspace:*"
     "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
     "@track-lab/remix-search": "workspace:*"
@@ -975,6 +958,22 @@ __metadata:
   languageName: unknown
   linkType: soft
 
+"@track-lab/metadata-enrichment@workspace:*, @track-lab/metadata-enrichment@workspace:packages/metadata-enrichment":
+  version: 0.0.0-use.local
+  resolution: "@track-lab/metadata-enrichment@workspace:packages/metadata-enrichment"
+  dependencies:
+    "@langchain/core": "npm:1.1.42"
+    "@langchain/langgraph": "npm:^1.2.9"
+    "@langchain/openai": "npm:^1.4.5"
+    "@track-lab/datastore": "workspace:*"
+    "@track-lab/providers": "workspace:*"
+    "@types/node": "npm:^25.6.0"
+    langchain: "npm:^1.3.5"
+    typescript: "npm:^5.9.3"
+    zod: "npm:^3.25.32"
+  languageName: unknown
+  linkType: soft
+
 "@track-lab/providers@workspace:*, @track-lab/providers@workspace:packages/providers":
   version: 0.0.0-use.local
   resolution: "@track-lab/providers@workspace:packages/providers"
@@ -1004,9 +1003,9 @@ __metadata:
   version: 0.0.0-use.local
   resolution: "@track-lab/track-analysis@workspace:packages/track-analysis"
   dependencies:
-    "@track-lab/agent": "workspace:*"
     "@track-lab/api-types": "workspace:*"
     "@track-lab/datastore": "workspace:*"
+    "@track-lab/metadata-enrichment": "workspace:*"
     "@track-lab/remix-search": "workspace:*"
     "@types/node": "npm:^25.6.0"
     typescript: "npm:^5.9.3"

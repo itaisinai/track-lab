@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { parseBeatportSearchHtml } from "../index.ts";
+import {
+  findBestBeatportMatch,
+  isBeatportRemixTrack,
+} from "../beatport/metadata-utils.ts";
 
 test("beatport public search parser reads embedded track rows", () => {
   const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -41,4 +45,26 @@ test("beatport public search parser reads embedded track rows", () => {
   assert.equal(tracks[0]?.track_name, "I AM BASS");
   assert.equal(tracks[0]?.bpm, 145);
   assert.equal(tracks[0]?.key_name, "E Major");
+});
+
+test("beatport metadata matching rejects remix versions", () => {
+  const remix = {
+    id: 20444756,
+    name: "סבבה 5",
+    mix_name: "Remix",
+    artists: [{ name: "Peled" }],
+    release: { name: "סבבה 5 (Remix)" },
+  };
+  const original = {
+    id: 1,
+    name: "סבבה 5",
+    mix_name: "Original Mix",
+    artists: [{ name: "Peled" }],
+    release: { name: "סבבה 5" },
+  };
+
+  assert.equal(isBeatportRemixTrack(remix), true);
+  assert.equal(isBeatportRemixTrack(original), false);
+  assert.equal(findBestBeatportMatch([remix], "סבבה 5", "Peled"), null);
+  assert.equal(findBestBeatportMatch([remix, original], "סבבה 5", "Peled")?.id, 1);
 });

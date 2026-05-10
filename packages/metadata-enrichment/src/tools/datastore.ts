@@ -1,13 +1,13 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { agentTrackResultStore } from "../datastore/agent-track-result-store.ts";
+import { enrichmentTrackResultStore } from "../datastore/enrichment-track-result-store.ts";
 import { createSavedTrackLookupResponse } from "../datastore/saved-track-lookup-response.ts";
 
 export const savedTrackLookupTool = tool(
   async (input) =>
     JSON.stringify(
       createSavedTrackLookupResponse(
-        agentTrackResultStore.findByTrack(input.title, input.artists),
+        enrichmentTrackResultStore.findByTrack(input.title, input.artists),
       ),
     ),
   {

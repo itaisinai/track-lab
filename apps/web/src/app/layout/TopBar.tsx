@@ -27,7 +27,7 @@ export function TopBar({
 }: TopBarProps) {
   return (
     <header className="topbar">
-      <h1>Track Lab Agent</h1>
+      <h1>Track Lab</h1>
       <nav className="tabs" aria-label="Views">
         <button
           className={

@@ -6,7 +6,7 @@ const model = new ChatOpenAI({
   model: "gpt-5-nano",
 });
 
-export const agent = createAgent({
+export const conversationalMetadataAgent = createAgent({
   model,
   tools: [enrichTrackMetadataTool],
   systemPrompt: `You enrich music track metadata.

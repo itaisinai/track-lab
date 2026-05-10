@@ -1,5 +1,7 @@
 import {
-  createDefaultProviders,
+  createBpmMetadataProviders,
+  createEdmCatalogMetadataProviders,
+  createRequiredMetadataProviders,
   createWikipediaContextProvider,
   type TrackMetadataProvider,
   type TrackMetadataProviderInput,
@@ -16,11 +18,19 @@ import type {
   EnrichTrackMetadataInput,
   EnrichmentSource,
 } from "./types.ts";
+import {
+  planMetadataTools,
+  type MetadataToolPlan,
+} from "../planning/metadata-tool-planner.ts";
 
 export type EnrichmentDependencies = {
   store?: EnrichmentResultStore;
+  requiredProviders?: TrackMetadataProvider[];
+  bpmProviders?: TrackMetadataProvider[];
+  edmCatalogProviders?: TrackMetadataProvider[];
   providers?: TrackMetadataProvider[];
   contextProviders?: TrackMetadataProvider[];
+  planTools?: typeof planMetadataTools;
   synthesize?: typeof synthesizeEnrichedTrackMetadata;
 };
 
@@ -52,14 +62,24 @@ export async function enrichTrackMetadata(
   }
 
   const providerEvidence: ProviderEvidence = {};
+  let toolPlan: MetadataToolPlan | null = null;
+
   if (shouldCallProviders(result, input)) {
+    const providerStrategy = await applyProviderStrategy(
+      result,
+      input,
+      dependencies,
+      errors,
+      providerEvidence,
+    );
+    toolPlan = providerStrategy.toolPlan;
     Object.assign(
       providerEvidence,
-      await applyProviderFallbacks(result, input, dependencies, errors),
+      providerStrategy.providerEvidence,
     );
   }
 
-  if (shouldCallContextProviders(result, input)) {
+  if (shouldCallContextProviders(result, input, toolPlan)) {
     Object.assign(
       providerEvidence,
       await applyContextProviders(result, input, dependencies, errors),
@@ -162,19 +182,90 @@ function applyKnownMetadata(
   applyValue(result, "key", knownMetadata.key, "unknown", 0.9);
 }
 
-async function applyProviderFallbacks(
+async function applyProviderStrategy(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
   dependencies: EnrichmentDependencies,
   errors: string[],
-): Promise<ProviderEvidence> {
+  providerEvidence: ProviderEvidence,
+): Promise<{ providerEvidence: ProviderEvidence; toolPlan: MetadataToolPlan }> {
   const evidence: ProviderEvidence = {};
   const providerInput = {
     trackName: result.trackName,
     artist: result.artist ?? input.artist,
   };
-  const providers = dependencies.providers ?? createDefaultProviders();
 
+  if (dependencies.providers) {
+    await lookupProviders(dependencies.providers, providerInput, result, evidence, errors, {
+      stopWhenAcceptable: true,
+    });
+
+    return {
+      providerEvidence: evidence,
+      toolPlan: {
+        lookupBpmProvider: false,
+        lookupEdmCatalogProviders: false,
+        lookupContextProvider: shouldCallContextProviders(result, input, null),
+        reasons: ["Explicit provider override used."],
+        strategyContext: {
+          policy: [],
+          providerRules: [],
+          userPreferences: [],
+        },
+      },
+    };
+  }
+
+  const requiredProviders =
+    dependencies.requiredProviders ??
+    createRequiredMetadataProviders();
+
+  await lookupProviders(requiredProviders, providerInput, result, evidence, errors, {
+    stopWhenAcceptable: true,
+  });
+
+  const toolPlan = await (dependencies.planTools ?? planMetadataTools)({
+    input,
+    currentResult: result,
+    providerEvidence: {
+      ...providerEvidence,
+      ...evidence,
+    },
+  });
+
+  if (toolPlan.lookupBpmProvider && !hasAcceptableBpmAndGenre(result)) {
+    await lookupProviders(
+      dependencies.bpmProviders ?? createBpmMetadataProviders(),
+      providerInput,
+      result,
+      evidence,
+      errors,
+      { stopWhenAcceptable: true },
+    );
+  }
+
+  if (toolPlan.lookupEdmCatalogProviders) {
+    await lookupProviders(
+      dependencies.edmCatalogProviders ?? createEdmCatalogMetadataProviders(),
+      providerInput,
+      result,
+      evidence,
+      errors,
+      { stopWhenAcceptable: false },
+    );
+  }
+
+  return { providerEvidence: evidence, toolPlan };
+}
+
+async function lookupProviders(
+  providers: TrackMetadataProvider[],
+  providerInput: TrackMetadataProviderInput,
+  result: EnrichedTrackMetadata,
+  evidence: ProviderEvidence,
+  errors: string[],
+  options: { stopWhenAcceptable: boolean },
+) {
   for (const provider of providers) {
     const providerResult = await safeProviderLookup(provider, providerInput, errors);
     addToolStatus(result, provider, providerResult);
@@ -190,12 +281,10 @@ async function applyProviderFallbacks(
     );
     applyProviderResult(result, providerResult);
 
-    if (hasAcceptableBpmAndGenre(result)) {
+    if (options.stopWhenAcceptable && hasAcceptableBpmAndGenre(result)) {
       break;
     }
   }
-
-  return evidence;
 }
 
 function addToolStatus(
@@ -294,6 +383,7 @@ function setProviderEvidence(
     key === "spotify" ||
     key === "beatport" ||
     key === "getSongBpm" ||
+    key === "soundcloud" ||
     key === "wikipedia"
   ) {
     evidence[key] = value;
@@ -304,6 +394,7 @@ function getEnrichmentSource(source: string): EnrichmentSource {
   return source === "spotify" ||
     source === "beatport" ||
     source === "getsongbpm" ||
+    source === "soundcloud" ||
     source === "lastfm"
     ? source
     : "unknown";
@@ -312,7 +403,7 @@ function getEnrichmentSource(source: string): EnrichmentSource {
 function getAlbumSource(
   source: EnrichmentSource,
 ): EnrichedTrackMetadata["sources"]["album"] {
-  return source === "lastfm" ? "unknown" : source;
+  return source === "lastfm" || source === "soundcloud" ? "unknown" : source;
 }
 
 function isMissingBpmOrGenre(result: EnrichedTrackMetadata) {
@@ -332,7 +423,12 @@ function shouldCallProviders(
 function shouldCallContextProviders(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
+  toolPlan: MetadataToolPlan | null,
 ) {
+  if (toolPlan) {
+    return toolPlan.lookupContextProvider;
+  }
+
   return Boolean(
     input.artist &&
       (result.operation === "enrich" ||
@@ -343,9 +439,10 @@ function shouldCallContextProviders(
 
 function hasProviderEvidence(providerEvidence: ProviderEvidence) {
   return Boolean(
-    providerEvidence.spotify ||
+      providerEvidence.spotify ||
       providerEvidence.beatport ||
       providerEvidence.getSongBpm ||
+      providerEvidence.soundcloud ||
       hasFoundWikipediaEvidence(providerEvidence.wikipedia),
   );
 }

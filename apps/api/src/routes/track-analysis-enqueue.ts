@@ -2,10 +2,15 @@ import type { TrackMetadataAnalysisPayload } from "@track-lab/api-types";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
-export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
+export function createTrackAnalysisEnqueueRouter(
+  orchestrator: TrackAnalysisOrchestrator,
+) {
   const router = Router();
 
-  router.post("/agent", (req: Request, res: Response) => {
+  router.post("/track-analysis", enqueueTrackAnalysis);
+  router.post("/agent", enqueueTrackAnalysis);
+
+  function enqueueTrackAnalysis(req: Request, res: Response) {
     try {
       const body = req.body as Partial<TrackMetadataAnalysisPayload>;
       const operation = body.operation === "enrich" ? "enrich" : "analyze";
@@ -24,7 +29,7 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
         },
       });
     } catch (error) {
-      console.error("Error enqueueing agent job:", error);
+      console.error("Error enqueueing track analysis job:", error);
       res.status(400).json({
         error:
           error instanceof Error
@@ -32,7 +37,7 @@ export function createAgentRouter(orchestrator: TrackAnalysisOrchestrator) {
             : "Could not enqueue track analysis.",
       });
     }
-  });
+  }
 
   return router;
 }

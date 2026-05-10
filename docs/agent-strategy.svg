@@ -1,0 +1,210 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1700" height="1120" viewBox="0 0 1700 1120" role="img" aria-labelledby="title desc">
+  <title id="title">Track Lab Agent Strategy</title>
+  <desc id="desc">Whiteboard-style diagram showing Track Lab agent inputs, provider decisions, confidence merge rules, LLM synthesis, remix search ranking, and output behavior.</desc>
+  <defs>
+    <marker id="arrow" markerWidth="13" markerHeight="13" refX="10" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1.5,1.5 L10.5,6.5 L1.5,11.5" fill="none" stroke="#202020" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <marker id="arrow-purple" markerWidth="13" markerHeight="13" refX="10" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1.5,1.5 L10.5,6.5 L1.5,11.5" fill="none" stroke="#7446aa" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <marker id="arrow-green" markerWidth="13" markerHeight="13" refX="10" refY="6.5" orient="auto" markerUnits="strokeWidth">
+      <path d="M1.5,1.5 L10.5,6.5 L1.5,11.5" fill="none" stroke="#2f8b63" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" />
+    </marker>
+    <style>
+      .bg { fill: #fbfbf6; }
+      .ink { stroke: #202020; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; }
+      .thin { stroke-width: 2; }
+      .fill-white { fill: #fbfbf6; }
+      .fill-blue { fill: #eef5ff; }
+      .fill-green { fill: #eefbf5; }
+      .fill-yellow { fill: #fff8df; }
+      .fill-purple { fill: #f7f0ff; }
+      .fill-red { fill: #fff1ef; }
+      .blue { stroke: #2f6cc7; }
+      .green { stroke: #2f8b63; }
+      .purple { stroke: #7446aa; }
+      .brown { stroke: #8a5b42; }
+      .title { fill: #2f6cc7; font: 700 34px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .heading { fill: #202020; font: 700 21px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .text { fill: #202020; font: 500 18px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .small { fill: #202020; font: 500 15px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .tiny { fill: #202020; font: 500 13px "Comic Sans MS", "Marker Felt", "Segoe Print", cursive; }
+      .blue-text { fill: #2f6cc7; }
+      .green-text { fill: #2f8b63; }
+      .purple-text { fill: #7446aa; }
+      .arrow { stroke: #202020; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow); }
+      .arrow-green { stroke: #2f8b63; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; marker-end: url(#arrow-green); }
+      .arrow-purple { stroke: #7446aa; stroke-width: 3; fill: none; stroke-linecap: round; stroke-linejoin: round; stroke-dasharray: 8 7; marker-end: url(#arrow-purple); }
+      .dash { stroke-dasharray: 8 7; }
+    </style>
+  </defs>
+
+  <rect class="bg" width="1700" height="1120" />
+  <text class="title" x="690" y="54">Track Lab Agent Strategy</text>
+
+  <!-- Inputs -->
+  <text class="heading" x="45" y="120">Agent-facing APIs:</text>
+  <text class="text" x="45" y="154">POST /agent</text>
+  <text class="small" x="70" y="180">operation: analyze | enrich</text>
+  <text class="small" x="70" y="204">track.title + track.artists</text>
+  <text class="small" x="70" y="228">knownMetadata only for enrich</text>
+
+  <text class="text" x="45" y="284">POST /results/:id/enrich</text>
+  <text class="small" x="70" y="310">loads saved result</text>
+  <text class="small" x="70" y="334">sends knownMetadata</text>
+
+  <text class="text" x="45" y="390">POST /remix-search</text>
+  <text class="small" x="70" y="416">title + artists required</text>
+  <text class="small" x="70" y="440">or spotifyUrl</text>
+  <text class="small" x="70" y="464">genre optional, hard filter</text>
+
+  <text class="heading" x="45" y="548">Important idea:</text>
+  <text class="text" x="45" y="582">Providers fetch facts.</text>
+  <text class="text" x="45" y="610">LLM interprets evidence.</text>
+  <text class="text" x="45" y="638">Saving is manual.</text>
+
+  <!-- Queue -->
+  <path class="ink fill-blue" d="M360 142 C360 126 376 118 398 119 L610 120 C632 121 646 133 644 152 L643 250 C642 270 626 280 602 278 L398 276 C376 276 361 262 362 242 Z" />
+  <text class="heading blue-text" x="395" y="178">TrackAnalysis</text>
+  <text class="heading blue-text" x="425" y="208">Orchestrator</text>
+  <text class="small" x="392" y="240">validate + enqueue job</text>
+
+  <path class="ink green fill-green" d="M390 350 C380 336 393 322 414 321 L565 321 C588 322 601 336 592 352 L592 420 C602 436 588 449 565 449 L414 449 C392 449 380 435 390 420 Z" />
+  <text class="heading green-text" x="424" y="379">SQLite Queue</text>
+  <text class="small green-text" x="425" y="407">queued jobs + retries</text>
+
+  <path class="ink fill-blue" d="M360 540 C361 524 377 516 398 517 L613 518 C635 519 648 531 647 549 L646 648 C645 668 630 678 607 676 L397 674 C376 674 361 660 362 640 Z" />
+  <text class="heading blue-text" x="400" y="578">Worker</text>
+  <text class="small" x="392" y="608">claim one job</text>
+  <text class="small" x="392" y="632">complete / fail / dead-letter</text>
+
+  <!-- Operation switch -->
+  <path class="ink fill-yellow" d="M735 255 L855 340 L735 425 L615 340 Z" />
+  <text class="heading" x="678" y="332">Operation?</text>
+  <text class="small" x="662" y="360">analyze / enrich / remix</text>
+
+  <!-- Metadata agent -->
+  <path class="ink fill-white" d="M790 90 C790 74 806 66 826 67 L1085 69 C1108 70 1120 82 1119 101 L1118 208 C1117 229 1101 240 1077 238 L827 236 C805 236 790 222 791 202 Z" />
+  <text class="heading" x="840" y="128">Metadata Agent Flow</text>
+  <text class="small" x="824" y="158">invokeMetadataEnrichment()</text>
+  <text class="small" x="824" y="184">parse prompt into title/artists</text>
+  <text class="small" x="824" y="210">then enrichTrackMetadata()</text>
+
+  <path class="ink fill-green" d="M800 285 C800 269 816 261 837 262 L1080 264 C1102 265 1115 277 1114 296 L1113 390 C1112 410 1097 420 1074 418 L836 416 C815 416 800 402 801 382 Z" />
+  <text class="heading green-text" x="838" y="323">Step 1: seed data</text>
+  <text class="small" x="834" y="352">analyze: check saved results</text>
+  <text class="small" x="834" y="376">enrich: apply known metadata</text>
+  <text class="tiny" x="834" y="400">local confidence 1.0, known confidence 0.9</text>
+
+  <path class="ink fill-yellow" d="M800 475 C800 459 816 451 837 452 L1080 454 C1102 455 1115 467 1114 486 L1113 606 C1112 626 1097 636 1074 634 L836 632 C815 632 800 618 801 598 Z" />
+  <text class="heading" x="838" y="513">Step 2: providers</text>
+  <text class="small" x="834" y="542">only if artist exists and</text>
+  <text class="small" x="834" y="566">enrich OR missing BPM/genre</text>
+  <text class="small" x="834" y="590">stop when BPM + genre found</text>
+  <text class="tiny" x="834" y="614">acceptable confidence: both >= 0.6</text>
+
+  <path class="ink fill-purple" d="M800 690 C800 674 816 666 837 667 L1080 669 C1102 670 1115 682 1114 701 L1113 828 C1112 848 1097 858 1074 856 L836 854 C815 854 800 840 801 820 Z" />
+  <text class="heading purple-text" x="838" y="728">Step 3: LLM synthesis</text>
+  <text class="small" x="834" y="758">only if enrich or evidence exists</text>
+  <text class="small" x="834" y="782">normalize genre/subgenre</text>
+  <text class="small" x="834" y="806">write summary + notes</text>
+  <text class="tiny" x="834" y="830">cannot replace matched track identity</text>
+
+  <!-- Provider registry -->
+  <path class="ink fill-yellow" d="M1215 120 C1215 104 1231 96 1253 97 L1484 99 C1506 100 1519 112 1518 131 L1517 370 C1516 390 1500 400 1477 398 L1252 396 C1230 396 1215 382 1216 362 Z" />
+  <text class="heading" x="1274" y="158">Metadata Providers</text>
+  <text class="small" x="1254" y="194">1. Spotify</text>
+  <text class="tiny" x="1284" y="216">track match, album, Spotify URL, artist genres</text>
+  <text class="small" x="1254" y="252">2. GetSongBPM</text>
+  <text class="tiny" x="1284" y="274">BPM, key, genre when available</text>
+  <text class="small" x="1254" y="310">3. Beatport</text>
+  <text class="tiny" x="1284" y="332">DJ catalog BPM, key, genre, subgenre</text>
+  <text class="tiny" x="1254" y="370">Each returns shared TrackMetadataProviderResult</text>
+
+  <path class="ink fill-yellow" d="M1215 465 C1215 449 1231 441 1253 442 L1484 444 C1506 445 1519 457 1518 476 L1517 568 C1516 588 1500 598 1477 596 L1252 594 C1230 594 1215 580 1216 560 Z" />
+  <text class="heading" x="1260" y="502">Context Provider</text>
+  <text class="small" x="1254" y="532">Wikipedia</text>
+  <text class="tiny" x="1284" y="554">artist/scene background for synthesis</text>
+
+  <!-- Merge rules -->
+  <path class="ink fill-red" d="M1215 670 C1215 654 1231 646 1253 647 L1484 649 C1506 650 1519 662 1518 681 L1517 842 C1516 862 1500 872 1477 870 L1252 868 C1230 868 1215 854 1216 834 Z" />
+  <text class="heading" x="1276" y="708">Merge Strategy</text>
+  <text class="small" x="1254" y="742">do not overwrite higher confidence</text>
+  <text class="small" x="1254" y="770">fill missing fields from later providers</text>
+  <text class="small" x="1254" y="798">track source + confidence per field</text>
+  <text class="small" x="1254" y="826">raw payload goes only to evidence</text>
+
+  <!-- Remix flow -->
+  <path class="ink fill-white" d="M800 910 C800 894 816 886 837 887 L1080 889 C1102 890 1115 902 1114 921 L1113 1030 C1112 1050 1097 1060 1074 1058 L836 1056 C815 1056 800 1042 801 1022 Z" />
+  <text class="heading" x="842" y="948">Remix Search Flow</text>
+  <text class="small" x="834" y="978">normalize request + resolve Spotify URL</text>
+  <text class="small" x="834" y="1002">plan remix/edit/flip/bootleg queries</text>
+  <text class="small" x="834" y="1026">search providers in parallel</text>
+
+  <path class="ink fill-yellow" d="M1215 925 C1215 909 1231 901 1253 902 L1484 904 C1506 905 1519 917 1518 936 L1517 1035 C1516 1055 1500 1065 1477 1063 L1252 1061 C1230 1061 1215 1047 1216 1027 Z" />
+  <text class="heading" x="1276" y="962">Remix Providers</text>
+  <text class="small" x="1254" y="994">SoundCloud web, SoundCloud API, Spotify</text>
+  <text class="small" x="1254" y="1022">dedupe + deterministic scoring</text>
+  <text class="tiny" x="1254" y="1046">LLM filters genre and ranks top candidates</text>
+
+  <!-- Output -->
+  <path class="ink fill-blue" d="M360 830 C361 814 377 806 398 807 L610 809 C632 810 646 822 645 841 L644 1010 C643 1030 627 1040 604 1038 L398 1036 C376 1036 361 1022 362 1002 Z" />
+  <text class="heading blue-text" x="408" y="868">Output</text>
+  <text class="small" x="392" y="900">job.result_json</text>
+  <text class="small" x="392" y="928">status: complete/partial/missing</text>
+  <text class="small" x="392" y="956">toolsUsed/provider URLs</text>
+  <text class="small" x="392" y="984">review notes + conflicts</text>
+  <text class="small" x="392" y="1012">UI opens review artifact</text>
+
+  <!-- Arrows -->
+  <path class="arrow" d="M290 178 C320 165 335 155 360 150" />
+  <path class="arrow" d="M290 310 C330 310 348 270 384 246" />
+  <path class="arrow" d="M290 418 C335 440 355 530 380 555" />
+
+  <path class="arrow" d="M485 276 C485 300 486 318 488 350" />
+  <text class="small" x="505" y="318">enqueue</text>
+  <path class="arrow" d="M488 449 C488 482 488 512 488 540" />
+  <text class="small" x="505" y="502">claim</text>
+  <path class="arrow" d="M647 590 C680 540 704 454 735 425" />
+  <text class="small" x="650" y="512">dispatch</text>
+
+  <path class="arrow" d="M770 308 C790 240 812 220 837 236" />
+  <text class="small" x="785" y="268">analyze/enrich</text>
+  <path class="arrow" d="M855 340 C930 345 1025 335 1215 240" />
+  <text class="small" x="1000" y="304">provider lookup</text>
+  <path class="arrow" d="M1114 545 C1150 538 1182 532 1215 525" />
+  <text class="small" x="1130" y="520">context</text>
+  <path class="arrow" d="M1114 563 C1160 616 1190 686 1215 735" />
+  <text class="small" x="1138" y="652">merge</text>
+  <path class="arrow-purple" d="M1114 756 C1162 750 1190 750 1215 750" />
+  <text class="small purple-text" x="1128" y="735">evidence to LLM</text>
+
+  <path class="arrow" d="M735 425 C770 690 785 875 800 956" />
+  <text class="small" x="706" y="710">remix_search</text>
+  <path class="arrow" d="M1114 982 C1152 982 1184 984 1215 990" />
+  <text class="small" x="1132" y="966">parallel search</text>
+  <path class="arrow-purple" d="M1450 925 C1495 845 1520 760 1518 700" />
+  <text class="small purple-text" x="1515" y="850">LLM ranking</text>
+
+  <path class="arrow-green" d="M800 812 C720 842 650 870 645 900" />
+  <text class="small green-text" x="675" y="850">metadata result</text>
+  <path class="arrow-green" d="M800 1010 C725 1008 674 1005 645 1000" />
+  <text class="small green-text" x="670" y="1030">remix result</text>
+
+  <!-- Confidence note -->
+  <text class="heading" x="45" y="770">Confidence examples:</text>
+  <text class="text" x="45" y="804">local DB: 1.0</text>
+  <text class="text" x="45" y="832">known metadata: 0.9</text>
+  <text class="text" x="45" y="860">Beatport: 0.85</text>
+  <text class="text" x="45" y="888">Spotify/GetSongBPM: 0.65</text>
+  <text class="text" x="45" y="916">Wikipedia context: 0.45</text>
+
+  <!-- Legend -->
+  <path class="arrow" d="M45 1048 L125 1048" />
+  <text class="small" x="140" y="1054">control/data flow</text>
+  <path class="arrow-purple" d="M315 1048 L395 1048" />
+  <text class="small purple-text" x="410" y="1054">LLM interpretation/ranking</text>
+  <path class="arrow-green" d="M660 1048 L740 1048" />
+  <text class="small green-text" x="755" y="1054">job result returned to review queue</text>
+</svg>

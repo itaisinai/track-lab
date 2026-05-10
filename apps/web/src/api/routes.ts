@@ -1,7 +1,7 @@
 import type { TrackAnalysisJobStatus } from "@track-lab/api-types";
 
 export const apiRoutes = {
-  agent: "/agent",
+  trackAnalysis: "/track-analysis",
   remixSearch: "/remix-search",
   savedRemixes: "/remix-search/saved",
   results: "/results",

@@ -1,4 +1,4 @@
-import { extractAgentResponse, type TrackResultStore } from "@track-lab/datastore";
+import { extractEnrichmentResponse, type TrackResultStore } from "@track-lab/datastore";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
@@ -25,8 +25,9 @@ export function createResultsRouter(
 
   router.post("/results", (req: Request, res: Response) => {
     try {
-      const agentResponse = req.body.agentResponse ?? req.body;
-      const saved = store.saveResult(extractAgentResponse(agentResponse));
+      const enrichmentResponse =
+        req.body.enrichmentResponse ?? req.body.agentResponse ?? req.body;
+      const saved = store.saveResult(extractEnrichmentResponse(enrichmentResponse));
       res.status(201).json({ result: saved });
     } catch (error) {
       console.error("Error saving result:", error);
