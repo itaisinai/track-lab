@@ -16,11 +16,48 @@ calling external providers.
 
 ## Architecture
 
-![Track Lab system architecture](docs/system-architecture.svg)
+The canonical architecture diagram is [`docs/system-architecture.md`](docs/system-architecture.md).
 
-## Proposed Hybrid Metadata Strategy
+## Pipeline Strategy
 
-![Track Lab hybrid metadata strategy](docs/metadata-enrichment-workflow.svg)
+The current strategy doc is [`packages/track-analysis/src/strategy/pipeline-strategy.md`](packages/track-analysis/src/strategy/pipeline-strategy.md).
+
+The workflow graph is [`packages/track-analysis/src/strategy/agent-strategy-workflow.md`](packages/track-analysis/src/strategy/agent-strategy-workflow.md).
+
+```mermaid
+flowchart TD
+  A[User request] --> B[Normalize request]
+  B --> C{Operation}
+
+  C -->|analyze / enrich| D[Load known metadata]
+  D --> E[Run Spotify identity search]
+  E --> F[Run GetSongBPM if BPM or key is missing]
+  F --> G{Deterministic EDM signals clear?}
+  G -->|yes| H[Run Beatport + SoundCloud in code]
+  G -->|no| I[Skip EDM providers]
+  G -->|ambiguous| J[Ask LLM EDM planner]
+  J --> H
+  H --> K[Normalize / dedupe evidence]
+  I --> K
+  K --> L[LLM synthesis]
+  L --> M[Final metadata]
+
+  C -->|remix_search| N[Resolve original track]
+  N --> O[Build remix queries]
+  O --> P[Run remix providers in code]
+  P --> Q[Deterministic scoring + dedupe]
+  Q --> R[Compact LLM judge batches]
+  R --> S{Batch yielded results?}
+  S -->|yes| T[Select final candidates]
+  S -->|no| U[Try one more batch]
+  U --> V{Any candidates?}
+  V -->|yes| T
+  V -->|no| W[Deterministic fallback]
+
+  M --> X[Store result / review queue]
+  T --> X
+  W --> X
+```
 
 ## Run
 

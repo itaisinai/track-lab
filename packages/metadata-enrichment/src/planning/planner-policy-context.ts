@@ -1,8 +1,8 @@
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
 import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
 
-// This is not vector-based RAG. It is static planner policy context that the
-// application adds to the LLM prompt to keep tool planning consistent.
+// Static planner policy context added directly to the LLM prompt to keep tool
+// planning consistent.
 export type PlannerPolicyContext = {
   policy: string[];
   providerRules: string[];

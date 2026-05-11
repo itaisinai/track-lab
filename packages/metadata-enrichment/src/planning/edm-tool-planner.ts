@@ -90,7 +90,7 @@ Do not classify as EDM only because BPM or key exists.`),
           currentResult: input.currentResultSummary,
           providerEvidence: input.providerEvidenceSummary,
           policyContext: {
-            note: "Static planner policy context, not vector RAG.",
+            note: "Static planner policy context.",
           },
           requiredShape: {
             classification: "edm | unknown | not_edm",

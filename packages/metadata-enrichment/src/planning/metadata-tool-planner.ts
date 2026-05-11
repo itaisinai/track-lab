@@ -67,8 +67,8 @@ Your job is to decide which optional tool groups should run next.
 
 Important terminology:
 - Tools/providers fetch evidence.
-- RAG context is internal policy, memory, and user preferences.
-- The tool planner decides optional tools from current evidence and RAG context.
+- Planner policy context is internal policy, provider guidance, and user preferences.
+- The tool planner decides optional tools from current evidence and planner policy context.
 
 Rules:
 - GetSongBPM should run when BPM or key is missing and title/artist are available.
