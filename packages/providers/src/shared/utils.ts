@@ -1,7 +1,12 @@
 export { logProviderSearch } from "@track-lab/logger";
 
 export function normalize(value: string) {
-  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  return value
+    .normalize("NFKD")
+    .replace(/\p{M}+/gu, "")
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
 }
 
 export function unique<T>(values: T[]) {

@@ -39,7 +39,45 @@ export async function enrichTrackMetadata(
   dependencies: EnrichmentDependencies = {},
 ): Promise<EnrichedTrackMetadata> {
   const errors: string[] = [];
-  const result: EnrichedTrackMetadata = {
+  const result = createBaseResult(input);
+  applyKnownMetadata(result, input);
+  applyLocalResultIfNeeded(result, input, dependencies);
+
+  const providerEvidence: ProviderEvidence = {};
+  const toolPlan = await collectProviderEvidence(
+    result,
+    input,
+    dependencies,
+    errors,
+    providerEvidence,
+  );
+  await collectContextEvidence(
+    result,
+    input,
+    dependencies,
+    errors,
+    providerEvidence,
+    toolPlan,
+  );
+
+  finalizeEnrichmentStatus(result, errors);
+
+  if (result.operation === "enrich" || hasProviderEvidence(providerEvidence)) {
+    return synthesizeFinalMetadata(
+      result,
+      input,
+      providerEvidence,
+      dependencies,
+    );
+  }
+
+  return result;
+}
+
+function createBaseResult(
+  input: EnrichTrackMetadataInput,
+): EnrichedTrackMetadata {
+  return {
     operation: input.operation ?? "analyze",
     trackName: input.trackName,
     artist: input.artist,
@@ -55,37 +93,68 @@ export async function enrichTrackMetadata(
     toolsUsed: [],
     status: "missing",
   };
-  applyKnownMetadata(result, input);
+}
 
-  if (result.operation === "analyze") {
-    applyLocalResult(result, dependencies.store?.findByTrack(input.trackName, input.artist));
+function applyLocalResultIfNeeded(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  dependencies: EnrichmentDependencies,
+) {
+  if (result.operation !== "analyze") {
+    return;
   }
 
-  const providerEvidence: ProviderEvidence = {};
-  let toolPlan: MetadataToolPlan | null = null;
+  applyLocalResult(
+    result,
+    dependencies.store?.findByTrack(input.trackName, input.artist),
+  );
+}
 
-  if (shouldCallProviders(result, input)) {
-    const providerStrategy = await applyProviderStrategy(
-      result,
-      input,
-      dependencies,
-      errors,
-      providerEvidence,
-    );
-    toolPlan = providerStrategy.toolPlan;
-    Object.assign(
-      providerEvidence,
-      providerStrategy.providerEvidence,
-    );
+async function collectProviderEvidence(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  dependencies: EnrichmentDependencies,
+  errors: string[],
+  providerEvidence: ProviderEvidence,
+) {
+  if (!shouldCallProviders(result, input)) {
+    return null;
   }
 
-  if (shouldCallContextProviders(result, input, toolPlan)) {
-    Object.assign(
-      providerEvidence,
-      await applyContextProviders(result, input, dependencies, errors),
-    );
+  const providerStrategy = await applyProviderStrategy(
+    result,
+    input,
+    dependencies,
+    errors,
+    providerEvidence,
+  );
+
+  Object.assign(providerEvidence, providerStrategy.providerEvidence);
+  return providerStrategy.toolPlan;
+}
+
+async function collectContextEvidence(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  dependencies: EnrichmentDependencies,
+  errors: string[],
+  providerEvidence: ProviderEvidence,
+  toolPlan: MetadataToolPlan | null,
+) {
+  if (!shouldCallContextProviders(result, input, toolPlan)) {
+    return;
   }
 
+  Object.assign(
+    providerEvidence,
+    await applyContextProviders(result, input, dependencies, errors),
+  );
+}
+
+function finalizeEnrichmentStatus(
+  result: EnrichedTrackMetadata,
+  errors: string[],
+) {
   result.sources.bpm ??= "unknown";
   result.sources.genre ??= "unknown";
   result.sources.subGenre ??= result.subGenre ? "unknown" : undefined;
@@ -96,25 +165,28 @@ export async function enrichTrackMetadata(
   if (errors.length > 0) {
     result.errors = errors;
   }
+}
 
-  if (result.operation === "enrich" || hasProviderEvidence(providerEvidence)) {
-    const synthesized = await (dependencies.synthesize ?? synthesizeEnrichedTrackMetadata)({
-      baseResult: result,
-      providerEvidence,
-    });
+async function synthesizeFinalMetadata(
+  result: EnrichedTrackMetadata,
+  input: EnrichTrackMetadataInput,
+  providerEvidence: ProviderEvidence,
+  dependencies: EnrichmentDependencies,
+) {
+  const synthesized = await (dependencies.synthesize ?? synthesizeEnrichedTrackMetadata)({
+    baseResult: result,
+    providerEvidence,
+  });
 
-    return {
-      ...synthesized,
-      trackName: result.trackName,
-      artist: result.artist,
-      changedFields:
-        result.operation === "enrich"
-          ? getChangedFields(input.knownMetadata, synthesized)
-          : undefined,
-    };
-  }
-
-  return result;
+  return {
+    ...synthesized,
+    trackName: result.trackName,
+    artist: result.artist,
+    changedFields:
+      result.operation === "enrich"
+        ? getChangedFields(input.knownMetadata, synthesized)
+        : undefined,
+  };
 }
 
 async function applyContextProviders(
@@ -215,6 +287,14 @@ async function applyProviderStrategy(
           policy: [],
           providerRules: [],
           userPreferences: [],
+        },
+        edmToolPlan: {
+          classification: "unknown",
+          shouldRunEdmTools: false,
+          toolsToRun: [],
+          confidence: "low",
+          reason: "Explicit provider override used.",
+          decidedBy: "fallback",
         },
       },
     };

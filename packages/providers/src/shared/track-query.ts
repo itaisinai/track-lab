@@ -19,7 +19,9 @@ export function normalizeTrackLookupInput(
   const normalizedArtists = normalizeSearchText(artists);
   const artistList = splitArtistNames(normalizedArtists);
   const primaryArtist = artistList[0] ?? normalizedArtists;
-  const splitTitle = splitArtistPrefixedTitle(normalizedTitle, artistList);
+  const splitTitle =
+    splitArtistPrefixedTitle(normalizedTitle, artistList) ??
+    splitArtistSuffixedTitle(normalizedTitle, artistList);
 
   return {
     title: normalizedTitle,
@@ -102,4 +104,30 @@ function splitArtistPrefixedTitle(title: string, artists: string[]) {
   });
 
   return duplicatesKnownArtist ? maybeTitle : null;
+}
+
+function splitArtistSuffixedTitle(title: string, artists: string[]) {
+  const parts = title.split(SIMPLE_DASH_SEPARATOR);
+  if (parts.length < 2) {
+    return null;
+  }
+
+  const maybeArtist = parts.at(-1)?.trim();
+  const maybeTitle = parts.slice(0, -1).join(" - ").trim();
+
+  if (!maybeArtist || !maybeTitle) {
+    return null;
+  }
+
+  const normalizedMaybeArtist = normalize(maybeArtist);
+  const matchesKnownArtist = artists.some((artist) => {
+    const normalizedArtist = normalize(artist);
+    return (
+      normalizedMaybeArtist === normalizedArtist ||
+      normalizedMaybeArtist.includes(normalizedArtist) ||
+      normalizedArtist.includes(normalizedMaybeArtist)
+    );
+  });
+
+  return matchesKnownArtist ? maybeTitle : null;
 }
