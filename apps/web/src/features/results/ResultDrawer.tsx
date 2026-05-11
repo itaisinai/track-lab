@@ -7,18 +7,22 @@ type ResultDrawerProps = {
   result: SavedTrackResult;
   state: "opening" | "open" | "closing";
   isEnriching: boolean;
+  isSearchingRemixes: boolean;
   onClose: () => void;
   onEnrich: (result: SavedTrackResult) => void;
   onDelete: (result: SavedTrackResult) => void;
+  onSearchRemixes: (result: SavedTrackResult) => void;
 };
 
 export function ResultDrawer({
   result,
   state,
   isEnriching,
+  isSearchingRemixes,
   onClose,
   onEnrich,
   onDelete,
+  onSearchRemixes,
 }: ResultDrawerProps) {
   return (
     <aside
@@ -33,6 +37,14 @@ export function ResultDrawer({
             <p>{result.artists}</p>
           </div>
           <div className="drawer-actions">
+            <button
+              className="secondary compact"
+              type="button"
+              disabled={isSearchingRemixes}
+              onClick={() => onSearchRemixes(result)}
+            >
+              {isSearchingRemixes ? "Queueing..." : "Search remixes"}
+            </button>
             <button
               className="secondary compact"
               type="button"

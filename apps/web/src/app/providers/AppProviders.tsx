@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useDeleteSavedResultMutation } from "../../api/mutations/useDeleteSavedResultMutation";
 import { useMarkTrackAnalysisNotificationReadMutation } from "../../api/mutations/useMarkTrackAnalysisNotificationReadMutation";
 import { useReenrichSavedResultMutation } from "../../api/mutations/useReenrichSavedResultMutation";
+import { useRemixSearchMutation } from "../../api/mutations/useRemixSearchMutation";
 import { useResolveTrackAnalysisJobMutation } from "../../api/mutations/useResolveTrackAnalysisJobMutation";
 import { useRetryTrackAnalysisJobMutation } from "../../api/mutations/useRetryTrackAnalysisJobMutation";
 import { useEnqueueTrackAnalysisMutation } from "../../api/mutations/useEnqueueTrackAnalysisMutation";
@@ -13,6 +14,7 @@ import { useReviewJobsQuery } from "../../api/queries/useReviewJobsQuery";
 import { useSavedResultsQuery } from "../../api/queries/useSavedResultsQuery";
 import { useTrackAnalysisActions } from "../../features/enrichment/hooks/useTrackAnalysisActions";
 import { useReviewDraftState } from "../../features/enrichment/hooks/useReviewDraftState";
+import { useSavedResultRemixSearch } from "../../features/results/hooks/useSavedResultRemixSearch";
 import { useSavedResultsData } from "../../features/results/hooks/useSavedResultsData";
 import { useTrackAnalysisJobActions } from "../../features/review-queue/hooks/useTrackAnalysisJobActions";
 import { getErrorMessage } from "../../lib/errors/app-errors";
@@ -37,6 +39,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   const reviewJobsQuery = useReviewJobsQuery();
   const allJobsQuery = useAllJobsQuery();
   const enqueueTrackAnalysisMutation = useEnqueueTrackAnalysisMutation();
+  const remixSearchMutation = useRemixSearchMutation();
   const saveEnrichmentResponseMutation = useSaveEnrichmentResponseMutation();
   const reenrichResultMutation = useReenrichSavedResultMutation();
   const deleteResultMutation = useDeleteSavedResultMutation();
@@ -60,6 +63,12 @@ export function AppProviders({ children }: { children: ReactNode }) {
     openRemixJobFromRoute,
     refreshAllJobs,
     refreshReviewJobs,
+  });
+  const remixSearch = useSavedResultRemixSearch({
+    closeDrawer: drawer.closeDrawer,
+    navigateToRemixJob: routing.navigateToRemixJob,
+    remixSearchMutation,
+    setResultsError: savedResults.setResultsError,
   });
   const jobs = useTrackAnalysisJobActions({
     activeJobsQuery,
@@ -154,6 +163,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     activeJobs: jobs.activeJobs,
     drawerState: drawer.drawerState,
     isResultsLoading: resultsQuery.isLoading,
+    isSearchingRemixes: remixSearch.isSearchingRemixes,
     reenrichingId: analysis.reenrichingId,
     results,
     resultsError,
@@ -163,6 +173,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
     onMoreResult: drawer.openDrawer,
     onRefreshResults: () => void savedResults.loadSavedResults(),
     onReenrichResult: (result) => void analysis.reenrichResult(result),
+    onSearchRemixes: (result) => void remixSearch.searchRemixes(result),
   };
   const jobsValue: JobsContextValue = {
     allJobs: jobs.allJobs,

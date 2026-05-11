@@ -5,8 +5,8 @@ import { useSavedRemixesQuery } from "../../api/queries/useSavedRemixesQuery";
 import { formatDate } from "../../lib/format";
 import { DataTable } from "../../shared/components/DataTable";
 import { useResultDrawer } from "../../shared/hooks/useResultDrawer";
-import { ProviderIconLink } from "../enrichment/ProviderIconLink";
 import { RemixCandidateDrawer } from "../remix-search/RemixCandidateDrawer";
+import { RemixCandidatesTable } from "./RemixCandidatesTable";
 import "../results/ResultsView.css";
 
 type SavedRemixGroup = {
@@ -112,7 +112,7 @@ export function SavedRemixesView() {
         getRowKey={(group) => group.id}
         getRowCanExpand={(group) => group.remixes.length > 0}
         renderExpandedRow={(group) => (
-          <SavedRemixChildrenTable group={group} onOpen={openDrawer} />
+          <RemixCandidatesTable remixes={group.remixes} onOpen={openDrawer} />
         )}
         minWidth={1120}
         searchPlaceholder="Search saved remixes"
@@ -127,64 +127,6 @@ export function SavedRemixesView() {
         />
       )}
     </section>
-  );
-}
-
-function SavedRemixChildrenTable({
-  group,
-  onOpen,
-}: {
-  group: SavedRemixGroup;
-  onOpen: (remix: SavedRemixCandidate) => void;
-}) {
-  return (
-    <table className="nested-table">
-      <thead>
-        <tr>
-          <th>Title</th>
-          <th>Artists</th>
-          <th>Remix Artist</th>
-          <th>Genre</th>
-          <th>Provider</th>
-          <th>Uploaded At</th>
-          <th>Confidence</th>
-          <th>Saved At</th>
-          <th>Details</th>
-        </tr>
-      </thead>
-      <tbody>
-        {group.remixes.map((remix) => (
-          <tr key={remix.id}>
-            <td>{remix.title}</td>
-            <td>{remix.artists}</td>
-            <td>{remix.remixArtist ?? "N/A"}</td>
-            <td>{remix.genre ?? "N/A"}</td>
-            <td>
-              <ProviderIconLink
-                provider={{
-                  name: remix.provider,
-                  matched: true,
-                  url: remix.link,
-                  error: null,
-                }}
-              />
-            </td>
-            <td>{remix.createdAt ? formatDate(remix.createdAt) : "N/A"}</td>
-            <td>{remix.confidence}%</td>
-            <td>{formatDate(remix.savedAt)}</td>
-            <td>
-              <button
-                className="secondary compact"
-                type="button"
-                onClick={() => onOpen(remix)}
-              >
-                Details
-              </button>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
   );
 }
 
