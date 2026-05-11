@@ -88,6 +88,7 @@ export async function enrichTrackMetadata(
 
   result.sources.bpm ??= "unknown";
   result.sources.genre ??= "unknown";
+  result.sources.subGenre ??= result.subGenre ? "unknown" : undefined;
   result.sources.album ??= result.album ? "unknown" : undefined;
   result.sources.key ??= result.key ? "unknown" : undefined;
   result.status = getEnrichmentStatus(result.bpm, result.genre);
@@ -159,7 +160,9 @@ function applyLocalResult(
   }
 
   result.trackName = localResult.title;
+  result.sources.trackName = "local_db";
   result.artist = localResult.artists;
+  result.sources.artist = "local_db";
   applyAlbum(result, localResult.album, "local_db", 1);
   applyValue(result, "bpm", localResult.bpm, "local_db", 1);
   applyValue(result, "genre", localResult.genre, "local_db", 1);
@@ -179,6 +182,7 @@ function applyKnownMetadata(
   applyAlbum(result, knownMetadata.album, "unknown", 0.9);
   applyValue(result, "bpm", knownMetadata.bpm, "unknown", 0.9);
   applyValue(result, "genre", knownMetadata.genre, "unknown", 0.9);
+  applyValue(result, "subGenre", knownMetadata.subGenre, "unknown", 0.9);
   applyValue(result, "key", knownMetadata.key, "unknown", 0.9);
 }
 
@@ -267,7 +271,11 @@ async function lookupProviders(
   options: { stopWhenAcceptable: boolean },
 ) {
   for (const provider of providers) {
-    const providerResult = await safeProviderLookup(provider, providerInput, errors);
+    const nextProviderInput = {
+      trackName: result.trackName,
+      artist: result.artist ?? providerInput.artist,
+    };
+    const providerResult = await safeProviderLookup(provider, nextProviderInput, errors);
     addToolStatus(result, provider, providerResult);
 
     if (!providerResult) {
@@ -316,7 +324,7 @@ async function safeProviderLookup(
 
 function applyValue(
   result: EnrichedTrackMetadata,
-  field: "bpm" | "genre" | "key",
+  field: "bpm" | "genre" | "subGenre" | "key",
   value: number | string | null | undefined,
   source: EnrichmentSource,
   confidence: number,
@@ -325,7 +333,19 @@ function applyValue(
     return;
   }
 
-  if (result[field] && (result.confidence[field] ?? 0) >= confidence) {
+  const currentSource = result.sources[field] ?? "unknown";
+  const currentConfidence = result.confidence[field] ?? 0;
+
+  if (
+    result[field] &&
+    !shouldReplaceMetadataValue(
+      field,
+      currentSource,
+      source,
+      currentConfidence,
+      confidence,
+    )
+  ) {
     return;
   }
 
@@ -347,7 +367,7 @@ function applyProviderResult(
 ) {
   const source = getEnrichmentSource(providerResult.source);
 
-  applyProviderIdentity(result, providerResult.matchedTrack);
+  applyProviderIdentity(result, providerResult.matchedTrack, source);
   applyAlbum(
     result,
     providerResult.album,
@@ -359,8 +379,14 @@ function applyProviderResult(
     : undefined;
   applyValue(result, "bpm", providerResult.bpm, source, providerResult.confidence);
   applyValue(result, "genre", providerResult.genre, source, providerResult.confidence);
+  applyValue(
+    result,
+    "subGenre",
+    providerResult.subGenre ?? null,
+    source,
+    providerResult.confidence,
+  );
   applyValue(result, "key", providerResult.key, source, providerResult.confidence);
-  applySubGenre(result, providerResult.subGenre ?? null);
 }
 
 function hasAcceptableBpmAndGenre(result: EnrichedTrackMetadata) {
@@ -497,6 +523,7 @@ function normalizeComparableValue(value: unknown) {
 function applyProviderIdentity(
   result: EnrichedTrackMetadata,
   track: unknown,
+  source: EnrichmentSource,
 ) {
   if (!track || typeof track !== "object") {
     return;
@@ -509,8 +536,8 @@ function applyProviderIdentity(
     getStringValue(record.artists) ??
     getStringValue(record.artist);
 
-  result.trackName = title ?? result.trackName;
-  result.artist = artists ?? result.artist;
+  applyIdentityValue(result, "trackName", title, source);
+  applyIdentityValue(result, "artist", artists, source);
 }
 
 function applyAlbum(
@@ -519,7 +546,24 @@ function applyAlbum(
   source: EnrichedTrackMetadata["sources"]["album"],
   confidence: number,
 ) {
-  if (!album || result.album) {
+  if (!album) {
+    return;
+  }
+
+  const currentSource = result.sources.album ?? "unknown";
+  const nextSource = source ?? "unknown";
+  const currentConfidence = result.confidence.album ?? 0;
+
+  if (
+    result.album &&
+    !shouldReplaceMetadataValue(
+      "album",
+      currentSource,
+      nextSource,
+      currentConfidence,
+      confidence,
+    )
+  ) {
     return;
   }
 
@@ -528,19 +572,56 @@ function applyAlbum(
   result.confidence.album = confidence;
 }
 
-function applySubGenre(
+function applyIdentityValue(
   result: EnrichedTrackMetadata,
-  subGenre: string | null | undefined,
+  field: "trackName" | "artist",
+  value: string | null | undefined,
+  source: EnrichmentSource,
 ) {
-  if (!subGenre || result.subGenre) {
+  if (!value) {
     return;
   }
 
-  result.subGenre = subGenre;
+  const currentSource = result.sources[field];
+  const nextSource = getIdentitySource(source);
+  const nextPriority = getSourcePriority(field, nextSource);
+  const currentPriority = getSourcePriority(field, currentSource);
+
+  if (result[field] && currentPriority > nextPriority) {
+    return;
+  }
+
+  result[field] = value;
+  result.sources[field] = nextSource as never;
+}
+
+function getIdentitySource(source: EnrichmentSource) {
+  return source === "lastfm" ? "unknown" : source;
 }
 
 function getStringValue(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function shouldReplaceMetadataValue(
+  field: "album" | "bpm" | "genre" | "subGenre" | "key" | "trackName" | "artist",
+  currentSource: EnrichmentSource,
+  nextSource: EnrichmentSource,
+  currentConfidence: number,
+  nextConfidence: number,
+) {
+  if (currentSource === "unknown" || nextSource === "unknown") {
+    return nextConfidence > currentConfidence;
+  }
+
+  const currentPriority = getSourcePriority(field, currentSource as never);
+  const nextPriority = getSourcePriority(field, nextSource as never);
+
+  if (nextPriority !== currentPriority) {
+    return nextPriority > currentPriority;
+  }
+
+  return nextConfidence > currentConfidence;
 }
 
 function getStringListValue(value: unknown) {
@@ -553,4 +634,89 @@ function getStringListValue(value: unknown) {
   );
 
   return values.length > 0 ? values.join(", ") : null;
+}
+
+function getSourcePriority(
+  field:
+    | "trackName"
+    | "artist"
+    | "bpm"
+    | "genre"
+    | "subGenre"
+    | "album"
+    | "key",
+  source: EnrichedTrackMetadata["sources"][typeof field],
+) {
+  const normalized = source ?? "unknown";
+
+  const priorities: Record<
+    typeof field,
+    Partial<Record<string, number>>
+  > = {
+    trackName: {
+      local_db: 4,
+      spotify: 3,
+      beatport: 2,
+      getsongbpm: 1,
+      soundcloud: 0,
+      lastfm: 0,
+      unknown: 0,
+    },
+    artist: {
+      local_db: 4,
+      spotify: 3,
+      beatport: 2,
+      getsongbpm: 1,
+      soundcloud: 0,
+      lastfm: 0,
+      unknown: 0,
+    },
+    bpm: {
+      local_db: 4,
+      beatport: 3,
+      getsongbpm: 2,
+      spotify: 1,
+      soundcloud: 0,
+      lastfm: 0,
+      unknown: 0,
+    },
+    genre: {
+      local_db: 4,
+      beatport: 3,
+      spotify: 2,
+      soundcloud: 1,
+      lastfm: 1,
+      getsongbpm: 0,
+      unknown: 0,
+    },
+    subGenre: {
+      local_db: 4,
+      beatport: 3,
+      spotify: 2,
+      soundcloud: 1,
+      lastfm: 1,
+      getsongbpm: 0,
+      unknown: 0,
+    },
+    album: {
+      local_db: 4,
+      spotify: 3,
+      beatport: 2,
+      soundcloud: 1,
+      getsongbpm: 1,
+      lastfm: 0,
+      unknown: 0,
+    },
+    key: {
+      local_db: 4,
+      beatport: 3,
+      getsongbpm: 2,
+      spotify: 1,
+      soundcloud: 0,
+      lastfm: 0,
+      unknown: 0,
+    },
+  };
+
+  return priorities[field][normalized] ?? 0;
 }

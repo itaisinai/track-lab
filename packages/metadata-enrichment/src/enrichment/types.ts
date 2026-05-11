@@ -33,8 +33,11 @@ export type EnrichedTrackMetadata = {
   subGenre?: string | null;
   key?: string | null;
   sources: {
+    trackName?: Extract<EnrichmentSource, "local_db" | "spotify" | "beatport" | "soundcloud" | "getsongbpm" | "unknown">;
+    artist?: Extract<EnrichmentSource, "local_db" | "spotify" | "beatport" | "soundcloud" | "getsongbpm" | "unknown">;
     bpm?: EnrichmentSource;
     genre?: EnrichmentSource;
+    subGenre?: EnrichmentSource;
     album?: Extract<
       EnrichmentSource,
       "local_db" | "spotify" | "beatport" | "getsongbpm" | "unknown"
@@ -44,6 +47,7 @@ export type EnrichedTrackMetadata = {
   confidence: {
     bpm?: number;
     genre?: number;
+    subGenre?: number;
     album?: number;
     key?: number;
   };

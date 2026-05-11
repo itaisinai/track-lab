@@ -207,6 +207,118 @@ test("higher-confidence provider can replace weaker metadata before early stop",
   assert.equal(result.sources.key, "beatport");
 });
 
+test("Beatport and Spotify metadata should not be overwritten by weaker SoundCloud identity", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "smack talk", artist: "Isoxo" },
+    {
+      requiredProviders: [
+        metadataProvider("Spotify", "spotify", () => ({
+          matchedTrack: {
+            title: "SMACK TALK",
+            artists: "ISOxo, Knock2, RL Grime, ISOKNOCK",
+          },
+          source: "spotify",
+          confidence: 0.75,
+        })),
+      ],
+      bpmProviders: [],
+      edmCatalogProviders: [
+        metadataProvider("Beatport", "beatport", () => ({
+          bpm: 139,
+          genre: "Trap / Future Bass",
+          key: "D Minor",
+          matchedTrack: {
+            title: "SMACK TALK",
+            artists: "RL Grime, Isoxo, Knock2, ISOKNOCK",
+          },
+          source: "beatport",
+          confidence: 0.9,
+        })),
+        metadataProvider("SoundCloud", "soundcloud", () => ({
+          bpm: 128,
+          genre: "Hip-hop & Rap",
+          matchedTrack: {
+            title: "Smack Talk",
+            artists: "ANON¥MOUS",
+          },
+          source: "soundcloud",
+          confidence: 0.4,
+        })),
+      ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: false,
+        lookupEdmCatalogProviders: true,
+        lookupContextProvider: false,
+        reasons: ["EDM catalog evidence should run."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+      }),
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(result.trackName, "SMACK TALK");
+  assert.equal(result.artist, "ISOxo, Knock2, RL Grime, ISOKNOCK");
+  assert.equal(result.sources.trackName, "spotify");
+  assert.equal(result.sources.artist, "spotify");
+  assert.equal(result.bpm, 139);
+  assert.equal(result.genre, "Trap / Future Bass");
+  assert.equal(result.key, "D Minor");
+  assert.equal(result.sources.bpm, "beatport");
+  assert.equal(result.sources.genre, "beatport");
+  assert.equal(result.sources.key, "beatport");
+});
+
+test("later providers receive enriched artist identity from earlier providers", async () => {
+  let seenSoundCloudArtist: string | undefined;
+
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "smack talk", artist: "Isoxo" },
+    {
+      requiredProviders: [
+        metadataProvider("Spotify", "spotify", () => ({
+          matchedTrack: {
+            title: "SMACK TALK",
+            artists: "ISOxo, Knock2, RL Grime, ISOKNOCK",
+          },
+          source: "spotify",
+          confidence: 0.75,
+        })),
+      ],
+      bpmProviders: [],
+      edmCatalogProviders: [
+        metadataProvider("Beatport", "beatport", () => ({
+          bpm: 139,
+          genre: "Trap / Future Bass",
+          key: "D Minor",
+          matchedTrack: {
+            title: "SMACK TALK",
+            artists: "RL Grime, Isoxo, Knock2, ISOKNOCK",
+          },
+          source: "beatport",
+          confidence: 0.9,
+        })),
+        metadataProvider("SoundCloud", "soundcloud", (input) => {
+          seenSoundCloudArtist = input.artist;
+          return null;
+        }),
+      ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: false,
+        lookupEdmCatalogProviders: true,
+        lookupContextProvider: false,
+        reasons: ["EDM catalog evidence should run."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+      }),
+      contextProviders: [],
+      synthesize: async ({ baseResult }) => baseResult,
+    },
+  );
+
+  assert.equal(seenSoundCloudArtist, "ISOxo, Knock2, RL Grime, ISOKNOCK");
+  assert.equal(result.artist, "ISOxo, Knock2, RL Grime, ISOKNOCK");
+});
+
 test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks", async () => {
   const calledProviders: string[] = [];
 

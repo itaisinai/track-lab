@@ -238,10 +238,12 @@ Do not invent BPM, key, album, URLs, or provider matches.`),
       sources: {
         ...result.sources,
         genre: result.sources.genre ?? "unknown",
+        subGenre: result.sources.subGenre ?? result.sources.genre ?? "unknown",
       },
       confidence: {
         ...result.confidence,
         genre: result.confidence.genre ?? 0.55,
+        subGenre: result.confidence.subGenre ?? result.confidence.genre ?? 0.55,
       },
       reviewNotes: getStringArray(parsed.reviewNotes) ?? [
         ...(result.reviewNotes ?? []),

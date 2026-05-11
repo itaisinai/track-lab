@@ -1,0 +1,41 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">TrackLab Icon</title>
+  <desc id="desc">A lab flask containing an audio waveform with purple and blue gradient accents.</desc>
+  <defs>
+    <linearGradient id="waveGradient" x1="150" y1="285" x2="365" y2="285" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A855F7"/>
+      <stop offset="0.5" stop-color="#7C3AED"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <linearGradient id="bubbleGradient" x1="210" y1="70" x2="320" y2="140" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#A855F7"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="softShadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#000000" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="112" fill="#0B1018"/>
+  <g filter="url(#softShadow)">
+    <path d="M218 134H294" stroke="#F8FAFC" stroke-width="22" stroke-linecap="round"/>
+    <path d="M236 145V214L157 343C139 373 161 412 196 412H316C351 412 373 373 355 343L276 214V145" stroke="#F8FAFC" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M178 333C178 333 204 306 256 306C308 306 334 333 334 333" stroke="#F8FAFC" stroke-width="18" stroke-linecap="round" opacity="0.92"/>
+  </g>
+
+  <g stroke="url(#waveGradient)" stroke-width="14" stroke-linecap="round">
+    <path d="M174 315V298"/>
+    <path d="M194 324V288"/>
+    <path d="M214 334V274"/>
+    <path d="M234 347V252"/>
+    <path d="M256 356V230"/>
+    <path d="M278 347V252"/>
+    <path d="M298 334V274"/>
+    <path d="M318 324V288"/>
+    <path d="M338 315V298"/>
+  </g>
+
+  <circle cx="228" cy="84" r="18" fill="url(#bubbleGradient)"/>
+  <circle cx="282" cy="62" r="14" fill="url(#bubbleGradient)"/>
+  <circle cx="306" cy="106" r="12" fill="url(#bubbleGradient)"/>
+</svg>

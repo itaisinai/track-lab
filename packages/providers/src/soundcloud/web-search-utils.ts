@@ -57,6 +57,46 @@ type SoundCloudPageMetadata = {
   subGenre?: string | null;
 };
 
+const SOUND_CLOUD_GENRE_TAGS = [
+  "drum and bass",
+  "bass music",
+  "future bass",
+  "progressive house",
+  "melodic house",
+  "melodic techno",
+  "bass house",
+  "deep house",
+  "tech house",
+  "house",
+  "dubstep",
+  "trap",
+  "techno",
+  "garage",
+  "jungle",
+  "hardstyle",
+  "hard dance",
+  "dnb",
+  "edm",
+  "dance",
+  "bass",
+];
+
+const SOUND_CLOUD_SUBGENRE_IGNORE_TAGS = new Set([
+  "remix",
+  "edit",
+  "bootleg",
+  "flip",
+  "vip",
+  "rework",
+  "original",
+  "mix",
+  "free",
+  "download",
+  "dl",
+  "official",
+  "radio",
+]);
+
 export function createSoundCloudWebSearchProvider(
   options: SoundCloudWebSearchOptions = {},
 ): SoundCloudWebSearchProvider {
@@ -424,7 +464,7 @@ function parseSoundCloudTrackPageMetadata(html: string): SoundCloudPageMetadata 
     null;
   const durationMs = getHydratedSoundNumberField(html, "duration");
   const genre = getHydratedSoundField(html, "genre");
-  const subGenre = getHydratedSoundField(html, "tag_list");
+  const subGenre = extractSoundCloudSubGenre(getHydratedSoundField(html, "tag_list"));
 
   return {
     createdAt,
@@ -477,6 +517,33 @@ function decodeHtml(value: string) {
 function getDecodedHtmlString(value: string | undefined) {
   const decoded = decodeHtml(value ?? "");
   return decoded || null;
+}
+
+function extractSoundCloudSubGenre(tagList: string | null) {
+  if (!tagList) {
+    return null;
+  }
+
+  const tags = tagList
+    .match(/"([^"]+)"|([^"\s]+)/g)
+    ?.map((tag) => tag.replace(/^"|"$/g, "").trim())
+    .filter(Boolean)
+    .map((tag) => tag.toLowerCase()) ?? [];
+
+  for (const genreTag of SOUND_CLOUD_GENRE_TAGS) {
+    if (tags.includes(genreTag)) {
+      return genreTag;
+    }
+  }
+
+  const phrase = tags.find((tag) =>
+    !SOUND_CLOUD_SUBGENRE_IGNORE_TAGS.has(tag) &&
+    tag.length <= 32 &&
+    tag.split(/\s+/).length <= 3 &&
+    SOUND_CLOUD_GENRE_TAGS.some((genreTag) => tag.includes(genreTag)),
+  );
+
+  return phrase ?? null;
 }
 
 function decodeJsonString(value: string) {

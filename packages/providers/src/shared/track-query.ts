@@ -47,6 +47,26 @@ export function createTitleFirstTrackQueries(title: string, artists: string) {
   return unique(queries.map(normalizeSearchText).filter(Boolean));
 }
 
+export function createTitleFirstTrackQueriesWithArtistVariants(
+  title: string,
+  artists: string,
+) {
+  const input = normalizeTrackLookupInput(title, artists);
+  const queries = new Set(createTitleFirstTrackQueries(title, artists));
+
+  for (const artist of splitArtistNames(input.artists)) {
+    const query = normalizeSearchText(
+      [input.matchTitle, artist].filter(Boolean).join(" "),
+    );
+
+    if (query) {
+      queries.add(query);
+    }
+  }
+
+  return unique([...queries]);
+}
+
 export function splitArtistNames(artists: string) {
   return normalizeSearchText(artists)
     .split(",")
