@@ -1,22 +1,24 @@
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
 import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
 
-export type MetadataStrategyContext = {
+// Static planner policy context added directly to the LLM prompt to keep tool
+// planning consistent.
+export type PlannerPolicyContext = {
   policy: string[];
   providerRules: string[];
   userPreferences: string[];
 };
 
-export type MetadataStrategyContextInput = {
+export type PlannerPolicyContextInput = {
   input: EnrichTrackMetadataInput;
   currentResult: EnrichedTrackMetadata;
   providerEvidence: ProviderEvidence;
 };
 
-export function retrieveMetadataStrategyContext({
+export function getPlannerPolicyContext({
   input,
   currentResult,
-}: MetadataStrategyContextInput): MetadataStrategyContext {
+}: PlannerPolicyContextInput): PlannerPolicyContext {
   const policy = [
     "Providers fetch evidence. The LLM interprets evidence and plans optional tools.",
     "Never invent BPM, key, URLs, provider matches, or saved results.",
@@ -50,7 +52,7 @@ export function retrieveMetadataStrategyContext({
   };
 }
 
-export function flattenMetadataStrategyContext(context: MetadataStrategyContext) {
+export function flattenPlannerPolicyContext(context: PlannerPolicyContext) {
   return [
     ...context.policy.map((item) => `Policy: ${item}`),
     ...context.providerRules.map((item) => `Provider rule: ${item}`),

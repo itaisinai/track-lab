@@ -38,58 +38,40 @@ function scoreCandidate(
   candidate: RemixSearchCandidate,
   request: NormalizedRemixSearchRequest,
 ): RemixSearchCandidate {
-  const haystack = normalize(
-    [
-      candidate.title,
-      candidate.artists,
-      candidate.remixArtist,
-      candidate.genre,
-      candidate.subGenre,
-    ].join(" "),
-  );
+  const haystack = buildCandidateHaystack(candidate);
   const title = normalize(request.title);
   const artistTokens = request.artists
     .split(",")
     .map(normalize)
     .filter(Boolean);
   const genre = normalize(request.genre ?? "");
-  const reasons: string[] = [];
+  const reasons = buildCandidateRelevanceReasons(candidate, title, artistTokens, genre, haystack);
   let score = 0;
-  let hasTitleEvidence = false;
 
-  if (haystack.includes(title)) {
+  if (hasTitleEvidence(title, haystack)) {
     score += 35;
-    hasTitleEvidence = true;
-    reasons.push("title match");
-  } else if (wordOverlap(title, haystack) >= 0.7) {
+  } else if (hasCloseTitleEvidence(title, haystack)) {
     score += 24;
-    hasTitleEvidence = true;
-    reasons.push("close title match");
   }
 
-  if (artistTokens.some((artist) => artist && haystack.includes(artist))) {
+  if (hasArtistEvidence(artistTokens, haystack)) {
     score += 20;
-    reasons.push("original artist match");
   }
 
-  if (REMIX_TERMS.some((term) => haystack.includes(term))) {
+  if (hasRemixTerminology(haystack)) {
     score += 18;
-    reasons.push("remix/edit terminology");
   }
 
-  if (genre && haystack.includes(genre)) {
+  if (hasRequestedGenreEvidence(genre, haystack)) {
     score += 18;
-    reasons.push("requested genre text match");
   }
 
   if (candidate.createdAt) {
     score += 3;
-    reasons.push("creation date available");
   }
 
-  if (!hasTitleEvidence) {
+  if (!hasTitleEvidence(title, haystack) && !hasCloseTitleEvidence(title, haystack)) {
     score = Math.min(score, 30);
-    reasons.push("missing title evidence");
   }
 
   return {
@@ -130,6 +112,76 @@ function wordOverlap(left: string, right: string) {
   }
 
   return matches / leftWords.size;
+}
+
+function buildCandidateHaystack(candidate: RemixSearchCandidate) {
+  return normalize(
+    [
+      candidate.title,
+      candidate.artists,
+      candidate.remixArtist,
+      candidate.genre,
+      candidate.subGenre,
+    ].join(" "),
+  );
+}
+
+function hasTitleEvidence(title: string, haystack: string) {
+  return Boolean(title && haystack.includes(title));
+}
+
+function hasCloseTitleEvidence(title: string, haystack: string) {
+  return Boolean(title && wordOverlap(title, haystack) >= 0.7);
+}
+
+function hasArtistEvidence(artistTokens: string[], haystack: string) {
+  return artistTokens.some((artist) => artist && haystack.includes(artist));
+}
+
+function hasRemixTerminology(haystack: string) {
+  return REMIX_TERMS.some((term) => haystack.includes(term));
+}
+
+function hasRequestedGenreEvidence(genre: string, haystack: string) {
+  return Boolean(genre && haystack.includes(genre));
+}
+
+function buildCandidateRelevanceReasons(
+  candidate: RemixSearchCandidate,
+  title: string,
+  artistTokens: string[],
+  genre: string,
+  haystack: string,
+) {
+  const reasons: string[] = [];
+
+  if (hasTitleEvidence(title, haystack)) {
+    reasons.push("title match");
+  } else if (hasCloseTitleEvidence(title, haystack)) {
+    reasons.push("close title match");
+  }
+
+  if (hasArtistEvidence(artistTokens, haystack)) {
+    reasons.push("original artist match");
+  }
+
+  if (hasRemixTerminology(haystack)) {
+    reasons.push("remix/edit terminology");
+  }
+
+  if (hasRequestedGenreEvidence(genre, haystack)) {
+    reasons.push("requested genre text match");
+  }
+
+  if (candidate.createdAt) {
+    reasons.push("creation date available");
+  }
+
+  if (!hasTitleEvidence(title, haystack) && !hasCloseTitleEvidence(title, haystack)) {
+    reasons.push("missing title evidence");
+  }
+
+  return reasons;
 }
 
 function wordsMatch(left: string, right: string) {

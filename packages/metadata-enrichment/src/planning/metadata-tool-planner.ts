@@ -3,17 +3,26 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
 import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
 import {
-  flattenMetadataStrategyContext,
-  retrieveMetadataStrategyContext,
-  type MetadataStrategyContext,
-} from "./rag-context.ts";
+  flattenPlannerPolicyContext,
+  getPlannerPolicyContext,
+  type PlannerPolicyContext,
+} from "./planner-policy-context.ts";
+import {
+  planEdmTools,
+  type EdmToolPlan,
+} from "./edm-tool-planner.ts";
+import {
+  toPlannerCurrentResultSummary,
+  toPlannerProviderEvidenceSummary,
+} from "./planner-input.ts";
 
 export type MetadataToolPlan = {
   lookupBpmProvider: boolean;
   lookupEdmCatalogProviders: boolean;
   lookupContextProvider: boolean;
   reasons: string[];
-  strategyContext: MetadataStrategyContext;
+  strategyContext: PlannerPolicyContext;
+  edmToolPlan: EdmToolPlan;
 };
 
 export type MetadataToolPlanInput = {
@@ -30,12 +39,22 @@ const plannerModel = new ChatOpenAI({
 export async function planMetadataTools(
   input: MetadataToolPlanInput,
 ): Promise<MetadataToolPlan> {
-  const strategyContext = retrieveMetadataStrategyContext(input);
+  const strategyContext = getPlannerPolicyContext(input);
+  const currentResultSummary = toPlannerCurrentResultSummary(input.currentResult);
+  const providerEvidenceSummary = toPlannerProviderEvidenceSummary(
+    input.providerEvidence,
+  );
+  const edmToolPlan = await planEdmTools({
+    currentResult: input.currentResult,
+    currentResultSummary,
+    providerEvidenceSummary,
+  });
 
   if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
     return {
-      ...createFallbackPlan(input),
+      ...createFallbackPlan(input, edmToolPlan),
       strategyContext,
+      edmToolPlan,
     };
   }
 
@@ -48,8 +67,8 @@ Your job is to decide which optional tool groups should run next.
 
 Important terminology:
 - Tools/providers fetch evidence.
-- RAG context is internal policy, memory, and user preferences.
-- The tool planner decides optional tools from current evidence and RAG context.
+- Planner policy context is internal policy, provider guidance, and user preferences.
+- The tool planner decides optional tools from current evidence and planner policy context.
 
 Rules:
 - GetSongBPM should run when BPM or key is missing and title/artist are available.
@@ -61,9 +80,10 @@ Rules:
 - Return short reasons.`),
       new HumanMessage(
         JSON.stringify({
-          currentResult: input.currentResult,
-          providerEvidence: input.providerEvidence,
-          retrievedContext: flattenMetadataStrategyContext(strategyContext),
+          currentResult: currentResultSummary,
+          providerEvidence: providerEvidenceSummary,
+          retrievedContext: flattenPlannerPolicyContext(strategyContext),
+          edmToolPlan,
           requiredShape: {
             lookupBpmProvider: "boolean",
             lookupEdmCatalogProviders: "boolean",
@@ -78,29 +98,34 @@ Rules:
     return {
       lookupBpmProvider: getBoolean(parsed?.lookupBpmProvider) ?? shouldLookupBpm(input),
       lookupEdmCatalogProviders:
-        getBoolean(parsed?.lookupEdmCatalogProviders) ?? shouldLookupEdmCatalog(input),
+        getBoolean(parsed?.lookupEdmCatalogProviders) ??
+        edmToolPlan.shouldRunEdmTools,
       lookupContextProvider:
         getBoolean(parsed?.lookupContextProvider) ?? shouldLookupContext(input),
-      reasons: getStringArray(parsed?.reasons) ?? createFallbackReasons(input),
+      reasons: getStringArray(parsed?.reasons) ?? createFallbackReasons(input, edmToolPlan),
       strategyContext,
+      edmToolPlan,
     };
   } catch (error) {
     return {
-      ...createFallbackPlan(input, error),
+      ...createFallbackPlan(input, edmToolPlan, error),
       strategyContext,
+      edmToolPlan,
     };
   }
 }
 
 function createFallbackPlan(
   input: MetadataToolPlanInput,
+  edmToolPlan: EdmToolPlan,
   error?: unknown,
 ): Omit<MetadataToolPlan, "strategyContext"> {
   return {
     lookupBpmProvider: shouldLookupBpm(input),
-    lookupEdmCatalogProviders: shouldLookupEdmCatalog(input),
+    lookupEdmCatalogProviders: edmToolPlan.shouldRunEdmTools,
     lookupContextProvider: shouldLookupContext(input),
-    reasons: createFallbackReasons(input, error),
+    reasons: createFallbackReasons(input, edmToolPlan, error),
+    edmToolPlan,
   };
 }
 
@@ -116,54 +141,19 @@ function shouldLookupContext({ input, currentResult }: MetadataToolPlanInput) {
   );
 }
 
-function shouldLookupEdmCatalog({ input, currentResult }: MetadataToolPlanInput) {
-  const values = [
-    input.trackName,
-    input.artist,
-    input.knownMetadata?.genre,
-    input.knownMetadata?.subGenre,
-    currentResult.trackName,
-    currentResult.artist,
-    currentResult.genre,
-    currentResult.subGenre,
-    currentResult.summary,
-  ];
-  const text = values
-    .filter((value): value is string => Boolean(value))
-    .join(" ")
-    .toLowerCase();
-
-  return [
-    "edm",
-    "electronic",
-    "house",
-    "techno",
-    "trance",
-    "dubstep",
-    "drum and bass",
-    "dnb",
-    "bass",
-    "trap",
-    "garage",
-    "club",
-    "dance",
-    "remix",
-    "edit",
-    "bootleg",
-    "flip",
-    "dj",
-  ].some((term) => text.includes(term));
-}
-
-function createFallbackReasons(input: MetadataToolPlanInput, error?: unknown) {
+function createFallbackReasons(
+  input: MetadataToolPlanInput,
+  edmToolPlan: EdmToolPlan,
+  error?: unknown,
+) {
   const reasons: string[] = [];
 
   if (shouldLookupBpm(input)) {
     reasons.push("BPM or key is missing, so GetSongBPM is useful.");
   }
 
-  if (shouldLookupEdmCatalog(input)) {
-    reasons.push("EDM/DJ catalog signal exists, so Beatport and SoundCloud should run together.");
+  if (edmToolPlan.shouldRunEdmTools) {
+    reasons.push("EDM tools should run based on deterministic or LLM EDM planning.");
   }
 
   if (shouldLookupContext(input)) {

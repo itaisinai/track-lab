@@ -7,6 +7,7 @@ import type {
 } from "@track-lab/providers";
 import type { EnrichmentResultStore } from "../enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
+import type { EdmToolPlan } from "../planning/edm-tool-planner.ts";
 
 test("analyze reuses local DB data before provider lookup", async () => {
   let providerCalls = 0;
@@ -193,6 +194,7 @@ test("higher-confidence provider can replace weaker metadata before early stop",
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -251,6 +253,14 @@ test("Beatport and Spotify metadata should not be overwritten by weaker SoundClo
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan({
+          classification: "edm",
+          shouldRunEdmTools: true,
+          toolsToRun: ["beatport", "soundcloud"],
+          confidence: "high",
+          reason: "Test EDM plan.",
+          decidedBy: "deterministic",
+        }),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -309,6 +319,14 @@ test("later providers receive enriched artist identity from earlier providers", 
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan({
+          classification: "edm",
+          shouldRunEdmTools: true,
+          toolsToRun: ["beatport", "soundcloud"],
+          confidence: "high",
+          reason: "Test EDM plan.",
+          decidedBy: "deterministic",
+        }),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -377,6 +395,7 @@ test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks"
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -446,6 +465,14 @@ test("tool planner skips both Beatport and SoundCloud for non-EDM tracks", async
         lookupContextProvider: false,
         reasons: ["No EDM catalog signal."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan({
+          classification: "not_edm",
+          shouldRunEdmTools: false,
+          toolsToRun: [],
+          confidence: "high",
+          reason: "Test non-EDM plan.",
+          decidedBy: "deterministic",
+        }),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -687,5 +714,17 @@ function testStrategyContext(
     policy: [],
     providerRules: [],
     userPreferences: [],
+  };
+}
+
+function testEdmToolPlan(overrides: Partial<EdmToolPlan> = {}): EdmToolPlan {
+  return {
+    classification: "unknown",
+    shouldRunEdmTools: false,
+    toolsToRun: [],
+    confidence: "low",
+    reason: "Test EDM plan.",
+    decidedBy: "deterministic",
+    ...overrides,
   };
 }

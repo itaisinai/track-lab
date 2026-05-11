@@ -21,6 +21,14 @@ test("track query normalization keeps simple dash and uses stripped title for ma
   assert.equal(input.titleHasArtistPrefix, true);
 });
 
+test("track query normalization strips trailing artist suffixes", () => {
+  const input = normalizeTrackLookupInput("Ella Sabe - Amygdala", "Amygdala");
+
+  assert.equal(input.title, "Ella Sabe - Amygdala");
+  assert.equal(input.matchTitle, "Ella Sabe");
+  assert.equal(input.titleHasArtistPrefix, true);
+});
+
 test("track queries are title first when title does not include artist", () => {
   assert.deepEqual(
     createTitleFirstTrackQueries("Losing It", "FISHER"),
@@ -42,5 +50,12 @@ test("track queries try each artist variant for SoundCloud searches", () => {
       "Smack Talk Knock2",
       "Smack Talk ISOKNOCK",
     ],
+  );
+});
+
+test("track queries strip trailing artist suffixes before building search queries", () => {
+  assert.deepEqual(
+    createTitleFirstTrackQueries("Ella Sabe - Amygdala", "Amygdala"),
+    ["Ella Sabe - Amygdala", "Ella Sabe Amygdala", "Ella Sabe"],
   );
 });

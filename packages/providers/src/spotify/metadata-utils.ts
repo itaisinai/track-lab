@@ -191,7 +191,7 @@ function findBestTrackMatch(
   const normalizedArtists = input.artists.split(",").map(normalize).filter(Boolean);
 
   return tracks.find((track) => {
-    const titleMatches = normalize(track.name) === normalizedTitle;
+    const titleMatches = titleMatchesRequestedTrack(track.name, normalizedTitle);
     const trackArtists = track.artists.map((artist) => normalize(artist.name));
     const artistMatches = normalizedArtists.every((artist) =>
       trackArtists.some((trackArtist) => trackArtist.includes(artist)),
@@ -199,4 +199,41 @@ function findBestTrackMatch(
 
     return titleMatches && artistMatches;
   });
+}
+
+function titleMatchesRequestedTrack(
+  candidateTitle: string,
+  requestedTitle: string,
+) {
+  const normalizedCandidateTitle = normalize(candidateTitle);
+
+  if (normalizedCandidateTitle === requestedTitle) {
+    return true;
+  }
+
+  if (!normalizedCandidateTitle.startsWith(`${requestedTitle} `)) {
+    return false;
+  }
+
+  const suffix = normalizedCandidateTitle.slice(requestedTitle.length).trim();
+  return isOfficialVersionSuffix(suffix);
+}
+
+function isOfficialVersionSuffix(value: string) {
+  if (!value) {
+    return false;
+  }
+
+  if (/\b(remix|bootleg|flip|vip|rework|mashup)\b/.test(value)) {
+    return false;
+  }
+
+  return [
+    "extended mix",
+    "radio edit",
+    "original mix",
+    "club mix",
+    "instrumental",
+    "single mix",
+  ].some((term) => value.includes(term));
 }
