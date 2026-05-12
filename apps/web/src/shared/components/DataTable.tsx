@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type DragEvent,
   type ReactNode,
 } from "react";
 import {
@@ -13,12 +14,14 @@ import {
   getPaginationRowModel,
   getSortedRowModel,
   useReactTable,
+  type Column,
   type ColumnDef,
+  type ColumnOrderState,
   type ExpandedState,
   type Row,
   type SortingState,
 } from "@tanstack/react-table";
-import { useTableColumnVisibilityPreference } from "../hooks/useTableColumnVisibilityPreference";
+import { useTableColumnPreferences } from "../hooks/useTableColumnPreferences";
 import { ColumnsIcon } from "../icons/ColumnsIcon";
 import { XIcon } from "../icons/XIcon";
 
@@ -52,12 +55,20 @@ export function DataTable<TData>({
   const [expanded, setExpanded] = useState<ExpandedState>({});
   const [isColumnsDrawerOpen, setIsColumnsDrawerOpen] = useState(false);
   const [columnsSearch, setColumnsSearch] = useState("");
-  const {
-    columnVisibility,
-    setColumnVisibility,
-    showAllColumns,
-  } = useTableColumnVisibilityPreference(tableId);
+  const [draggingColumnId, setDraggingColumnId] = useState<string | null>(null);
+  const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
   const stableColumns = useMemo(() => columns, [columns]);
+  const defaultColumnOrder = useMemo(
+    () => getDefaultColumnOrder(stableColumns),
+    [stableColumns],
+  );
+  const {
+    columnOrder,
+    columnVisibility,
+    resetColumns,
+    setColumnOrder,
+    setColumnVisibility,
+  } = useTableColumnPreferences(tableId, defaultColumnOrder);
   const initialSortingKey = JSON.stringify(initialSorting);
 
   useEffect(() => {
@@ -87,11 +98,13 @@ export function DataTable<TData>({
       globalFilter,
       expanded,
       sorting,
+      columnOrder,
       columnVisibility,
     },
     onGlobalFilterChange: setGlobalFilter,
     onExpandedChange: setExpanded,
     onSortingChange: setSorting,
+    onColumnOrderChange: setColumnOrder,
     onColumnVisibilityChange: setColumnVisibility,
     getCoreRowModel: getCoreRowModel(),
     getExpandedRowModel: getExpandedRowModel(),
@@ -117,6 +130,48 @@ export function DataTable<TData>({
         getColumnSearchText(column).includes(columnQuery),
       )
     : leafColumns;
+
+  function handleColumnDragStart(
+    event: DragEvent<HTMLElement>,
+    columnId: string,
+  ) {
+    setDraggingColumnId(columnId);
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", columnId);
+  }
+
+  function handleColumnDragOver(
+    event: DragEvent<HTMLElement>,
+    columnId: string,
+  ) {
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragOverColumnId(columnId);
+  }
+
+  function handleColumnDrop(
+    event: DragEvent<HTMLElement>,
+    targetColumnId: string,
+  ) {
+    event.preventDefault();
+    const sourceColumnId =
+      draggingColumnId || event.dataTransfer.getData("text/plain");
+
+    if (!sourceColumnId || sourceColumnId === targetColumnId) {
+      clearColumnDragState();
+      return;
+    }
+
+    setColumnOrder((current) =>
+      moveColumnToTarget(current, sourceColumnId, targetColumnId),
+    );
+    clearColumnDragState();
+  }
+
+  function clearColumnDragState() {
+    setDraggingColumnId(null);
+    setDragOverColumnId(null);
+  }
 
   return (
     <div className="data-table">
@@ -176,11 +231,24 @@ export function DataTable<TData>({
                 </label>
                 <div className="table-columns-drawer-list">
                   {columnsForPicker.map((column) => (
-                    <label
-                      className={`table-column-toggle ${
-                        column.getCanHide() ? "" : "table-column-toggle-locked"
-                      }`}
+                    <div
+                      className={getColumnDragClassName(
+                        "table-column-toggle",
+                        column.id,
+                        draggingColumnId,
+                        dragOverColumnId,
+                        column.getCanHide(),
+                      )}
                       key={column.id}
+                      draggable
+                      onDragStart={(event) =>
+                        handleColumnDragStart(event, column.id)
+                      }
+                      onDragOver={(event) =>
+                        handleColumnDragOver(event, column.id)
+                      }
+                      onDrop={(event) => handleColumnDrop(event, column.id)}
+                      onDragEnd={clearColumnDragState}
                     >
                       <span className="table-column-grip" aria-hidden="true">
                         <span />
@@ -190,14 +258,44 @@ export function DataTable<TData>({
                         <span />
                         <span />
                       </span>
-                      <input
-                        type="checkbox"
-                        checked={column.getIsVisible()}
-                        disabled={!column.getCanHide()}
-                        onChange={column.getToggleVisibilityHandler()}
-                      />
-                      <span>{getColumnLabel(column.id, column.columnDef.header)}</span>
-                    </label>
+                      <label className="table-column-toggle-label">
+                        <input
+                          type="checkbox"
+                          checked={column.getIsVisible()}
+                          disabled={!column.getCanHide()}
+                          onChange={column.getToggleVisibilityHandler()}
+                        />
+                        <span>{getColumnLabel(column.id, column.columnDef.header)}</span>
+                      </label>
+                      <div className="table-column-move-actions">
+                        <button
+                          className="secondary compact table-column-move-button"
+                          type="button"
+                          aria-label={`Move ${getColumnLabel(column.id, column.columnDef.header)} left`}
+                          disabled={!canMoveColumn(column, leafColumns, "left")}
+                          onClick={() =>
+                            setColumnOrder((current) =>
+                              moveColumn(current, column.id, "left"),
+                            )
+                          }
+                        >
+                          <span aria-hidden="true">←</span>
+                        </button>
+                        <button
+                          className="secondary compact table-column-move-button"
+                          type="button"
+                          aria-label={`Move ${getColumnLabel(column.id, column.columnDef.header)} right`}
+                          disabled={!canMoveColumn(column, leafColumns, "right")}
+                          onClick={() =>
+                            setColumnOrder((current) =>
+                              moveColumn(current, column.id, "right"),
+                            )
+                          }
+                        >
+                          <span aria-hidden="true">→</span>
+                        </button>
+                      </div>
+                    </div>
                   ))}
                   {columnsForPicker.length === 0 && (
                     <div className="table-columns-empty-state">
@@ -210,7 +308,7 @@ export function DataTable<TData>({
                     className="secondary"
                     type="button"
                     onClick={() => {
-                      showAllColumns();
+                      resetColumns();
                       setColumnsSearch("");
                     }}
                   >
@@ -240,7 +338,26 @@ export function DataTable<TData>({
                       const sortDirection = header.column.getIsSorted();
 
                       return (
-                        <th key={header.id}>
+                        <th
+                          className={getColumnDragClassName(
+                            "table-header-cell",
+                            header.column.id,
+                            draggingColumnId,
+                            dragOverColumnId,
+                          )}
+                          key={header.id}
+                          draggable={!header.isPlaceholder}
+                          onDragStart={(event) =>
+                            handleColumnDragStart(event, header.column.id)
+                          }
+                          onDragOver={(event) =>
+                            handleColumnDragOver(event, header.column.id)
+                          }
+                          onDrop={(event) =>
+                            handleColumnDrop(event, header.column.id)
+                          }
+                          onDragEnd={clearColumnDragState}
+                        >
                           {header.isPlaceholder ? null : (
                             canSort ? (
                               <button
@@ -337,7 +454,7 @@ export function DataTable<TData>({
           <button
             className="secondary compact"
             type="button"
-            onClick={showAllColumns}
+            onClick={resetColumns}
           >
             Show all columns
           </button>
@@ -369,4 +486,113 @@ function getColumnSearchText(column: {
   return `${column.id} ${getColumnLabel(column.id, column.columnDef.header)}`
     .toLowerCase()
     .trim();
+}
+
+function getDefaultColumnOrder<TData>(
+  columns: ColumnDef<TData>[],
+): ColumnOrderState {
+  return columns
+    .map((column, index) => getColumnDefId(column, index))
+    .filter((columnId): columnId is string => Boolean(columnId));
+}
+
+function getColumnDefId<TData>(
+  column: ColumnDef<TData>,
+  index: number,
+) {
+  const columnRecord = column as unknown as Record<string, unknown>;
+  const explicitId = columnRecord.id;
+  const accessorKey = columnRecord.accessorKey;
+
+  if (typeof explicitId === "string" && explicitId.length > 0) {
+    return explicitId;
+  }
+
+  if (
+    (typeof accessorKey === "string" || typeof accessorKey === "number") &&
+    String(accessorKey).length > 0
+  ) {
+    return String(accessorKey).replaceAll(".", "_");
+  }
+
+  return `column-${index}`;
+}
+
+function canMoveColumn<TData>(
+  column: Column<TData, unknown>,
+  columns: Array<Column<TData, unknown>>,
+  direction: "left" | "right",
+) {
+  const index = columns.findIndex((candidate) => candidate.id === column.id);
+
+  return direction === "left"
+    ? index > 0
+    : index >= 0 && index < columns.length - 1;
+}
+
+function moveColumn(
+  currentOrder: ColumnOrderState,
+  columnId: string,
+  direction: "left" | "right",
+): ColumnOrderState {
+  const index = currentOrder.indexOf(columnId);
+
+  if (index < 0) {
+    return currentOrder;
+  }
+
+  const targetIndex = direction === "left" ? index - 1 : index + 1;
+
+  if (targetIndex < 0 || targetIndex >= currentOrder.length) {
+    return currentOrder;
+  }
+
+  const nextOrder = [...currentOrder];
+  [nextOrder[index], nextOrder[targetIndex]] = [
+    nextOrder[targetIndex],
+    nextOrder[index],
+  ];
+
+  return nextOrder;
+}
+
+function moveColumnToTarget(
+  currentOrder: ColumnOrderState,
+  sourceColumnId: string,
+  targetColumnId: string,
+): ColumnOrderState {
+  const sourceIndex = currentOrder.indexOf(sourceColumnId);
+  const targetIndex = currentOrder.indexOf(targetColumnId);
+
+  if (sourceIndex < 0 || targetIndex < 0 || sourceIndex === targetIndex) {
+    return currentOrder;
+  }
+
+  const nextOrder = [...currentOrder];
+  const [sourceColumn] = nextOrder.splice(sourceIndex, 1);
+  const adjustedTargetIndex = sourceIndex < targetIndex
+    ? targetIndex - 1
+    : targetIndex;
+
+  nextOrder.splice(adjustedTargetIndex, 0, sourceColumn);
+  return nextOrder;
+}
+
+function getColumnDragClassName(
+  baseClassName: string,
+  columnId: string,
+  draggingColumnId: string | null,
+  dragOverColumnId: string | null,
+  canHide = true,
+) {
+  return [
+    baseClassName,
+    canHide ? "" : "table-column-toggle-locked",
+    draggingColumnId === columnId ? "is-dragging" : "",
+    dragOverColumnId === columnId && draggingColumnId !== columnId
+      ? "is-drag-over"
+      : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
 }
