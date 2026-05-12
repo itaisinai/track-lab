@@ -1,7 +1,27 @@
 @import "tailwindcss";
 
+:root {
+  --z-base: 0;
+  --z-dropdown: 30;
+  --z-popover: 40;
+  --z-drawer: 50;
+  --z-tooltip: 80;
+}
+
 * {
   box-sizing: border-box;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 body {
@@ -160,6 +180,82 @@ button:disabled {
 
 .spinning {
   animation: icon-spin 900ms linear infinite;
+}
+
+.icon-action-button {
+  position: relative;
+  z-index: var(--z-base);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  overflow: visible;
+}
+
+.icon-action-button:hover,
+.icon-action-button:focus-visible,
+.icon-action-button:focus-within {
+  z-index: var(--z-tooltip);
+}
+
+.icon-action-button .icon-action-button-icon {
+  display: inline-grid;
+  place-items: center;
+}
+
+.icon-action-button .button-icon {
+  width: 18px;
+  height: 18px;
+}
+
+.icon-action-button .button-icon.large-action-icon {
+  width: 24px;
+  height: 24px;
+}
+
+.icon-action-button .icon-action-button-label {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%;
+  z-index: var(--z-tooltip);
+  padding: 5px 9px;
+  border: 1px solid #38505a;
+  border-radius: 8px;
+  background: rgba(8, 15, 19, 0.98);
+  box-shadow: 0 14px 28px rgb(0 0 0 / 34%);
+  color: #f5faf8;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
+  pointer-events: none;
+  transition:
+    opacity 140ms ease,
+    transform 140ms ease;
+}
+
+.icon-action-button .icon-action-button-label::after {
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid #38505a;
+  border-top: 1px solid #38505a;
+  background: rgba(8, 15, 19, 0.98);
+  content: "";
+  transform: translate(-50%, 55%) rotate(45deg);
+}
+
+.icon-action-button:hover .icon-action-button-label,
+.icon-action-button:focus-visible .icon-action-button-label {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
 }
 
 @keyframes icon-spin {

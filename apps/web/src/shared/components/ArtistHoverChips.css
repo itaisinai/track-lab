@@ -48,29 +48,41 @@
 
 .artist-chip-popover {
   position: fixed;
-  z-index: 50;
+  z-index: var(--z-tooltip);
   display: flex;
   max-width: min(420px, 58vw);
   flex-wrap: wrap;
   gap: 6px;
-  border: 1px solid #38545d;
+  border: 1px solid #38505a;
   border-radius: 8px;
-  padding: 8px;
-  background: #0f1c22;
-  box-shadow: 0 18px 44px rgb(0 0 0 / 34%);
+  padding: 7px 9px;
+  background: rgba(8, 15, 19, 0.98);
+  box-shadow: 0 14px 28px rgb(0 0 0 / 34%);
   animation: artist-popover-enter 140ms ease both;
+}
+
+.artist-chip-popover::after {
+  position: absolute;
+  bottom: 100%;
+  left: 16px;
+  width: 8px;
+  height: 8px;
+  border-right: 1px solid #38505a;
+  border-top: 1px solid #38505a;
+  background: rgba(8, 15, 19, 0.98);
+  content: "";
+  transform: translateY(55%) rotate(45deg);
 }
 
 .artist-chip {
   display: inline-flex;
   align-items: center;
-  min-height: 26px;
-  border: 1px solid rgb(232 241 239 / 18%);
+  min-height: 22px;
+  border: 1px solid rgb(153 246 228 / 24%);
   border-radius: 999px;
-  padding: 3px 9px;
-  color: #e8f1ef;
-  background: #17282f;
-  box-shadow: 0 8px 22px rgb(0 0 0 / 26%);
+  padding: 2px 8px;
+  color: #f5faf8;
+  background: rgb(42 157 143 / 16%);
   font-size: 12px;
   font-weight: 800;
   white-space: nowrap;

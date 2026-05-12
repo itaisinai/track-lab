@@ -1,0 +1,22 @@
+<svg width="96" height="96" viewBox="0 0 96 96" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Search remixes icon">
+  <defs>
+    <linearGradient id="g" x1="19" y1="18" x2="78" y2="77" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A855F7"/>
+      <stop offset="0.5" stop-color="#20E3B2"/>
+      <stop offset="1" stop-color="#22D3EE"/>
+    </linearGradient>
+    <filter id="glow" x="-20" y="-20" width="136" height="136" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="4" result="blur"/>
+      <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.35 0 0 0 0 0.85 0 0 0 0 1 0 0 0 0.5 0"/>
+      <feBlend in="SourceGraphic" mode="screen"/>
+    </filter>
+  </defs>
+  <rect x="10" y="10" width="76" height="76" rx="22" fill="#0B151A" stroke="url(#g)" stroke-width="2"/>
+  <circle cx="43" cy="42" r="17" stroke="url(#g)" stroke-width="5"/>
+  <path d="M56 55l13 13" stroke="url(#g)" stroke-width="5" stroke-linecap="round"/>
+  <path d="M31 42h6l3-8 6 18 4-10h5" stroke="#E9FBFF" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+  <g filter="url(#glow)">
+    <path d="M67 22l1.8 4.6 4.7 1.8-4.7 1.8L67 35l-1.8-4.8-4.7-1.8 4.7-1.8L67 22Z" fill="#E9FBFF"/>
+    <path d="M28 63l1.3 3.2 3.2 1.3-3.2 1.3L28 72l-1.3-3.2-3.2-1.3 3.2-1.3L28 63Z" fill="#20E3B2"/>
+  </g>
+</svg>

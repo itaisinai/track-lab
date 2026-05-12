@@ -48,6 +48,7 @@ export type ResultsContextValue = {
   activeJobs: TrackAnalysisJob[];
   drawerState: DrawerState;
   isResultsLoading: boolean;
+  isSearchingRemixes: boolean;
   reenrichingId: number | null;
   results: SavedTrackResult[];
   resultsError: string;
@@ -57,6 +58,7 @@ export type ResultsContextValue = {
   onMoreResult: (result: SavedTrackResult) => void;
   onRefreshResults: () => void;
   onReenrichResult: (result: SavedTrackResult) => void;
+  onSearchRemixes: (result: SavedTrackResult) => void;
 };
 
 export type JobsContextValue = {

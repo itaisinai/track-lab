@@ -514,6 +514,82 @@ test("lower-confidence provider does not overwrite higher-confidence data", asyn
   assert.equal(result.sources.genre, "beatport");
 });
 
+test("normalized Beatport non-genre buckets do not conflict with SoundCloud parent genre", async () => {
+  const result = await enrichTrackMetadata(
+    { operation: "analyze", trackName: "Mula", artist: "Eliminate" },
+    {
+      requiredProviders: [],
+      bpmProviders: [],
+      edmCatalogProviders: [
+        metadataProvider("Beatport", "beatport", () => ({
+          bpm: 111,
+          genre: "Electronic",
+          subGenre: "Speed House",
+          key: "C Major",
+          source: "beatport",
+          confidence: 0.85,
+          raw: {
+            found: true,
+            source: "beatport",
+            genre: "Electronic",
+            subGenre: "Speed House",
+            originalGenre: "Mainstage",
+          },
+        })),
+        metadataProvider("SoundCloud", "soundcloud", () => ({
+          genre: "Electronic",
+          source: "soundcloud",
+          confidence: 0.55,
+          raw: {
+            title: "Eliminate - Mula",
+            artists: "SABLE VALLEY",
+            genre: "Electronic",
+          },
+        })),
+      ],
+      planTools: async ({ input, currentResult, providerEvidence }) => ({
+        lookupBpmProvider: false,
+        lookupEdmCatalogProviders: true,
+        lookupContextProvider: false,
+        reasons: ["EDM evidence group should run."],
+        strategyContext: testStrategyContext(input, currentResult, providerEvidence),
+        edmToolPlan: testEdmToolPlan({
+          classification: "edm",
+          shouldRunEdmTools: true,
+          toolsToRun: ["beatport", "soundcloud"],
+          confidence: "high",
+        }),
+      }),
+      contextProviders: [],
+      synthesize: async ({ baseResult, providerEvidence }) => {
+        assert.deepEqual(providerEvidence.beatport, {
+          found: true,
+          source: "beatport",
+          genre: "Electronic",
+          subGenre: "Speed House",
+          originalGenre: "Mainstage",
+        });
+        assert.deepEqual(providerEvidence.soundcloud, {
+          title: "Eliminate - Mula",
+          artists: "SABLE VALLEY",
+          genre: "Electronic",
+        });
+
+        return {
+          ...baseResult,
+          conflicts: [],
+        };
+      },
+    },
+  );
+
+  assert.equal(result.genre, "Electronic");
+  assert.equal(result.subGenre, "Speed House");
+  assert.equal(result.sources.genre, "beatport");
+  assert.equal(result.sources.subGenre, "beatport");
+  assert.deepEqual(result.conflicts, []);
+});
+
 test("context provider raw evidence is isolated from output and passed to synthesis", async () => {
   let synthesisWikipediaEvidence: unknown = null;
 

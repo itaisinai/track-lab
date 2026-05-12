@@ -10,6 +10,7 @@ export type ProviderTrackLookupResult = {
   genre: string | null;
   genres?: string[];
   subGenre?: string | null;
+  originalGenre?: string | null;
   key?: string | null;
   url: string | null;
   track?: unknown;

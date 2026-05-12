@@ -90,6 +90,7 @@ export function DataStoreView({
       </div>
 
       <DataTable
+        tableId="data-store-jobs"
         data={jobs}
         columns={columns}
         emptyMessage="No queue jobs yet."

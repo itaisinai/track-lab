@@ -1,24 +1,33 @@
 import type { SavedTrackResult, TrackDetails } from "../../types";
 import { valueToString } from "../../lib/format";
 import { TrackDetailsView } from "../enrichment/TrackDetailsView";
+import { IconTooltipButton } from "../../shared/components/IconTooltipButton";
+import trackLabEnrichIcon from "../../../assets/tracklab-enrich-icon.svg";
+import trackLabRemixSearchIcon from "../../../assets/tracklab-remix-search-icon.svg";
+import { TrashIcon } from "../../shared/icons/TrashIcon";
+import { XIcon } from "../../shared/icons/XIcon";
 import "./ResultDrawer.css";
 
 type ResultDrawerProps = {
   result: SavedTrackResult;
   state: "opening" | "open" | "closing";
   isEnriching: boolean;
+  isSearchingRemixes: boolean;
   onClose: () => void;
   onEnrich: (result: SavedTrackResult) => void;
   onDelete: (result: SavedTrackResult) => void;
+  onSearchRemixes: (result: SavedTrackResult) => void;
 };
 
 export function ResultDrawer({
   result,
   state,
   isEnriching,
+  isSearchingRemixes,
   onClose,
   onEnrich,
   onDelete,
+  onSearchRemixes,
 }: ResultDrawerProps) {
   return (
     <aside
@@ -33,24 +42,54 @@ export function ResultDrawer({
             <p>{result.artists}</p>
           </div>
           <div className="drawer-actions">
-            <button
-              className="secondary compact"
+            <IconTooltipButton
+              className="secondary"
+              type="button"
+              disabled={isSearchingRemixes}
+              onClick={() => onSearchRemixes(result)}
+              label="Search remixes"
+              icon={
+                <img
+                  className="button-icon large-action-icon"
+                  src={trackLabRemixSearchIcon}
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+            />
+            <IconTooltipButton
+              className="secondary"
               type="button"
               disabled={isEnriching}
               onClick={() => onEnrich(result)}
-            >
-              {isEnriching ? "Enriching..." : "Enrich"}
-            </button>
-            <button
-              className="danger compact"
+              label="Enrich again"
+              icon={
+                <img
+                  className={
+                    isEnriching
+                      ? "button-icon large-action-icon spinning"
+                      : "button-icon large-action-icon"
+                  }
+                  src={trackLabEnrichIcon}
+                  alt=""
+                  aria-hidden="true"
+                />
+              }
+            />
+            <IconTooltipButton
+              className="danger"
               type="button"
               onClick={() => onDelete(result)}
-            >
-              Remove
-            </button>
-            <button className="secondary compact" type="button" onClick={onClose}>
-              Close
-            </button>
+              label="Remove"
+              icon={<TrashIcon className="button-icon" />}
+            />
+            <IconTooltipButton
+              className="secondary"
+              type="button"
+              onClick={onClose}
+              label="Close"
+              icon={<XIcon className="button-icon" />}
+            />
           </div>
         </div>
 

@@ -142,11 +142,13 @@ export function AppView() {
                 error={resultsState.resultsError}
                 isLoading={resultsState.isResultsLoading}
                 reenrichingId={resultsState.reenrichingId}
+                isSearchingRemixes={resultsState.isSearchingRemixes}
                 activeJobs={resultsState.activeJobs}
                 onRefresh={resultsState.onRefreshResults}
                 onMore={resultsState.onMoreResult}
                 onReenrich={resultsState.onReenrichResult}
                 onDelete={resultsState.onDeleteResult}
+                onSearchRemixes={resultsState.onSearchRemixes}
               />
             </div>
           ) : view === "review" ? (
@@ -174,16 +176,18 @@ export function AppView() {
         </main>
       </div>
 
-      {resultsState.selectedResult && (
+      {view === "results" && resultsState.selectedResult && (
         <ResultDrawer
           result={resultsState.selectedResult}
           state={resultsState.drawerState}
           isEnriching={
             resultsState.reenrichingId === resultsState.selectedResult.id
           }
+          isSearchingRemixes={resultsState.isSearchingRemixes}
           onClose={resultsState.onCloseDrawer}
           onEnrich={resultsState.onReenrichResult}
           onDelete={resultsState.onDeleteResult}
+          onSearchRemixes={resultsState.onSearchRemixes}
         />
       )}
     </>

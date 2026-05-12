@@ -17,7 +17,7 @@ export function ArtistHoverChips({ artists }: ArtistHoverChipsProps) {
   const extraCount = otherArtists.length;
 
   function openPopover() {
-    if (!triggerRef.current || extraCount === 0) {
+    if (!triggerRef.current) {
       return;
     }
 
@@ -58,7 +58,7 @@ export function ArtistHoverChips({ artists }: ArtistHoverChipsProps) {
               left: popoverPosition.left,
             }}
           >
-            {otherArtists.map((artist) => (
+            {artistList.map((artist) => (
               <span className="artist-chip" key={artist}>
                 {artist}
               </span>

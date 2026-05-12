@@ -121,6 +121,10 @@
   font-weight: 800;
 }
 
+.drawer-header .pill {
+  margin-top: 8px;
+}
+
 @keyframes remix-search-spin {
   to {
     transform: rotate(360deg);

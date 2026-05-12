@@ -136,6 +136,7 @@ export function ReviewQueueView({
       )}
 
       <DataTable
+        tableId="review-queue"
         data={jobs}
         columns={columns}
         emptyMessage="No jobs need review."
