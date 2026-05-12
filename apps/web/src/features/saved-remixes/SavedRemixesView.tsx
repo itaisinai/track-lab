@@ -102,6 +102,7 @@ export function SavedRemixesView() {
       )}
 
       <DataTable
+        tableId="saved-remixes"
         data={groups}
         columns={columns}
         emptyMessage={
@@ -123,6 +124,7 @@ export function SavedRemixesView() {
         <RemixCandidateDrawer
           candidate={selectedResult}
           state={drawerState}
+          isSaved={true}
           onClose={closeDrawer}
         />
       )}

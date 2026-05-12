@@ -8,12 +8,14 @@ import type {
 } from "../../types";
 import { formatDate, formatProviders } from "../../lib/format";
 import { ArtistHoverChips } from "../../shared/components/ArtistHoverChips";
-import { ArrowPathIcon } from "../../shared/icons/ArrowPathIcon";
 import { DataTable } from "../../shared/components/DataTable";
+import { IconTooltipButton } from "../../shared/components/IconTooltipButton";
 import { EyeIcon } from "../../shared/icons/EyeIcon";
 import { ProviderIconLink } from "../enrichment/ProviderIconLink";
 import { TrashIcon } from "../../shared/icons/TrashIcon";
 import { RemixCandidatesTable } from "../saved-remixes/RemixCandidatesTable";
+import trackLabEnrichIcon from "../../../assets/tracklab-enrich-icon.svg";
+import trackLabRemixSearchIcon from "../../../assets/tracklab-remix-search-icon.svg";
 import "./ResultsView.css";
 
 type ResultsViewProps = {
@@ -151,48 +153,54 @@ export function ResultsView({
 
           return (
             <div className="row-actions">
-              <button
-                className="icon-button secondary"
+              <IconTooltipButton
+                className="secondary"
                 type="button"
-                aria-label={`View ${result.title}`}
-                title="View details"
                 onClick={() => onMore(result)}
-              >
-                <EyeIcon className="button-icon" />
-              </button>
-              <button
-                className="icon-button"
+                label="View details"
+                icon={<EyeIcon className="button-icon" />}
+              />
+              <IconTooltipButton
+                className="secondary"
                 type="button"
-                aria-label={`Enrich ${result.title} again`}
-                title="Enrich again"
                 disabled={reenrichingId === result.id}
                 onClick={() => onReenrich(result)}
-              >
-                <ArrowPathIcon
-                  className={
-                    reenrichingId === result.id
-                      ? "button-icon spinning"
-                      : "button-icon"
-                  }
-                />
-              </button>
-              <button
-                className="secondary compact"
+                label="Enrich again"
+                icon={
+                  <img
+                    className={
+                      reenrichingId === result.id
+                        ? "button-icon large-action-icon spinning"
+                        : "button-icon large-action-icon"
+                    }
+                    src={trackLabEnrichIcon}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                }
+              />
+              <IconTooltipButton
+                className="secondary"
                 type="button"
                 disabled={isSearchingRemixes}
                 onClick={() => onSearchRemixes(result)}
-              >
-                {isSearchingRemixes ? "Queueing..." : "Search remixes"}
-              </button>
-              <button
-                className="icon-button danger"
+                label="Search remixes"
+                icon={
+                  <img
+                    className="button-icon large-action-icon"
+                    src={trackLabRemixSearchIcon}
+                    alt=""
+                    aria-hidden="true"
+                  />
+                }
+              />
+              <IconTooltipButton
+                className="danger"
                 type="button"
-                aria-label={`Remove ${result.title}`}
-                title="Remove"
                 onClick={() => onDelete(result)}
-              >
-                <TrashIcon className="button-icon" />
-              </button>
+                label="Remove"
+                icon={<TrashIcon className="button-icon" />}
+              />
             </div>
           );
         },
@@ -225,6 +233,7 @@ export function ResultsView({
       )}
 
       <DataTable
+        tableId="saved-results"
         data={results}
         columns={columns}
         emptyMessage={isLoading ? "Loading saved results..." : "No saved results yet."}

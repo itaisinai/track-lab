@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { ColumnDef } from "@tanstack/react-table";
 import type { RemixSearchCandidate } from "../../types";
 import { useSaveRemixMutation } from "../../api/mutations/useSaveRemixMutation";
+import { useSavedRemixesQuery } from "../../api/queries/useSavedRemixesQuery";
 import { DataTable } from "../../shared/components/DataTable";
 import { formatDate } from "../../lib/format";
 import { useResultDrawer } from "../../shared/hooks/useResultDrawer";
@@ -16,6 +17,7 @@ type RemixSearchViewProps = {
 
 export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
   const search = useRemixSearchState(jobId);
+  const savedRemixesQuery = useSavedRemixesQuery();
   const saveRemixMutation = useSaveRemixMutation();
   const {
     closeDrawer,
@@ -29,6 +31,10 @@ export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
       { id: "confidence", desc: true },
     ],
     [],
+  );
+  const savedRemixKeys = useMemo(
+    () => new Set((savedRemixesQuery.data ?? []).map(getCandidateKey)),
+    [savedRemixesQuery.data],
   );
   const columns = useMemo<ColumnDef<RemixSearchCandidate>[]>(
     () => [
@@ -106,29 +112,37 @@ export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
         id: "save",
         header: "Save",
         enableSorting: false,
-        cell: ({ row }) => (
-          <button
-            className="secondary compact"
-            type="button"
-            disabled={!search.result || saveRemixMutation.isPending}
-            onClick={() => {
-              if (!search.result) {
-                return;
-              }
+        cell: ({ row }) => {
+          const isSaved = savedRemixKeys.has(getCandidateKey(row.original));
 
-              saveRemixMutation.mutate({
-                candidate: row.original,
-                originalTrack: search.result.originalTrack,
-                requestedGenre: search.result.requestedGenre ?? null,
-              });
-            }}
-          >
-            Save
-          </button>
-        ),
+          if (isSaved) {
+            return <span className="pill complete">Saved</span>;
+          }
+
+          return (
+            <button
+              className="secondary compact"
+              type="button"
+              disabled={!search.result || saveRemixMutation.isPending}
+              onClick={() => {
+                if (!search.result) {
+                  return;
+                }
+
+                saveRemixMutation.mutate({
+                  candidate: row.original,
+                  originalTrack: search.result.originalTrack,
+                  requestedGenre: search.result.requestedGenre ?? null,
+                });
+              }}
+            >
+              Save
+            </button>
+          );
+        },
       },
     ],
-    [openDrawer, saveRemixMutation, search.result],
+    [openDrawer, saveRemixMutation, savedRemixKeys, search.result],
   );
 
   return (
@@ -214,6 +228,7 @@ export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
             <span>Matches: {search.result.candidates.length}</span>
           </div>
           <DataTable
+            tableId="remix-search-results"
             data={search.result.candidates}
             columns={columns}
             emptyMessage="No remix candidates found."
@@ -229,9 +244,14 @@ export function RemixSearchView({ jobId = null }: RemixSearchViewProps) {
         <RemixCandidateDrawer
           candidate={selectedResult}
           state={drawerState}
+          isSaved={savedRemixKeys.has(getCandidateKey(selectedResult))}
           onClose={closeDrawer}
         />
       )}
     </section>
   );
+}
+
+function getCandidateKey(candidate: RemixSearchCandidate) {
+  return `${candidate.provider}::${candidate.link.trim().toLowerCase()}`;
 }

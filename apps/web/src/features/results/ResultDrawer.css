@@ -57,7 +57,20 @@
 .drawer-actions {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 10px;
+}
+
+.drawer-actions .icon-action-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.drawer-actions .icon-action-button .button-icon.large-action-icon {
+  width: 24px;
+  height: 24px;
 }
 
 .drawer-header h2,

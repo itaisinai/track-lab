@@ -8,12 +8,14 @@ import "./RemixSearchView.css";
 type RemixCandidateDrawerProps = {
   candidate: RemixSearchCandidate;
   state: DrawerState;
+  isSaved: boolean;
   onClose: () => void;
 };
 
 export function RemixCandidateDrawer({
   candidate,
   state,
+  isSaved,
   onClose,
 }: RemixCandidateDrawerProps) {
   const tags = getCandidateTags(candidate);
@@ -29,6 +31,7 @@ export function RemixCandidateDrawer({
           <div>
             <h2>{candidate.title}</h2>
             <p>{candidate.artists}</p>
+            {isSaved && <span className="pill complete">Saved</span>}
           </div>
           <div className="drawer-actions">
             <a

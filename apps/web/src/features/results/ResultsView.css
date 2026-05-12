@@ -42,6 +42,13 @@
   gap: 10px;
 }
 
+.table-toolbar-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
 .table-toolbar input {
   width: min(360px, 100%);
 }
@@ -80,6 +87,92 @@
   color: #91a4aa;
 }
 
+.table-columns-menu {
+  position: relative;
+}
+
+.table-columns-menu > summary {
+  display: inline-flex;
+  align-items: center;
+  list-style: none;
+}
+
+.table-columns-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.table-columns-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 10;
+  display: grid;
+  gap: 10px;
+  min-width: 260px;
+  max-width: 360px;
+  padding: 12px;
+  border: 1px solid #30434a;
+  border-radius: 12px;
+  background: rgb(10 18 23 / 98%);
+  box-shadow: 0 22px 40px rgb(0 0 0 / 44%);
+}
+
+.table-columns-panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #91a4aa;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.table-columns-list {
+  display: grid;
+  gap: 6px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+.table-column-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid #20313a;
+  border-radius: 10px;
+  background: rgb(16 27 33 / 72%);
+  color: #e8f1ef;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.table-column-toggle input {
+  margin: 0;
+}
+
+.table-column-toggle-locked {
+  opacity: 0.56;
+}
+
+.table-columns-empty {
+  display: grid;
+  place-items: center;
+  gap: 10px;
+  min-height: 220px;
+  padding: 18px;
+  border: 1px dashed #30434a;
+  border-radius: 8px;
+  background: rgb(13 23 29 / 78%);
+  color: #b7c8cb;
+  text-align: center;
+}
+
+.table-columns-empty strong {
+  color: #f4faf8;
+  font-size: 15px;
+}
+
 table {
   width: 100%;
   min-width: 1160px;
@@ -91,7 +184,7 @@ td {
   padding: 11px 14px;
   border-bottom: 1px solid #24343b;
   text-align: left;
-  vertical-align: top;
+  vertical-align: middle;
   font-size: 13px;
 }
 
@@ -161,7 +254,20 @@ tr:last-child td {
 .row-actions {
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: 10px;
+}
+
+.row-actions .icon-action-button {
+  width: 40px;
+  min-width: 40px;
+  height: 40px;
+  min-height: 40px;
+}
+
+.row-actions .icon-action-button .button-icon.large-action-icon {
+  width: 24px;
+  height: 24px;
 }
 
 .provider-icons-cell {
