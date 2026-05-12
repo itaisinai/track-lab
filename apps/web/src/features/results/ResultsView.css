@@ -111,7 +111,7 @@
   position: absolute;
   top: calc(100% + 10px);
   right: 0;
-  z-index: 30;
+  z-index: var(--z-popover);
   display: grid;
   grid-template-rows: auto auto 1fr auto;
   gap: 12px;
@@ -269,9 +269,22 @@ td {
 }
 
 tbody tr {
+  position: relative;
+  z-index: var(--z-base);
   transition:
     background 140ms ease,
     transform 140ms ease;
+}
+
+tbody tr:has(.icon-action-button:hover),
+tbody tr:has(.icon-action-button:focus-visible),
+tbody tr:has(.icon-action-button:focus-within),
+tbody tr:has(.provider-link:hover),
+tbody tr:has(.provider-link:focus-visible),
+tbody tr:has(.artist-hover:hover),
+tbody tr:has(.artist-hover:focus-visible),
+tbody tr:has(.artist-hover:focus-within) {
+  z-index: var(--z-tooltip);
 }
 
 tbody tr:hover {
@@ -331,10 +344,18 @@ tr:last-child td {
 }
 
 .row-actions {
+  position: relative;
+  z-index: var(--z-base);
   display: flex;
   align-items: center;
   flex-wrap: nowrap;
   gap: 10px;
+}
+
+.row-actions:has(.icon-action-button:hover),
+.row-actions:has(.icon-action-button:focus-visible),
+.row-actions:has(.icon-action-button:focus-within) {
+  z-index: var(--z-tooltip);
 }
 
 .row-actions .icon-action-button {
@@ -350,11 +371,18 @@ tr:last-child td {
 }
 
 .provider-icons-cell {
+  position: relative;
+  z-index: var(--z-base);
   display: inline-flex;
   flex-wrap: nowrap;
   gap: 7px;
   min-width: max-content;
   white-space: nowrap;
+}
+
+.provider-icons-cell:has(.provider-link:hover),
+.provider-icons-cell:has(.provider-link:focus-visible) {
+  z-index: var(--z-tooltip);
 }
 
 .provider-icons-cell .provider-link {

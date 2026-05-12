@@ -17,8 +17,12 @@ export function ProviderIconLink({
     return (
       <span
         className={`provider-link disabled ${getProviderClassName(provider.name)}`}
+        aria-label={getProviderLabel(provider)}
       >
         {icon}
+        <span className="provider-link-tooltip">
+          {getProviderLabel(provider)}
+        </span>
       </span>
     );
   }
@@ -30,11 +34,19 @@ export function ProviderIconLink({
       target="_blank"
       rel="noreferrer"
       aria-label={`Open ${provider.name}`}
-      title={`Open ${provider.name}`}
     >
       {icon}
+      <span className="provider-link-tooltip">
+        {getProviderLabel(provider)}
+      </span>
     </a>
   );
+}
+
+function getProviderLabel(provider: ProviderStatus) {
+  return provider.matched
+    ? `${provider.name} matched`
+    : `${provider.name} not matched`;
 }
 
 function getProviderUrl(

@@ -167,6 +167,7 @@ function toLookupResult(
       label: getBeatportLabel(match),
     },
     error: null,
+    originalGenre: genre.originalGenre,
     candidates: tracks.slice(0, 5).map(toBeatportSummary),
   };
 }

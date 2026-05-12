@@ -79,6 +79,7 @@ test("beatport non-genre buckets normalize through subgenre parent inference", (
     }),
     {
       genre: "Electronic",
+      originalGenre: "Mainstage",
       subGenre: "Speed House",
     },
   );

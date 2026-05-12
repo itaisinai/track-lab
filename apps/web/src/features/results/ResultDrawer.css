@@ -1,7 +1,7 @@
 .drawer {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-drawer);
   display: flex;
   justify-content: flex-end;
   min-height: 100dvh;

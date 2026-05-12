@@ -7,6 +7,7 @@ type GenreNormalizationInput = {
 type GenreNormalizationResult = {
   genre: string | null;
   subGenre: string | null;
+  originalGenre?: string;
 };
 
 const BEATPORT_NON_GENRE_BUCKETS = new Set([
@@ -41,6 +42,7 @@ export function normalizeProviderGenre({
     return {
       genre: inferParentGenre(cleanedSubGenre) ?? genre ?? null,
       subGenre: subGenre ?? null,
+      originalGenre: genre ?? undefined,
     };
   }
 

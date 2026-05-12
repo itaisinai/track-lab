@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+:root {
+  --z-base: 0;
+  --z-dropdown: 30;
+  --z-popover: 40;
+  --z-drawer: 50;
+  --z-tooltip: 80;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -176,6 +184,7 @@ button:disabled {
 
 .icon-action-button {
   position: relative;
+  z-index: var(--z-base);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -185,6 +194,12 @@ button:disabled {
   min-height: 40px;
   padding: 0;
   overflow: visible;
+}
+
+.icon-action-button:hover,
+.icon-action-button:focus-visible,
+.icon-action-button:focus-within {
+  z-index: var(--z-tooltip);
 }
 
 .icon-action-button .icon-action-button-icon {
@@ -206,7 +221,7 @@ button:disabled {
   position: absolute;
   top: calc(100% + 8px);
   left: 50%;
-  z-index: 20;
+  z-index: var(--z-tooltip);
   padding: 5px 9px;
   border: 1px solid #38505a;
   border-radius: 8px;
