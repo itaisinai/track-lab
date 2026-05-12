@@ -1,4 +1,10 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import {
+  Fragment,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import {
   flexRender,
   getCoreRowModel,
@@ -13,6 +19,8 @@ import {
   type SortingState,
 } from "@tanstack/react-table";
 import { useTableColumnVisibilityPreference } from "../hooks/useTableColumnVisibilityPreference";
+import { ColumnsIcon } from "../icons/ColumnsIcon";
+import { XIcon } from "../icons/XIcon";
 
 type DataTableProps<TData> = {
   tableId: string;
@@ -42,6 +50,8 @@ export function DataTable<TData>({
   const [globalFilter, setGlobalFilter] = useState("");
   const [sorting, setSorting] = useState<SortingState>(initialSorting);
   const [expanded, setExpanded] = useState<ExpandedState>({});
+  const [isColumnsDrawerOpen, setIsColumnsDrawerOpen] = useState(false);
+  const [columnsSearch, setColumnsSearch] = useState("");
   const {
     columnVisibility,
     setColumnVisibility,
@@ -53,6 +63,22 @@ export function DataTable<TData>({
   useEffect(() => {
     setSorting(initialSorting);
   }, [initialSortingKey]);
+
+  useEffect(() => {
+    if (!isColumnsDrawerOpen) {
+      return undefined;
+    }
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        setIsColumnsDrawerOpen(false);
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [isColumnsDrawerOpen]);
 
   const table = useReactTable({
     data,
@@ -84,6 +110,13 @@ export function DataTable<TData>({
   const visibleColumnCount = table.getVisibleLeafColumns().length;
   const totalColumnCount = table.getAllLeafColumns().length;
   const hasVisibleColumns = visibleColumnCount > 0;
+  const columnQuery = columnsSearch.trim().toLowerCase();
+  const leafColumns = table.getAllLeafColumns();
+  const columnsForPicker = columnQuery
+    ? leafColumns.filter((column) =>
+        getColumnSearchText(column).includes(columnQuery),
+      )
+    : leafColumns;
 
   return (
     <div className="data-table">
@@ -98,43 +131,101 @@ export function DataTable<TData>({
           <span>
             {table.getFilteredRowModel().rows.length} / {data.length}
           </span>
-          <details className="table-columns-menu">
-            <summary className="secondary compact">
-              Columns {visibleColumnCount}/{totalColumnCount}
-            </summary>
-            <div className="table-columns-panel">
-              <div className="table-columns-panel-header">
-                <span>
-                  {visibleColumnCount} of {totalColumnCount} visible
-                </span>
-                <button
-                  className="secondary compact"
-                  type="button"
-                  onClick={showAllColumns}
-                >
-                  Show all
-                </button>
-              </div>
-              <div className="table-columns-list">
-                {table.getAllLeafColumns().map((column) => (
-                  <label
-                    className={`table-column-toggle ${
-                      column.getCanHide() ? "" : "table-column-toggle-locked"
-                    }`}
-                    key={column.id}
+          <div className="table-columns-popover">
+            <button
+              className="secondary compact table-columns-trigger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-expanded={isColumnsDrawerOpen}
+              onClick={() => setIsColumnsDrawerOpen((current) => !current)}
+            >
+              <ColumnsIcon className="button-icon" />
+              <span>Columns</span>
+              <span className="table-columns-trigger-count">
+                {visibleColumnCount}/{totalColumnCount}
+              </span>
+            </button>
+            {isColumnsDrawerOpen && (
+              <aside
+                className="table-columns-drawer"
+                role="dialog"
+                aria-label="Customize columns"
+              >
+                <div className="table-columns-drawer-header">
+                  <div>
+                    <h3>Customize columns</h3>
+                    <p>Show or hide table columns</p>
+                  </div>
+                  <button
+                    className="icon-button secondary"
+                    type="button"
+                    onClick={() => setIsColumnsDrawerOpen(false)}
+                    aria-label="Close columns panel"
                   >
-                    <input
-                      type="checkbox"
-                      checked={column.getIsVisible()}
-                      disabled={!column.getCanHide()}
-                      onChange={column.getToggleVisibilityHandler()}
-                    />
-                    <span>{getColumnLabel(column.id, column.columnDef.header)}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-          </details>
+                    <XIcon className="button-icon" />
+                  </button>
+                </div>
+                <label className="table-columns-search">
+                  <span className="sr-only">Search columns</span>
+                  <input
+                    value={columnsSearch}
+                    onChange={(event) => setColumnsSearch(event.target.value)}
+                    placeholder="Search columns..."
+                    type="search"
+                  />
+                </label>
+                <div className="table-columns-drawer-list">
+                  {columnsForPicker.map((column) => (
+                    <label
+                      className={`table-column-toggle ${
+                        column.getCanHide() ? "" : "table-column-toggle-locked"
+                      }`}
+                      key={column.id}
+                    >
+                      <span className="table-column-grip" aria-hidden="true">
+                        <span />
+                        <span />
+                        <span />
+                        <span />
+                        <span />
+                        <span />
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={column.getIsVisible()}
+                        disabled={!column.getCanHide()}
+                        onChange={column.getToggleVisibilityHandler()}
+                      />
+                      <span>{getColumnLabel(column.id, column.columnDef.header)}</span>
+                    </label>
+                  ))}
+                  {columnsForPicker.length === 0 && (
+                    <div className="table-columns-empty-state">
+                      No columns match your search.
+                    </div>
+                  )}
+                </div>
+                <div className="table-columns-drawer-footer">
+                  <button
+                    className="secondary"
+                    type="button"
+                    onClick={() => {
+                      showAllColumns();
+                      setColumnsSearch("");
+                    }}
+                  >
+                    Reset to default
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsColumnsDrawerOpen(false)}
+                  >
+                    Done
+                  </button>
+                </div>
+              </aside>
+            )}
+          </div>
         </div>
       </div>
       {hasVisibleColumns ? (
@@ -269,4 +360,13 @@ function getColumnLabel(
   }
 
   return columnId;
+}
+
+function getColumnSearchText(column: {
+  id: string;
+  columnDef: { header?: unknown };
+}) {
+  return `${column.id} ${getColumnLabel(column.id, column.columnDef.header)}`
+    .toLowerCase()
+    .trim();
 }
