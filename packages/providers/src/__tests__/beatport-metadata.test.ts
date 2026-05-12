@@ -5,6 +5,7 @@ import {
   findBestBeatportMatch,
   isBeatportRemixTrack,
 } from "../beatport/metadata-utils.ts";
+import { normalizeProviderGenre } from "../shared/genre-normalization.ts";
 
 test("beatport public search parser reads embedded track rows", () => {
   const html = `<script id="__NEXT_DATA__" type="application/json">${JSON.stringify({
@@ -67,4 +68,46 @@ test("beatport metadata matching rejects remix versions", () => {
   assert.equal(isBeatportRemixTrack(original), false);
   assert.equal(findBestBeatportMatch([remix], "סבבה 5", "Peled"), null);
   assert.equal(findBestBeatportMatch([remix, original], "סבבה 5", "Peled")?.id, 1);
+});
+
+test("beatport non-genre buckets normalize through subgenre parent inference", () => {
+  assert.deepEqual(
+    normalizeProviderGenre({
+      source: "beatport",
+      genre: "Mainstage",
+      subGenre: "Speed House",
+    }),
+    {
+      genre: "Electronic",
+      subGenre: "Speed House",
+    },
+  );
+});
+
+test("beatport non-genre buckets remain unchanged without subgenre inference", () => {
+  assert.deepEqual(
+    normalizeProviderGenre({
+      source: "beatport",
+      genre: "Mainstage",
+      subGenre: null,
+    }),
+    {
+      genre: "Mainstage",
+      subGenre: null,
+    },
+  );
+});
+
+test("non-beatport genres are not normalized by beatport rules", () => {
+  assert.deepEqual(
+    normalizeProviderGenre({
+      source: "soundcloud",
+      genre: "Mainstage",
+      subGenre: "Speed House",
+    }),
+    {
+      genre: "Mainstage",
+      subGenre: "Speed House",
+    },
+  );
 });

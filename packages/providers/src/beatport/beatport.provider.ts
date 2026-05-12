@@ -14,6 +14,7 @@ import {
 } from "../shared/provider-result-utils.ts";
 import { logProviderSearch, parseNumericValue } from "../shared/utils.ts";
 import { normalizeTrackLookupInput } from "../shared/track-query.ts";
+import { normalizeProviderGenre } from "../shared/genre-normalization.ts";
 import {
   findBestBeatportMatch,
   getArtistNames,
@@ -143,12 +144,18 @@ function toLookupResult(
   match: BeatportTrack,
   tracks: BeatportTrack[],
 ): ProviderTrackLookupResult {
+  const genre = normalizeProviderGenre({
+    source: "beatport",
+    genre: getBeatportGenre(match, 0),
+    subGenre: getName(match.sub_genre) ?? match.sub_genre_name ?? getBeatportGenre(match, 1),
+  });
+
   return {
     found: true,
     source: "beatport",
     bpm: parseNumericValue(match.bpm),
-    genre: getBeatportGenre(match, 0),
-    subGenre: getName(match.sub_genre) ?? match.sub_genre_name ?? getBeatportGenre(match, 1),
+    genre: genre.genre,
+    subGenre: genre.subGenre,
     key: match.key_name ?? getName(match.key) ?? null,
     url: getBeatportUrl(match),
     track: {

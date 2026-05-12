@@ -9,8 +9,19 @@ type GenreNormalizationResult = {
   subGenre: string | null;
 };
 
-const BEATPORT_GENERIC_GENRES = new Set([
+const BEATPORT_NON_GENRE_BUCKETS = new Set([
   "mainstage",
+]);
+
+const SUBGENRE_PARENT_GENRES = new Map([
+  ["speed house", "Electronic"],
+  ["drum & bass", "Electronic"],
+  ["drum and bass", "Electronic"],
+  ["dubstep", "Electronic"],
+  ["bass house", "House"],
+  ["tech house", "House"],
+  ["melodic house", "House"],
+  ["melodic techno", "Techno"],
 ]);
 
 export function normalizeProviderGenre({
@@ -24,11 +35,12 @@ export function normalizeProviderGenre({
   if (
     source === "beatport" &&
     cleanedGenre &&
-    BEATPORT_GENERIC_GENRES.has(cleanedGenre)
+    BEATPORT_NON_GENRE_BUCKETS.has(cleanedGenre) &&
+    cleanedSubGenre
   ) {
     return {
-      genre: "Electronic",
-      subGenre: cleanedSubGenre,
+      genre: inferParentGenre(cleanedSubGenre) ?? genre ?? null,
+      subGenre: subGenre ?? null,
     };
   }
 
@@ -40,4 +52,8 @@ export function normalizeProviderGenre({
 
 function normalizeGenreString(value: string | null | undefined) {
   return value?.trim().toLowerCase() ?? null;
+}
+
+function inferParentGenre(subGenre: string) {
+  return SUBGENRE_PARENT_GENRES.get(subGenre) ?? null;
 }
