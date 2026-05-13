@@ -363,7 +363,7 @@
   background: #22d3ee;
 }
 
-.agent-meter {
+.job-meter {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -373,7 +373,7 @@
   margin-top: 22px;
 }
 
-.agent-meter span {
+.job-meter span {
   flex: 1 1 0;
   min-width: 2px;
   max-width: 12px;

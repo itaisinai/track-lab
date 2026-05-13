@@ -22,7 +22,7 @@ export type TrackDetails = {
   key?: string;
   summary?: string;
   spotifyUrl?: string;
-  toolsUsed?: ProviderStatus[];
+  providersUsed?: ProviderStatus[];
   changedFields?: Array<
     "album" | "bpm" | "genre" | "subGenre" | "key" | "spotifyUrl"
   >;
@@ -42,7 +42,7 @@ export type SavedTrackResult = {
   key: string | null;
   summary: string | null;
   status: ResultStatus;
-  toolsUsed: ProviderStatus[];
+  providersUsed: ProviderStatus[];
   errors: ResultError[];
   json: unknown;
   rawResponse: string;

@@ -51,7 +51,7 @@ export type EnrichedTrackMetadata = {
     album?: number;
     key?: number;
   };
-  toolsUsed?: Array<{
+  providersUsed?: Array<{
     name: string;
     matched: boolean | null;
     url: string | null;

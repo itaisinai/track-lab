@@ -7,7 +7,7 @@ import type {
 } from "@track-lab/providers";
 import type { EnrichmentResultStore } from "../enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
-import type { EdmToolPlan } from "../planning/edm-tool-planner.ts";
+import type { EdmProviderPlan } from "../planning/edm-provider-planner.ts";
 
 test("analyze reuses local DB data before provider lookup", async () => {
   let providerCalls = 0;
@@ -91,7 +91,7 @@ test("enrich skips local DB and keeps higher-confidence known metadata", async (
   assert.equal(result.album, "DAMN.");
   assert.equal(result.spotifyUrl, "https://open.spotify.com/track/demo");
   assert.deepEqual(
-    result.toolsUsed?.map((tool) => tool.name),
+    result.providersUsed?.map((provider) => provider.name),
     ["Spotify"],
   );
   assert.deepEqual(result.changedFields, ["album", "spotifyUrl"]);
@@ -188,13 +188,13 @@ test("higher-confidence provider can replace weaker metadata before early stop",
           confidence: 0.85,
         })),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: false,
         lookupEdmCatalogProviders: true,
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan(),
+        edmProviderPlan: testEdmProviderPlan(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -247,16 +247,16 @@ test("Beatport and Spotify metadata should not be overwritten by weaker SoundClo
           confidence: 0.4,
         })),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: false,
         lookupEdmCatalogProviders: true,
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan({
+        edmProviderPlan: testEdmProviderPlan({
           classification: "edm",
-          shouldRunEdmTools: true,
-          toolsToRun: ["beatport", "soundcloud"],
+          shouldRunEdmProviders: true,
+          providersToRun: ["beatport", "soundcloud"],
           confidence: "high",
           reason: "Test EDM plan.",
           decidedBy: "deterministic",
@@ -313,16 +313,16 @@ test("later providers receive enriched artist identity from earlier providers", 
           return null;
         }),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: false,
         lookupEdmCatalogProviders: true,
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan({
+        edmProviderPlan: testEdmProviderPlan({
           classification: "edm",
-          shouldRunEdmTools: true,
-          toolsToRun: ["beatport", "soundcloud"],
+          shouldRunEdmProviders: true,
+          providersToRun: ["beatport", "soundcloud"],
           confidence: "high",
           reason: "Test EDM plan.",
           decidedBy: "deterministic",
@@ -337,7 +337,7 @@ test("later providers receive enriched artist identity from earlier providers", 
   assert.equal(result.artist, "ISOxo, Knock2, RL Grime, ISOKNOCK");
 });
 
-test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks", async () => {
+test("provider planner runs Beatport and SoundCloud together for EDM catalog tracks", async () => {
   const calledProviders: string[] = [];
 
   const result = await enrichTrackMetadata(
@@ -389,13 +389,13 @@ test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks"
           };
         }),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: true,
         lookupEdmCatalogProviders: true,
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan(),
+        edmProviderPlan: testEdmProviderPlan(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -414,12 +414,12 @@ test("tool planner runs Beatport and SoundCloud together for EDM catalog tracks"
   assert.equal(result.sources.bpm, "beatport");
   assert.equal(result.sources.genre, "beatport");
   assert.deepEqual(
-    result.toolsUsed?.map((provider) => provider.name),
+    result.providersUsed?.map((provider) => provider.name),
     ["Spotify", "GetSongBPM", "Beatport", "SoundCloud"],
   );
 });
 
-test("tool planner skips both Beatport and SoundCloud for non-EDM tracks", async () => {
+test("provider planner skips both Beatport and SoundCloud for non-EDM tracks", async () => {
   const calledProviders: string[] = [];
 
   const result = await enrichTrackMetadata(
@@ -459,16 +459,16 @@ test("tool planner skips both Beatport and SoundCloud for non-EDM tracks", async
           return { source: "soundcloud", confidence: 0.55 };
         }),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: true,
         lookupEdmCatalogProviders: false,
         lookupContextProvider: false,
         reasons: ["No EDM catalog signal."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan({
+        edmProviderPlan: testEdmProviderPlan({
           classification: "not_edm",
-          shouldRunEdmTools: false,
-          toolsToRun: [],
+          shouldRunEdmProviders: false,
+          providersToRun: [],
           confidence: "high",
           reason: "Test non-EDM plan.",
           decidedBy: "deterministic",
@@ -547,16 +547,16 @@ test("normalized Beatport non-genre buckets do not conflict with SoundCloud pare
           },
         })),
       ],
-      planTools: async ({ input, currentResult, providerEvidence }) => ({
+      planProviders: async ({ input, currentResult, providerEvidence }) => ({
         lookupBpmProvider: false,
         lookupEdmCatalogProviders: true,
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmToolPlan: testEdmToolPlan({
+        edmProviderPlan: testEdmProviderPlan({
           classification: "edm",
-          shouldRunEdmTools: true,
-          toolsToRun: ["beatport", "soundcloud"],
+          shouldRunEdmProviders: true,
+          providersToRun: ["beatport", "soundcloud"],
           confidence: "high",
         }),
       }),
@@ -650,7 +650,7 @@ test("context provider raw evidence is isolated from output and passed to synthe
   assert.equal(result.subGenre, "Experimental bass");
   assert.equal(result.summary, "Artist context suggests this fits bass-focused sets.");
   assert.equal("raw" in result, false);
-  assert.deepEqual(result.toolsUsed?.at(-1), {
+  assert.deepEqual(result.providersUsed?.at(-1), {
     name: "Wikipedia",
     matched: true,
     url: "https://en.wikipedia.org/wiki/LSDREAM",
@@ -771,7 +771,7 @@ function localStore(): EnrichmentResultStore {
       key: "A Minor",
       summary: null,
       status: "complete",
-      toolsUsed: [],
+      providersUsed: [],
       errors: [],
       json: {},
       rawResponse: "{}",
@@ -793,11 +793,11 @@ function testStrategyContext(
   };
 }
 
-function testEdmToolPlan(overrides: Partial<EdmToolPlan> = {}): EdmToolPlan {
+function testEdmProviderPlan(overrides: Partial<EdmProviderPlan> = {}): EdmProviderPlan {
   return {
     classification: "unknown",
-    shouldRunEdmTools: false,
-    toolsToRun: [],
+    shouldRunEdmProviders: false,
+    providersToRun: [],
     confidence: "low",
     reason: "Test EDM plan.",
     decidedBy: "deterministic",

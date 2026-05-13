@@ -7,7 +7,7 @@ Older SVG workflow diagrams were retired in favor of this single source of truth
 
 The worker/orchestrator owns execution.
 
-- Application code executes providers and tools.
+- Application code executes providers and deterministic services.
 - The LLM does not autonomously browse or call tools.
 - The LLM only plans, judges, or synthesizes based on evidence that application code already collected.
 

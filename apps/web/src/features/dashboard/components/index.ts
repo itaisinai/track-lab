@@ -1,4 +1,4 @@
-export { AgentActivityPanel } from "./AgentActivityPanel";
+export { JobActivityPanel } from "./JobActivityPanel";
 export { DashboardFooter } from "./DashboardFooter";
 export { DashboardMetrics } from "./DashboardMetrics";
 export { ProviderStatusPanel } from "./ProviderStatusPanel";

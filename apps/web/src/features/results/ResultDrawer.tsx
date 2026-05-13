@@ -104,10 +104,10 @@ export function ResultDrawer({
             key: result.key ?? undefined,
             summary: result.summary ?? undefined,
             spotifyUrl:
-              result.toolsUsed.find((provider) => provider.name === "Spotify")
+              result.providersUsed.find((provider) => provider.name === "Spotify")
                 ?.url ??
               undefined,
-            toolsUsed: result.toolsUsed,
+            providersUsed: result.providersUsed,
             changedFields: getChangedFields(result.json),
             errors: result.errors,
           }}

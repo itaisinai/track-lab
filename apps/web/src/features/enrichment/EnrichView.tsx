@@ -63,7 +63,7 @@ export function EnrichView({
         <form className="panel analyze-form" onSubmit={onSubmit}>
           <p className="panel-copy">
             Enrich BPM, key, genre, provider evidence, and DJ-ready context
-            with the Track Lab agent.
+            with the metadata pipeline.
           </p>
           <label htmlFor="title">
             <span>Track Title</span>

@@ -37,8 +37,8 @@ function toEnrichmentResult(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
 ) {
-  const spotifyTool = findTool(result, "Spotify");
-  const getSongBpmTool = findTool(result, "GetSongBPM");
+  const spotifyProviderStatus = findProviderStatus(result, "Spotify");
+  const getSongBpmProviderStatus = findProviderStatus(result, "GetSongBPM");
 
   return {
     Title: result.trackName,
@@ -51,12 +51,12 @@ function toEnrichmentResult(
     AI_generated_summary: result.summary ?? "",
     Spotify: {
       matched:
-        spotifyTool?.matched ??
+        spotifyProviderStatus?.matched ??
         (result.sources.genre === "spotify" ||
           result.sources.album === "spotify" ||
           Boolean(result.spotifyUrl)),
-      url: result.spotifyUrl ?? spotifyTool?.url ?? null,
-      error: spotifyTool?.error ?? null,
+      url: result.spotifyUrl ?? spotifyProviderStatus?.url ?? null,
+      error: spotifyProviderStatus?.error ?? null,
     },
     Beatport: {
       matched: false,
@@ -65,16 +65,16 @@ function toEnrichmentResult(
     },
     GetSongBPM: {
       matched:
-        getSongBpmTool?.matched ??
+        getSongBpmProviderStatus?.matched ??
         (result.sources.bpm === "getsongbpm" ||
           result.sources.genre === "getsongbpm" ||
           result.sources.album === "getsongbpm"),
-      url: getSongBpmTool?.url ?? null,
-      error: getSongBpmTool?.error ?? null,
+      url: getSongBpmProviderStatus?.url ?? null,
+      error: getSongBpmProviderStatus?.error ?? null,
     },
   };
 }
 
-function findTool(result: EnrichedTrackMetadata, name: string) {
-  return result.toolsUsed?.find((tool) => tool.name === name);
+function findProviderStatus(result: EnrichedTrackMetadata, name: string) {
+  return result.providersUsed?.find((provider) => provider.name === name);
 }

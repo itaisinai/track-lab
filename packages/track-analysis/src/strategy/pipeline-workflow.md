@@ -1,4 +1,4 @@
-# Track Lab Agent Strategy Workflow
+# Track Lab Pipeline Workflow
 
 This is the lightweight Markdown workflow companion to the pipeline strategy
 doc. It intentionally replaces the older SVG strategy diagrams.

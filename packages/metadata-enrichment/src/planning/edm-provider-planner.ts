@@ -3,16 +3,16 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { EnrichedTrackMetadata } from "../enrichment/types.ts";
 import type { PlannerCurrentResultSummary, PlannerProviderEvidenceSummary } from "./planner-input.ts";
 
-export type EdmToolPlan = {
+export type EdmProviderPlan = {
   classification: "edm" | "unknown" | "not_edm";
-  shouldRunEdmTools: boolean;
-  toolsToRun: Array<"beatport" | "soundcloud">;
+  shouldRunEdmProviders: boolean;
+  providersToRun: Array<"beatport" | "soundcloud">;
   confidence: "high" | "medium" | "low";
   reason: string;
   decidedBy: "deterministic" | "llm" | "fallback";
 };
 
-export type EdmToolPlannerInput = {
+export type EdmProviderPlannerInput = {
   currentResult: EnrichedTrackMetadata;
   currentResultSummary: PlannerCurrentResultSummary;
   providerEvidenceSummary: PlannerProviderEvidenceSummary;
@@ -57,9 +57,9 @@ const NON_EDM_SIGNAL_TERMS = [
   "classical",
 ];
 
-export async function planEdmTools(
-  input: EdmToolPlannerInput,
-): Promise<EdmToolPlan> {
+export async function planEdmProviders(
+  input: EdmProviderPlannerInput,
+): Promise<EdmProviderPlan> {
   const deterministic = classifyEdmDeterministically(input);
 
   if (deterministic.classification !== "unknown") {
@@ -69,8 +69,8 @@ export async function planEdmTools(
   if (!hasOpenAiKey()) {
     return {
       classification: "unknown",
-      shouldRunEdmTools: false,
-      toolsToRun: [],
+      shouldRunEdmProviders: false,
+      providersToRun: [],
       confidence: "low",
       reason: "Ambiguous EDM signal and no OpenAI key configured.",
       decidedBy: "fallback",
@@ -94,8 +94,8 @@ Do not classify as EDM only because BPM or key exists.`),
           },
           requiredShape: {
             classification: "edm | unknown | not_edm",
-            shouldRunEdmTools: "boolean",
-            toolsToRun: ["beatport", "soundcloud"],
+            shouldRunEdmProviders: "boolean",
+            providersToRun: ["beatport", "soundcloud"],
             confidence: "high | medium | low",
             reason: "short string",
           },
@@ -104,15 +104,18 @@ Do not classify as EDM only because BPM or key exists.`),
     ]);
     const parsed = parseJsonObject(getMessageContent(response));
     const classification = parseClassification(parsed?.classification);
-    const toolsToRun = parseToolsToRun(parsed?.toolsToRun, classification);
+    const providersToRun = parseProvidersToRun(
+      parsed?.providersToRun,
+      classification,
+    );
 
     return {
       classification,
-      shouldRunEdmTools:
-        typeof parsed?.shouldRunEdmTools === "boolean"
-          ? parsed.shouldRunEdmTools
+      shouldRunEdmProviders:
+        typeof parsed?.shouldRunEdmProviders === "boolean"
+          ? parsed.shouldRunEdmProviders
           : classification === "edm",
-      toolsToRun,
+      providersToRun,
       confidence: parseConfidence(parsed?.confidence) ?? "medium",
       reason: getString(parsed?.reason) ?? deterministic.reason,
       decidedBy: "llm",
@@ -120,8 +123,8 @@ Do not classify as EDM only because BPM or key exists.`),
   } catch (error) {
     return {
       classification: "unknown",
-      shouldRunEdmTools: false,
-      toolsToRun: [],
+      shouldRunEdmProviders: false,
+      providersToRun: [],
       confidence: "low",
       reason: error instanceof Error ? error.message : String(error),
       decidedBy: "fallback",
@@ -130,8 +133,8 @@ Do not classify as EDM only because BPM or key exists.`),
 }
 
 export function classifyEdmDeterministically(
-  input: EdmToolPlannerInput,
-): EdmToolPlan {
+  input: EdmProviderPlannerInput,
+): EdmProviderPlan {
   const text = [
     input.currentResultSummary.trackName,
     input.currentResultSummary.artist,
@@ -153,8 +156,8 @@ export function classifyEdmDeterministically(
   if (hasEdmSignal && !hasNonEdmSignal) {
     return {
       classification: "edm",
-      shouldRunEdmTools: true,
-      toolsToRun: ["beatport", "soundcloud"],
+      shouldRunEdmProviders: true,
+      providersToRun: ["beatport", "soundcloud"],
       confidence: "high",
       reason: "Deterministic EDM signal detected from current metadata and provider evidence.",
       decidedBy: "deterministic",
@@ -164,8 +167,8 @@ export function classifyEdmDeterministically(
   if (hasNonEdmSignal && !hasEdmSignal) {
     return {
       classification: "not_edm",
-      shouldRunEdmTools: false,
-      toolsToRun: [],
+      shouldRunEdmProviders: false,
+      providersToRun: [],
       confidence: "high",
       reason: "Deterministic non-EDM signal detected from current metadata and provider evidence.",
       decidedBy: "deterministic",
@@ -174,45 +177,48 @@ export function classifyEdmDeterministically(
 
   return {
     classification: "unknown",
-    shouldRunEdmTools: false,
-    toolsToRun: [],
+    shouldRunEdmProviders: false,
+    providersToRun: [],
     confidence: "low",
     reason: "EDM relevance is ambiguous from deterministic signals.",
     decidedBy: "deterministic",
   };
 }
 
-function parseClassification(value: unknown): EdmToolPlan["classification"] {
+function parseClassification(value: unknown): EdmProviderPlan["classification"] {
   return value === "edm" || value === "unknown" || value === "not_edm"
     ? value
     : "unknown";
 }
 
-function parseConfidence(value: unknown): EdmToolPlan["confidence"] | null {
+function parseConfidence(value: unknown): EdmProviderPlan["confidence"] | null {
   return value === "high" || value === "medium" || value === "low"
     ? value
     : null;
 }
 
-function parseToolsToRun(
+function parseProvidersToRun(
   value: unknown,
-  classification: EdmToolPlan["classification"],
-): EdmToolPlan["toolsToRun"] {
-  const edmTools: EdmToolPlan["toolsToRun"] = ["beatport", "soundcloud"];
+  classification: EdmProviderPlan["classification"],
+): EdmProviderPlan["providersToRun"] {
+  const edmProviders: EdmProviderPlan["providersToRun"] = [
+    "beatport",
+    "soundcloud",
+  ];
 
   if (!Array.isArray(value)) {
-    return classification === "edm" ? edmTools : [];
+    return classification === "edm" ? edmProviders : [];
   }
 
-  const tools = value.filter(
+  const providers = value.filter(
     (item): item is "beatport" | "soundcloud" =>
       item === "beatport" || item === "soundcloud",
   );
 
-  return tools.length > 0
-    ? (Array.from(new Set(tools)) as EdmToolPlan["toolsToRun"])
+  return providers.length > 0
+    ? (Array.from(new Set(providers)) as EdmProviderPlan["providersToRun"])
     : classification === "edm"
-      ? edmTools
+      ? edmProviders
       : [];
 }
 

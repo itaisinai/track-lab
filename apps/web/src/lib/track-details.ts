@@ -73,7 +73,7 @@ function extractTrackDetails(record: Record<string, unknown>): TrackDetails {
     spotifyUrl:
       valueToString(findValue(record, ["spotifyUrl", "spotify_url"])) ??
       findNestedProviderUrl(record, "spotify"),
-    toolsUsed: providerStatuses,
+    providersUsed: providerStatuses,
     changedFields: extractChangedFields(record),
     reviewNotes: extractStringList(record, ["reviewNotes", "review_notes"]),
     conflicts: extractStringList(record, ["conflicts"]),
@@ -161,13 +161,18 @@ function extractProviderStatuses(record: Record<string, unknown>): ProviderStatu
 function extractExplicitProviderStatuses(
   record: Record<string, unknown>,
 ): ProviderStatus[] {
-  const toolsUsed = findValue(record, ["toolsUsed", "tools_used"]);
+  const providersUsed = findValue(record, ["providersUsed", "providers_used"]);
+  const legacyProvidersUsed = findValue(record, ["toolsUsed", "tools_used"]);
 
-  if (!Array.isArray(toolsUsed)) {
+  const providerStatusRecords = Array.isArray(providersUsed)
+    ? providersUsed
+    : legacyProvidersUsed;
+
+  if (!Array.isArray(providerStatusRecords)) {
     return [];
   }
 
-  return toolsUsed
+  return providerStatusRecords
     .map((provider) => {
       if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
         return null;

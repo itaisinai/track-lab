@@ -3,7 +3,7 @@ import type {
   ResultError,
   ResultStatus,
   SaveTrackResultInput,
-  ToolStatus,
+  ProviderExecutionStatus,
 } from "./types.ts";
 import {
   assertRecord,
@@ -28,12 +28,15 @@ export function normalizeTrackResult(
     throw new Error("Saved enrichment response must include Title and Artists.");
   }
 
-  const toolsUsed = extractToolStatuses(record);
+  const providersUsed = extractProviderExecutionStatuses(record);
   const errors = [
     ...extractResponseErrors(record),
-    ...toolsUsed
-      .filter((tool) => tool.error)
-      .map((tool) => ({ source: tool.name, message: tool.error as string })),
+    ...providersUsed
+      .filter((provider) => provider.error)
+      .map((provider) => ({
+        source: provider.name,
+        message: provider.error as string,
+      })),
   ];
 
   const summary = valueToString(
@@ -60,8 +63,8 @@ export function normalizeTrackResult(
     subGenre: valueToString(findValue(record, ["subGenre", "sub_genre"])),
     key: valueToString(findValue(record, ["key"])),
     summary,
-    status: determineStatus(record, toolsUsed, errors, bpm, genre),
-    toolsUsed,
+    status: determineStatus(record, providersUsed, errors, bpm, genre),
+    providersUsed,
     errors,
   };
 }
@@ -94,8 +97,8 @@ function findNestedAlbum(record: Record<string, unknown>) {
   return valueToString(findValue(track as Record<string, unknown>, ["album"]));
 }
 
-function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
-  const explicitStatuses = extractExplicitToolStatuses(record);
+function extractProviderExecutionStatuses(record: Record<string, unknown>): ProviderExecutionStatus[] {
+  const explicitStatuses = extractExplicitProviderExecutionStatuses(record);
 
   if (explicitStatuses.length > 0) {
     return explicitStatuses;
@@ -109,37 +112,42 @@ function extractToolStatuses(record: Record<string, unknown>): ToolStatus[] {
         return null;
       }
 
-      const toolRecord = value as Record<string, unknown>;
+      const providerRecord = value as Record<string, unknown>;
 
       return {
         name,
-        matched: valueToBoolean(findValue(toolRecord, ["matched"])),
-        url: valueToString(findValue(toolRecord, ["url"])),
-        error: valueToString(findValue(toolRecord, ["error"])),
+        matched: valueToBoolean(findValue(providerRecord, ["matched"])),
+        url: valueToString(findValue(providerRecord, ["url"])),
+        error: valueToString(findValue(providerRecord, ["error"])),
       };
     })
-    .filter((tool): tool is ToolStatus => Boolean(tool));
+    .filter((provider): provider is ProviderExecutionStatus => Boolean(provider));
 
   return providerStatuses.length > 0
     ? providerStatuses
     : extractSourceStatuses(record);
 }
 
-function extractExplicitToolStatuses(record: Record<string, unknown>): ToolStatus[] {
-  const toolsUsed = findValue(record, ["toolsUsed", "tools_used"]);
+function extractExplicitProviderExecutionStatuses(record: Record<string, unknown>): ProviderExecutionStatus[] {
+  const providersUsed = findValue(record, [
+    "providersUsed",
+    "providers_used",
+    "toolsUsed",
+    "tools_used",
+  ]);
 
-  if (!Array.isArray(toolsUsed)) {
+  if (!Array.isArray(providersUsed)) {
     return [];
   }
 
-  return toolsUsed
-    .map((tool) => {
-      if (!tool || typeof tool !== "object" || Array.isArray(tool)) {
+  return providersUsed
+    .map((provider) => {
+      if (!provider || typeof provider !== "object" || Array.isArray(provider)) {
         return null;
       }
 
-      const toolRecord = tool as Record<string, unknown>;
-      const name = valueToString(findValue(toolRecord, ["name"]));
+      const providerRecord = provider as Record<string, unknown>;
+      const name = valueToString(findValue(providerRecord, ["name"]));
 
       if (!name) {
         return null;
@@ -147,17 +155,17 @@ function extractExplicitToolStatuses(record: Record<string, unknown>): ToolStatu
 
       return {
         name,
-        matched: valueToBoolean(findValue(toolRecord, ["matched"])),
-        url: valueToString(findValue(toolRecord, ["url"])),
-        error: valueToString(findValue(toolRecord, ["error"])),
+        matched: valueToBoolean(findValue(providerRecord, ["matched"])),
+        url: valueToString(findValue(providerRecord, ["url"])),
+        error: valueToString(findValue(providerRecord, ["error"])),
       };
     })
-    .filter((tool): tool is ToolStatus => Boolean(tool));
+    .filter((provider): provider is ProviderExecutionStatus => Boolean(provider));
 }
 
 function determineStatus(
   record: Record<string, unknown>,
-  toolsUsed: ToolStatus[],
+  providersUsed: ProviderExecutionStatus[],
   errors: ResultError[],
   bpm: number | null,
   genre: string | null,
@@ -172,18 +180,24 @@ function determineStatus(
     return "partial";
   }
 
-  if (toolsUsed.length === 0 || toolsUsed.every((tool) => tool.error)) {
+  if (
+    providersUsed.length === 0 ||
+    providersUsed.every((provider) => provider.error)
+  ) {
     return "failed";
   }
 
-  if (errors.length > 0 || toolsUsed.some((tool) => tool.matched === false)) {
+  if (
+    errors.length > 0 ||
+    providersUsed.some((provider) => provider.matched === false)
+  ) {
     return "partial";
   }
 
   return "complete";
 }
 
-function extractSourceStatuses(record: Record<string, unknown>): ToolStatus[] {
+function extractSourceStatuses(record: Record<string, unknown>): ProviderExecutionStatus[] {
   const sources = findValue(record, ["sources"]);
 
   if (!sources || typeof sources !== "object" || Array.isArray(sources)) {

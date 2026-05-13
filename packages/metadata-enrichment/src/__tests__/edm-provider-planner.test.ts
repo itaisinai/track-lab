@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planEdmTools } from "../planning/edm-tool-planner.ts";
+import { planEdmProviders } from "../planning/edm-provider-planner.ts";
 import {
   toPlannerCurrentResultSummary,
   toPlannerProviderEvidenceSummary,
 } from "../planning/planner-input.ts";
 
 test("EDM planner runs Beatport and SoundCloud for deterministic EDM signals", async () => {
-  const plan = await planEdmTools({
+  const plan = await planEdmProviders({
     currentResult: baseResult({
       genre: "Dubstep",
       subGenre: "Bass",
@@ -27,13 +27,13 @@ test("EDM planner runs Beatport and SoundCloud for deterministic EDM signals", a
   });
 
   assert.equal(plan.classification, "edm");
-  assert.equal(plan.shouldRunEdmTools, true);
-  assert.deepEqual(plan.toolsToRun, ["beatport", "soundcloud"]);
+  assert.equal(plan.shouldRunEdmProviders, true);
+  assert.deepEqual(plan.providersToRun, ["beatport", "soundcloud"]);
   assert.equal(plan.decidedBy, "deterministic");
 });
 
 test("EDM planner skips Beatport and SoundCloud for deterministic non-EDM signals", async () => {
-  const plan = await planEdmTools({
+  const plan = await planEdmProviders({
     currentResult: baseResult({
       genre: "Hip Hop",
       subGenre: null as string | null,
@@ -50,8 +50,8 @@ test("EDM planner skips Beatport and SoundCloud for deterministic non-EDM signal
   });
 
   assert.equal(plan.classification, "not_edm");
-  assert.equal(plan.shouldRunEdmTools, false);
-  assert.deepEqual(plan.toolsToRun, []);
+  assert.equal(plan.shouldRunEdmProviders, false);
+  assert.deepEqual(plan.providersToRun, []);
   assert.equal(plan.decidedBy, "deterministic");
 });
 
@@ -110,7 +110,7 @@ function makeBaseResult() {
       key: 0.85,
       subGenre: 0.55,
     },
-    toolsUsed: [],
+    providersUsed: [],
     status: "complete" as const,
   };
 }

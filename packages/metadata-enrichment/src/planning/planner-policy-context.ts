@@ -1,8 +1,8 @@
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
 import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
 
-// Static planner policy context added directly to the LLM prompt to keep tool
-// planning consistent.
+// Static planner policy context added directly to the LLM prompt to keep
+// provider planning consistent.
 export type PlannerPolicyContext = {
   policy: string[];
   providerRules: string[];
@@ -20,7 +20,7 @@ export function getPlannerPolicyContext({
   currentResult,
 }: PlannerPolicyContextInput): PlannerPolicyContext {
   const policy = [
-    "Providers fetch evidence. The LLM interprets evidence and plans optional tools.",
+    "Providers fetch evidence. The LLM interprets evidence and plans optional provider calls.",
     "Never invent BPM, key, URLs, provider matches, or saved results.",
     "Manual user-reviewed data is more trusted than automatic provider data.",
     "Prefer specific DJ-library genres over generic values such as electronic or dance.",

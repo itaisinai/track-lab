@@ -8,24 +8,24 @@ import {
   type PlannerPolicyContext,
 } from "./planner-policy-context.ts";
 import {
-  planEdmTools,
-  type EdmToolPlan,
-} from "./edm-tool-planner.ts";
+  planEdmProviders,
+  type EdmProviderPlan,
+} from "./edm-provider-planner.ts";
 import {
   toPlannerCurrentResultSummary,
   toPlannerProviderEvidenceSummary,
 } from "./planner-input.ts";
 
-export type MetadataToolPlan = {
+export type MetadataProviderPlan = {
   lookupBpmProvider: boolean;
   lookupEdmCatalogProviders: boolean;
   lookupContextProvider: boolean;
   reasons: string[];
   strategyContext: PlannerPolicyContext;
-  edmToolPlan: EdmToolPlan;
+  edmProviderPlan: EdmProviderPlan;
 };
 
-export type MetadataToolPlanInput = {
+export type MetadataProviderPlanInput = {
   input: EnrichTrackMetadataInput;
   currentResult: EnrichedTrackMetadata;
   providerEvidence: ProviderEvidence;
@@ -36,15 +36,15 @@ const plannerModel = new ChatOpenAI({
   apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
 });
 
-export async function planMetadataTools(
-  input: MetadataToolPlanInput,
-): Promise<MetadataToolPlan> {
+export async function planMetadataProviders(
+  input: MetadataProviderPlanInput,
+): Promise<MetadataProviderPlan> {
   const strategyContext = getPlannerPolicyContext(input);
   const currentResultSummary = toPlannerCurrentResultSummary(input.currentResult);
   const providerEvidenceSummary = toPlannerProviderEvidenceSummary(
     input.providerEvidence,
   );
-  const edmToolPlan = await planEdmTools({
+  const edmProviderPlan = await planEdmProviders({
     currentResult: input.currentResult,
     currentResultSummary,
     providerEvidenceSummary,
@@ -52,23 +52,24 @@ export async function planMetadataTools(
 
   if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
     return {
-      ...createFallbackPlan(input, edmToolPlan),
+      ...createFallbackPlan(input, edmProviderPlan),
       strategyContext,
-      edmToolPlan,
+      edmProviderPlan,
     };
   }
 
   try {
     const response = await plannerModel.invoke([
-      new SystemMessage(`You are the Track Lab metadata tool planner.
+      new SystemMessage(`You are the Track Lab metadata provider planner.
 Return only strict JSON.
 You do not fetch data and you do not produce final metadata.
-Your job is to decide which optional tool groups should run next.
+Your job is to decide which optional provider groups should run next.
 
 Important terminology:
-- Tools/providers fetch evidence.
+- Providers fetch external evidence.
+- Tools are only capabilities directly callable by an LLM or agent runtime.
 - Planner policy context is internal policy, provider guidance, and user preferences.
-- The tool planner decides optional tools from current evidence and planner policy context.
+- This planner decides optional providers from current evidence and planner policy context.
 
 Rules:
 - GetSongBPM should run when BPM or key is missing and title/artist are available.
@@ -76,14 +77,14 @@ Rules:
 - Beatport is for official/released EDM catalog evidence. SoundCloud is for EDM user-uploaded, unofficial, bootleg, edit, flip, and underground evidence.
 - The EDM evidence group should run only when the track is likely EDM/DJ/club/remix/bass/underground, or evidence is too weak and the track may be EDM.
 - Wikipedia context should run when genre, scene, artist context, conflicts, or summary context are unclear.
-- Avoid unnecessary tools when current evidence is already strong.
+- Avoid unnecessary provider calls when current evidence is already strong.
 - Return short reasons.`),
       new HumanMessage(
         JSON.stringify({
           currentResult: currentResultSummary,
           providerEvidence: providerEvidenceSummary,
           retrievedContext: flattenPlannerPolicyContext(strategyContext),
-          edmToolPlan,
+          edmProviderPlan,
           requiredShape: {
             lookupBpmProvider: "boolean",
             lookupEdmCatalogProviders: "boolean",
@@ -99,41 +100,41 @@ Rules:
       lookupBpmProvider: getBoolean(parsed?.lookupBpmProvider) ?? shouldLookupBpm(input),
       lookupEdmCatalogProviders:
         getBoolean(parsed?.lookupEdmCatalogProviders) ??
-        edmToolPlan.shouldRunEdmTools,
+        edmProviderPlan.shouldRunEdmProviders,
       lookupContextProvider:
         getBoolean(parsed?.lookupContextProvider) ?? shouldLookupContext(input),
-      reasons: getStringArray(parsed?.reasons) ?? createFallbackReasons(input, edmToolPlan),
+      reasons: getStringArray(parsed?.reasons) ?? createFallbackReasons(input, edmProviderPlan),
       strategyContext,
-      edmToolPlan,
+      edmProviderPlan,
     };
   } catch (error) {
     return {
-      ...createFallbackPlan(input, edmToolPlan, error),
+      ...createFallbackPlan(input, edmProviderPlan, error),
       strategyContext,
-      edmToolPlan,
+      edmProviderPlan,
     };
   }
 }
 
 function createFallbackPlan(
-  input: MetadataToolPlanInput,
-  edmToolPlan: EdmToolPlan,
+  input: MetadataProviderPlanInput,
+  edmProviderPlan: EdmProviderPlan,
   error?: unknown,
-): Omit<MetadataToolPlan, "strategyContext"> {
+): Omit<MetadataProviderPlan, "strategyContext"> {
   return {
     lookupBpmProvider: shouldLookupBpm(input),
-    lookupEdmCatalogProviders: edmToolPlan.shouldRunEdmTools,
+    lookupEdmCatalogProviders: edmProviderPlan.shouldRunEdmProviders,
     lookupContextProvider: shouldLookupContext(input),
-    reasons: createFallbackReasons(input, edmToolPlan, error),
-    edmToolPlan,
+    reasons: createFallbackReasons(input, edmProviderPlan, error),
+    edmProviderPlan,
   };
 }
 
-function shouldLookupBpm({ currentResult }: MetadataToolPlanInput) {
+function shouldLookupBpm({ currentResult }: MetadataProviderPlanInput) {
   return !currentResult.bpm || !currentResult.key;
 }
 
-function shouldLookupContext({ input, currentResult }: MetadataToolPlanInput) {
+function shouldLookupContext({ input, currentResult }: MetadataProviderPlanInput) {
   return Boolean(
     input.operation === "enrich" ||
       !currentResult.genre ||
@@ -142,8 +143,8 @@ function shouldLookupContext({ input, currentResult }: MetadataToolPlanInput) {
 }
 
 function createFallbackReasons(
-  input: MetadataToolPlanInput,
-  edmToolPlan: EdmToolPlan,
+  input: MetadataProviderPlanInput,
+  edmProviderPlan: EdmProviderPlan,
   error?: unknown,
 ) {
   const reasons: string[] = [];
@@ -152,8 +153,10 @@ function createFallbackReasons(
     reasons.push("BPM or key is missing, so GetSongBPM is useful.");
   }
 
-  if (edmToolPlan.shouldRunEdmTools) {
-    reasons.push("EDM tools should run based on deterministic or LLM EDM planning.");
+  if (edmProviderPlan.shouldRunEdmProviders) {
+    reasons.push(
+      "EDM providers should run based on deterministic or LLM EDM planning.",
+    );
   }
 
   if (shouldLookupContext(input)) {

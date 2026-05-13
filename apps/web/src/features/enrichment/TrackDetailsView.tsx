@@ -45,11 +45,11 @@ export function TrackDetailsView({ details }: { details: TrackDetails }) {
         <p>{details.summary ?? "No summary returned."}</p>
         <ChangedBadge field="spotifyUrl" details={details} />
       </div>
-      {details.toolsUsed && details.toolsUsed.length > 0 && (
+      {details.providersUsed && details.providersUsed.length > 0 && (
         <div className="summary">
           <span>Providers</span>
           <ul className="provider-list">
-            {details.toolsUsed.map((provider) => (
+            {details.providersUsed.map((provider) => (
               <li key={provider.name}>
                 <ProviderIconLink provider={provider} details={details} />
                 <strong>{provider.name}</strong>:{" "}

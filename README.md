@@ -8,7 +8,7 @@ calling external providers.
 
 - `apps/api` - Express API.
 - `apps/web` - React/Vite UI.
-- `packages/metadata-enrichment` - metadata enrichment strategy, tool planning,
+- `packages/metadata-enrichment` - metadata enrichment strategy, provider planning,
   provider evidence merging, and LLM synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
 - `packages/remix-search` - Remix discovery providers and ranking.
@@ -22,7 +22,7 @@ The canonical architecture diagram is [`docs/system-architecture.md`](docs/syste
 
 The current strategy doc is [`packages/track-analysis/src/strategy/pipeline-strategy.md`](packages/track-analysis/src/strategy/pipeline-strategy.md).
 
-The workflow graph is [`packages/track-analysis/src/strategy/agent-strategy-workflow.md`](packages/track-analysis/src/strategy/agent-strategy-workflow.md).
+The workflow graph is [`packages/track-analysis/src/strategy/pipeline-workflow.md`](packages/track-analysis/src/strategy/pipeline-workflow.md).
 
 ```mermaid
 flowchart TD
@@ -191,26 +191,25 @@ success, and requeues failures until `attempt_count >= max_attempts`.
 
 ## Behavior
 
-- The metadata enrichment pipeline returns `Title`, `Artists`, `Album`, `BPM`, `Genre`, `SubGenre`,
-  `Key`, summary, provider status, provider URLs, and errors.
+- The metadata enrichment pipeline returns `Title`, `Artists`, `Album`, `BPM`,
+  `Genre`, `SubGenre`, `Key`, summary, provider status, provider URLs, and
+  errors.
 - By default, enrichment checks saved results first.
 - The UI can skip saved results to force a fresh enrichment.
 - Saved results can be viewed, re-enriched, saved again, or removed.
 
 ## Terminology
 
-- Provider: external data fetcher. It does not call LLMs or make product decisions.
-- Tool: a provider or operation exposed to an LLM.
-- Tool planner: decides which optional tool groups should run from current evidence
-  and strategy context.
-- Synthesis: LLM step that interprets provider evidence into the final metadata.
-- Agent: reserved for the conversational LangChain wrapper that can call tools.
-- Worker: background process that claims queued jobs and executes them.
+See [`docs/ai-terminology.md`](docs/ai-terminology.md) for the project naming
+rules. In short: providers fetch external evidence, planners decide execution
+paths, pipelines run multi-step flows, and tools are only capabilities directly
+callable by an LLM or agent runtime.
 
 ## API
 
 - `POST /track-analysis` - enqueue analyze/enrich metadata work.
-- `POST /agent` - legacy alias for enqueueing analyze/enrich metadata work.
+- `POST /agent` - legacy compatibility alias for enqueueing analyze/enrich
+  metadata work. New code should use `/track-analysis`.
 - `POST /remix-search` - search remix candidates.
 - `GET /track-analysis/jobs` - list worker jobs; supports `status`,
   `unresolved=true`, and `unread=true`.
