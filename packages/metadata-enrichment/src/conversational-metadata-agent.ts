@@ -1,6 +1,6 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { createAgent } from "langchain";
-import { enrichTrackMetadataTool } from "./tools/enrich-track-metadata.ts";
+import { enrichTrackMetadataTool } from "./tools/enrich-track-metadata.tool.ts";
 
 const model = new ChatOpenAI({
   model: "gpt-5-nano",

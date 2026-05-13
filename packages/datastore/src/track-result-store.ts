@@ -8,7 +8,7 @@ import { normalizeTrackResult } from "./normalization.ts";
 import type {
   ResultError,
   SaveTrackResultInput,
-  ToolStatus,
+  ProviderExecutionStatus,
   TrackResult,
   TrackResultRow,
 } from "./types.ts";
@@ -36,7 +36,7 @@ export class TrackResultStore {
         track_key TEXT,
         summary TEXT,
         status TEXT NOT NULL,
-        tools_used_json TEXT NOT NULL,
+        providers_used_json TEXT NOT NULL,
         errors_json TEXT NOT NULL,
         response_json TEXT NOT NULL,
         raw_response TEXT NOT NULL,
@@ -102,7 +102,7 @@ export class TrackResultStore {
           track_key,
           summary,
           status,
-          tools_used_json,
+          providers_used_json,
           errors_json,
           response_json,
           raw_response,
@@ -119,7 +119,7 @@ export class TrackResultStore {
           track_key = excluded.track_key,
           summary = excluded.summary,
           status = excluded.status,
-          tools_used_json = excluded.tools_used_json,
+          providers_used_json = excluded.providers_used_json,
           errors_json = excluded.errors_json,
           response_json = excluded.response_json,
           raw_response = excluded.raw_response,
@@ -137,7 +137,7 @@ export class TrackResultStore {
         normalized.key,
         normalized.summary,
         normalized.status,
-        JSON.stringify(normalized.toolsUsed),
+        JSON.stringify(normalized.providersUsed),
         JSON.stringify(normalized.errors),
         JSON.stringify(input.json),
         input.rawResponse,
@@ -170,6 +170,20 @@ export class TrackResultStore {
     if (!columnNames.has("album")) {
       this.db.exec("ALTER TABLE track_results ADD COLUMN album TEXT");
     }
+
+    if (!columnNames.has("providers_used_json")) {
+      this.db.exec(
+        "ALTER TABLE track_results ADD COLUMN providers_used_json TEXT NOT NULL DEFAULT '[]'",
+      );
+
+      if (columnNames.has("tools_used_json")) {
+        this.db.exec(`
+          UPDATE track_results
+          SET providers_used_json = tools_used_json
+          WHERE providers_used_json = '[]'
+        `);
+      }
+    }
   }
 }
 
@@ -185,7 +199,7 @@ function mapRowToTrackResult(row: TrackResultRow): TrackResult {
     key: row.track_key,
     summary: row.summary,
     status: row.status,
-    toolsUsed: parseJsonArray<ToolStatus>(row.tools_used_json),
+    providersUsed: parseJsonArray<ProviderExecutionStatus>(row.providers_used_json),
     errors: parseJsonArray<ResultError>(row.errors_json),
     json: parseJson(row.response_json),
     rawResponse: row.raw_response,

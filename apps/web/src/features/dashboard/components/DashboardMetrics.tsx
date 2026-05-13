@@ -19,7 +19,7 @@ export function DashboardMetrics({
 
   return (
     <div className="metric-strip" aria-label="Dashboard metrics">
-      <Metric label="Active agents" value={activeJobs.length} />
+      <Metric label="Active jobs" value={activeJobs.length} />
       <Metric label="Saved tracks" value={results.length} />
       <Metric label="Completed jobs" value={completed} />
       <Metric

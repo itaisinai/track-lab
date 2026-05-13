@@ -15,6 +15,6 @@ export type {
   TrackAnalysisOperation,
   TrackAnalysisPayload,
   TrackAnalysisSource,
-  ToolStatus,
+  ProviderExecutionStatus,
   TrackResult,
 } from "./types.ts";

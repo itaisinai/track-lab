@@ -70,7 +70,7 @@ export function createResultsRouter(
           genre: saved.genre,
           subGenre: saved.subGenre,
           key: saved.key,
-          spotifyUrl: getSpotifyUrl(saved.toolsUsed),
+          spotifyUrl: getSpotifyUrl(saved.providersUsed),
         },
       });
 
@@ -94,6 +94,6 @@ export function createResultsRouter(
   return router;
 }
 
-function getSpotifyUrl(toolsUsed: Array<{ name: string; url: string | null }>) {
-  return toolsUsed.find((tool) => tool.name === "Spotify")?.url ?? null;
+function getSpotifyUrl(providersUsed: Array<{ name: string; url: string | null }>) {
+  return providersUsed.find((provider) => provider.name === "Spotify")?.url ?? null;
 }

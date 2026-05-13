@@ -4,7 +4,7 @@ import { CardHeading } from "../../../shared/components/CardHeading";
 import { GlassCard } from "../../../shared/components/GlassCard";
 import { StatusBadge } from "../../../shared/components/StatusBadge";
 
-type AgentActivityPanelProps = {
+type JobActivityPanelProps = {
   activeJobs: TrackAnalysisJob[];
   isLoading: boolean;
 };
@@ -18,18 +18,18 @@ const activityFlow = [
   "Finalizing results",
 ];
 
-export function AgentActivityPanel({
+export function JobActivityPanel({
   activeJobs,
   isLoading,
-}: AgentActivityPanelProps) {
+}: JobActivityPanelProps) {
   const liveJob = activeJobs[0];
   const live = isLoading || Boolean(liveJob);
 
   return (
     <GlassCard className="xl:col-span-5" delay={0.08}>
       <CardHeading
-        eyebrow="Live Agent"
-        title="Agent Activity"
+        eyebrow="Live Queue"
+        title="Job Activity"
         action={<StatusBadge tone={live ? "live" : "default"}>{live ? "Live" : "Idle"}</StatusBadge>}
       />
       <div className="activity-trace" aria-live="polite">
@@ -54,7 +54,7 @@ export function AgentActivityPanel({
           );
         })}
       </div>
-      <div className="agent-meter" aria-hidden="true">
+      <div className="job-meter" aria-hidden="true">
         {Array.from({ length: 48 }).map((_, index) => (
           <motion.span
             key={index}

@@ -9,7 +9,7 @@ import { SavedRemixesView } from "../../features/saved-remixes/SavedRemixesView"
 import { ActiveJobStrip } from "./ActiveJobStrip";
 import trackLabBanner from "../../../assets/track-lab-banner.png";
 import {
-  AgentActivityPanel,
+  JobActivityPanel,
   DashboardFooter,
   DashboardMetrics,
   ProviderStatusPanel,
@@ -82,7 +82,7 @@ export function AppView() {
             <img
               className="brand-banner-image"
               src={trackLabBanner}
-              alt="Track Lab. Discover. Analyze. Elevate. Smarter tools for DJs. Better tracks. Every time."
+              alt="Track Lab. Discover. Analyze. Elevate. Smarter workflows for DJs. Better tracks. Every time."
             />
           </motion.section>
 
@@ -123,7 +123,7 @@ export function AppView() {
                   onSave={enrichment.onSaveCurrentJob}
                   onDismiss={enrichment.onDismissCurrentJob}
                 />
-                <AgentActivityPanel
+                <JobActivityPanel
                   activeJobs={activeJobs}
                   isLoading={enrichment.isLoading}
                 />

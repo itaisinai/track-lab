@@ -68,10 +68,10 @@ function getConfidence(result: SavedTrackResult) {
 }
 
 function getProviderScore(result: SavedTrackResult) {
-  if (result.toolsUsed.length === 0) {
+  if (result.providersUsed.length === 0) {
     return 52;
   }
 
-  const matched = result.toolsUsed.filter((provider) => provider.matched).length;
-  return Math.round((matched / result.toolsUsed.length) * 100);
+  const matched = result.providersUsed.filter((provider) => provider.matched).length;
+  return Math.round((matched / result.providersUsed.length) * 100);
 }

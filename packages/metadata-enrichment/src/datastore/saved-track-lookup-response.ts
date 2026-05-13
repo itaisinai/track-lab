@@ -14,7 +14,7 @@ export type SavedTrackLookupResponse =
         artists: string;
         album: string | null;
         status: TrackResult["status"];
-        toolsUsed: TrackResult["toolsUsed"];
+        providersUsed: TrackResult["providersUsed"];
         errors: TrackResult["errors"];
         json: unknown;
         rawResponse: string;
@@ -41,7 +41,7 @@ export function createSavedTrackLookupResponse(
       artists: result.artists,
       album: result.album,
       status: result.status,
-      toolsUsed: result.toolsUsed,
+      providersUsed: result.providersUsed,
       errors: result.errors,
       json: result.json,
       rawResponse: result.rawResponse,

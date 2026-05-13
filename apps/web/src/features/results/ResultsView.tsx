@@ -121,7 +121,7 @@ export function ResultsView({
       {
         id: "providers",
         header: "Providers",
-        accessorFn: (result) => formatProviders(result.toolsUsed),
+        accessorFn: (result) => formatProviders(result.providersUsed),
         cell: ({ row }) => <ProviderIconsCell result={row.original} />,
       },
       {
@@ -257,13 +257,13 @@ export function ResultsView({
 }
 
 function ProviderIconsCell({ result }: { result: SavedTrackResult }) {
-  if (result.toolsUsed.length === 0) {
+  if (result.providersUsed.length === 0) {
     return "N/A";
   }
 
   return (
     <div className="provider-icons-cell">
-      {result.toolsUsed.map((provider) => (
+      {result.providersUsed.map((provider) => (
         <ProviderIconLink key={provider.name} provider={provider} />
       ))}
     </div>

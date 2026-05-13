@@ -19,9 +19,9 @@ import type {
   EnrichmentSource,
 } from "./types.ts";
 import {
-  planMetadataTools,
-  type MetadataToolPlan,
-} from "../planning/metadata-tool-planner.ts";
+  planMetadataProviders,
+  type MetadataProviderPlan,
+} from "../planning/metadata-provider-planner.ts";
 
 export type EnrichmentDependencies = {
   store?: EnrichmentResultStore;
@@ -30,7 +30,7 @@ export type EnrichmentDependencies = {
   edmCatalogProviders?: TrackMetadataProvider[];
   providers?: TrackMetadataProvider[];
   contextProviders?: TrackMetadataProvider[];
-  planTools?: typeof planMetadataTools;
+  planProviders?: typeof planMetadataProviders;
   synthesize?: typeof synthesizeEnrichedTrackMetadata;
 };
 
@@ -44,7 +44,7 @@ export async function enrichTrackMetadata(
   applyLocalResultIfNeeded(result, input, dependencies);
 
   const providerEvidence: ProviderEvidence = {};
-  const toolPlan = await collectProviderEvidence(
+  const providerPlan = await collectProviderEvidence(
     result,
     input,
     dependencies,
@@ -57,7 +57,7 @@ export async function enrichTrackMetadata(
     dependencies,
     errors,
     providerEvidence,
-    toolPlan,
+    providerPlan,
   );
 
   finalizeEnrichmentStatus(result, errors);
@@ -90,7 +90,7 @@ function createBaseResult(
     key: input.knownMetadata?.key ?? null,
     sources: {},
     confidence: {},
-    toolsUsed: [],
+    providersUsed: [],
     status: "missing",
   };
 }
@@ -130,7 +130,7 @@ async function collectProviderEvidence(
   );
 
   Object.assign(providerEvidence, providerStrategy.providerEvidence);
-  return providerStrategy.toolPlan;
+  return providerStrategy.providerPlan;
 }
 
 async function collectContextEvidence(
@@ -139,9 +139,9 @@ async function collectContextEvidence(
   dependencies: EnrichmentDependencies,
   errors: string[],
   providerEvidence: ProviderEvidence,
-  toolPlan: MetadataToolPlan | null,
+  providerPlan: MetadataProviderPlan | null,
 ) {
-  if (!shouldCallContextProviders(result, input, toolPlan)) {
+  if (!shouldCallContextProviders(result, input, providerPlan)) {
     return;
   }
 
@@ -203,7 +203,7 @@ async function applyContextProviders(
 
   for (const provider of dependencies.contextProviders ?? [createWikipediaContextProvider()]) {
     const providerResult = await safeProviderLookup(provider, providerInput, errors);
-    addToolStatus(result, provider, providerResult);
+    addProviderStatus(result, provider, providerResult);
 
     if (providerResult?.raw) {
       setProviderEvidence(evidence, providerResult.source, providerResult.raw);
@@ -264,7 +264,7 @@ async function applyProviderStrategy(
   dependencies: EnrichmentDependencies,
   errors: string[],
   providerEvidence: ProviderEvidence,
-): Promise<{ providerEvidence: ProviderEvidence; toolPlan: MetadataToolPlan }> {
+): Promise<{ providerEvidence: ProviderEvidence; providerPlan: MetadataProviderPlan }> {
   const evidence: ProviderEvidence = {};
   const providerInput = {
     trackName: result.trackName,
@@ -278,7 +278,7 @@ async function applyProviderStrategy(
 
     return {
       providerEvidence: evidence,
-      toolPlan: {
+      providerPlan: {
         lookupBpmProvider: false,
         lookupEdmCatalogProviders: false,
         lookupContextProvider: shouldCallContextProviders(result, input, null),
@@ -288,10 +288,10 @@ async function applyProviderStrategy(
           providerRules: [],
           userPreferences: [],
         },
-        edmToolPlan: {
+        edmProviderPlan: {
           classification: "unknown",
-          shouldRunEdmTools: false,
-          toolsToRun: [],
+          shouldRunEdmProviders: false,
+          providersToRun: [],
           confidence: "low",
           reason: "Explicit provider override used.",
           decidedBy: "fallback",
@@ -308,7 +308,7 @@ async function applyProviderStrategy(
     stopWhenAcceptable: true,
   });
 
-  const toolPlan = await (dependencies.planTools ?? planMetadataTools)({
+  const providerPlan = await (dependencies.planProviders ?? planMetadataProviders)({
     input,
     currentResult: result,
     providerEvidence: {
@@ -317,7 +317,7 @@ async function applyProviderStrategy(
     },
   });
 
-  if (toolPlan.lookupBpmProvider && !hasAcceptableBpmAndGenre(result)) {
+  if (providerPlan.lookupBpmProvider && !hasAcceptableBpmAndGenre(result)) {
     await lookupProviders(
       dependencies.bpmProviders ?? createBpmMetadataProviders(),
       providerInput,
@@ -328,7 +328,7 @@ async function applyProviderStrategy(
     );
   }
 
-  if (toolPlan.lookupEdmCatalogProviders) {
+  if (providerPlan.lookupEdmCatalogProviders) {
     await lookupProviders(
       dependencies.edmCatalogProviders ?? createEdmCatalogMetadataProviders(),
       providerInput,
@@ -339,7 +339,7 @@ async function applyProviderStrategy(
     );
   }
 
-  return { providerEvidence: evidence, toolPlan };
+  return { providerEvidence: evidence, providerPlan };
 }
 
 async function lookupProviders(
@@ -356,7 +356,7 @@ async function lookupProviders(
       artist: result.artist ?? providerInput.artist,
     };
     const providerResult = await safeProviderLookup(provider, nextProviderInput, errors);
-    addToolStatus(result, provider, providerResult);
+    addProviderStatus(result, provider, providerResult);
 
     if (!providerResult) {
       continue;
@@ -375,13 +375,13 @@ async function lookupProviders(
   }
 }
 
-function addToolStatus(
+function addProviderStatus(
   result: EnrichedTrackMetadata,
   provider: TrackMetadataProvider,
   lookupResult: TrackMetadataProviderResult | null,
 ) {
-  result.toolsUsed ??= [];
-  result.toolsUsed.push({
+  result.providersUsed ??= [];
+  result.providersUsed.push({
     name: provider.name,
     matched: Boolean(lookupResult),
     url: lookupResult?.url ?? null,
@@ -529,10 +529,10 @@ function shouldCallProviders(
 function shouldCallContextProviders(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
-  toolPlan: MetadataToolPlan | null,
+  providerPlan: MetadataProviderPlan | null,
 ) {
-  if (toolPlan) {
-    return toolPlan.lookupContextProvider;
+  if (providerPlan) {
+    return providerPlan.lookupContextProvider;
   }
 
   return Boolean(

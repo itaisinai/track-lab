@@ -38,7 +38,7 @@ const providerDefaults = [
 
 export function ProviderStatusPanel({ trackDetails }: ProviderStatusPanelProps) {
   const providerStatuses = providerDefaults.map((provider) => {
-    const status = trackDetails?.toolsUsed?.find(
+    const status = trackDetails?.providersUsed?.find(
       (item) => item.name.toLowerCase() === provider.name.toLowerCase(),
     );
 

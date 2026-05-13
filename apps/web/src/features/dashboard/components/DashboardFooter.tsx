@@ -10,7 +10,7 @@ export function DashboardFooter({ allJobs }: DashboardFooterProps) {
 
   return (
     <p className="dashboard-footer">
-      {latest ? `Last agent update ${formatDate(latest)}` : "Ready for analysis"}
+      {latest ? `Last job update ${formatDate(latest)}` : "Ready for analysis"}
     </p>
   );
 }

@@ -1,7 +1,7 @@
 import type { TrackDetails } from "../../types";
 import "./ProviderIconLink.css";
 
-type ProviderStatus = NonNullable<TrackDetails["toolsUsed"]>[number];
+type ProviderStatus = NonNullable<TrackDetails["providersUsed"]>[number];
 
 export function ProviderIconLink({
   details,

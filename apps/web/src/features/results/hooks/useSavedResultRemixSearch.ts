@@ -41,5 +41,5 @@ export function useSavedResultRemixSearch({
 }
 
 function getSpotifyUrl(result: SavedTrackResult) {
-  return result.toolsUsed.find((provider) => provider.name === "Spotify")?.url ?? null;
+  return result.providersUsed.find((provider) => provider.name === "Spotify")?.url ?? null;
 }

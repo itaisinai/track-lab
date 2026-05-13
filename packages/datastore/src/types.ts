@@ -32,7 +32,7 @@ export type {
   TrackAnalysisSource,
 };
 
-export type ToolStatus = ProviderStatus;
+export type ProviderExecutionStatus = ProviderStatus;
 export type TrackResult = SavedTrackResult;
 export type SavedRemix = SavedRemixCandidate;
 
@@ -47,7 +47,7 @@ export type TrackResultRow = {
   track_key: string | null;
   summary: string | null;
   status: ResultStatus;
-  tools_used_json: string;
+  providers_used_json: string;
   errors_json: string;
   response_json: string;
   raw_response: string;
