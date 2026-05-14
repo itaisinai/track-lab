@@ -105,3 +105,58 @@ test("track result store migrates legacy tool status column to provider status",
     { name: "Spotify", matched: true, url: null, error: null },
   ]);
 });
+
+test("track result store saves new rows when legacy tools_used_json column remains", () => {
+  const databasePath = join(mkdtempSync(join(tmpdir(), "track-lab-")), "db.sqlite");
+  const db = new DatabaseSync(databasePath);
+
+  db.exec(`
+    CREATE TABLE track_results (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      artists TEXT NOT NULL,
+      album TEXT,
+      title_key TEXT NOT NULL,
+      artists_key TEXT NOT NULL,
+      bpm REAL,
+      genre TEXT,
+      sub_genre TEXT,
+      track_key TEXT,
+      summary TEXT,
+      status TEXT NOT NULL,
+      tools_used_json TEXT NOT NULL,
+      errors_json TEXT NOT NULL,
+      response_json TEXT NOT NULL,
+      raw_response TEXT NOT NULL,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      UNIQUE(title_key, artists_key)
+    )
+  `);
+  db.close();
+
+  const store = new TrackResultStore(databasePath);
+  const result = store.saveResult({
+    rawResponse: "{}",
+    json: {
+      trackName: "Let It Happen",
+      artist: "Tame Impala",
+      bpm: 125,
+      genre: "neo-psychedelia",
+      providersUsed: [
+        { name: "Spotify", matched: true, url: "https://open.spotify.com/track/2X485T9Z5Ly0xyaghN73ed" },
+      ],
+      status: "complete",
+    },
+  });
+
+  assert.equal(result.title, "Let It Happen");
+  assert.deepEqual(result.providersUsed, [
+    {
+      name: "Spotify",
+      matched: true,
+      url: "https://open.spotify.com/track/2X485T9Z5Ly0xyaghN73ed",
+      error: null,
+    },
+  ]);
+});

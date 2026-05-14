@@ -1,4 +1,12 @@
 import type {
+  AgentMessage,
+  AgentMessageMetadata,
+  AgentMessageRole,
+  AgentSession,
+  AgentToolCall,
+  AgentToolCallStatus,
+  AgentToolInput,
+  AgentToolName,
   NormalizedTrackResult,
   ProviderStatus,
   ResultError,
@@ -16,6 +24,14 @@ import type {
 } from "@track-lab/api-types";
 
 export type {
+  AgentMessage,
+  AgentMessageMetadata,
+  AgentMessageRole,
+  AgentSession,
+  AgentToolCall,
+  AgentToolCallStatus,
+  AgentToolInput,
+  AgentToolName,
   NormalizedTrackResult,
   ProviderStatus,
   ResultError,
@@ -30,6 +46,37 @@ export type {
   TrackAnalysisOperation,
   TrackAnalysisPayload,
   TrackAnalysisSource,
+};
+
+export type AgentSessionRow = {
+  id: number;
+  title: string;
+  created_at: string;
+  updated_at: string;
+};
+
+export type AgentMessageRow = {
+  id: number;
+  session_id: number;
+  role: AgentMessageRole;
+  content: string;
+  metadata_json: string;
+  created_at: string;
+};
+
+export type AgentToolCallRow = {
+  id: number;
+  session_id: number;
+  request_message_id: number;
+  assistant_message_id: number | null;
+  tool_call_id: string | null;
+  tool_name: AgentToolName;
+  arguments_json: string;
+  status: AgentToolCallStatus;
+  result_json: string | null;
+  error_message: string | null;
+  started_at: string;
+  completed_at: string | null;
 };
 
 export type ProviderExecutionStatus = ProviderStatus;

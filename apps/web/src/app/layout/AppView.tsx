@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { DataStoreView } from "../../features/datastore/DataStoreView";
+import { AgentChat } from "../../features/agent-chat/components";
 import { EnrichView } from "../../features/enrichment/EnrichView";
 import { RemixSearchView } from "../../features/remix-search/RemixSearchView";
 import { ResultDrawer } from "../../features/results/ResultDrawer";
@@ -190,6 +191,7 @@ export function AppView() {
           onSearchRemixes={resultsState.onSearchRemixes}
         />
       )}
+      <AgentChat />
     </>
   );
 }

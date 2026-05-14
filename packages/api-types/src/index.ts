@@ -1,4 +1,22 @@
 export type {
+  AgentMessage,
+  AgentMessageMetadata,
+  AgentMessageRole,
+  AgentSession,
+  AgentToolCall,
+  AgentToolCallStatus,
+  AgentToolInput,
+  AgentToolName,
+  AnalyzeTrackToolInput,
+  CreateAgentSessionResponse,
+  GetAgentSessionResponse,
+  ListAgentSessionsResponse,
+  SearchRemixesToolInput,
+  SendAgentMessageRequest,
+  SendAgentMessageResponse,
+} from "./agent.ts";
+
+export type {
   ListSavedResultsResponse,
   NormalizedTrackResult,
   ProviderStatus,
