@@ -1,20 +1,22 @@
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { getDefaultDatabasePath } from "./db-path.ts";
-import { parseJson, parseJsonArray } from "./lib/json.ts";
-import { normalizeUniqueKey } from "./lib/object.ts";
-import { normalizeTrackResult } from "./normalization.ts";
 import type {
+  ProviderExecutionStatus,
   ResultError,
   SaveTrackResultInput,
-  ProviderExecutionStatus,
   TrackResult,
   TrackResultRow,
 } from "./types.ts";
+import { dirname, resolve } from "node:path";
+import { parseJson, parseJsonArray } from "./lib/json.ts";
+
+import { DatabaseSync } from "node:sqlite";
+import { getDefaultDatabasePath } from "./db-path.ts";
+import { mkdirSync } from "node:fs";
+import { normalizeTrackResult } from "./normalization.ts";
+import { normalizeUniqueKey } from "./lib/object.ts";
 
 export class TrackResultStore {
   readonly db: DatabaseSync;
+  private hasLegacyToolsUsedColumn = false;
 
   constructor(databasePath = getDefaultDatabasePath()) {
     const resolvedPath = resolve(databasePath);
@@ -46,6 +48,7 @@ export class TrackResultStore {
       )
     `);
     this.migrate();
+    this.hasLegacyToolsUsedColumn = this.getColumnNames().has("tools_used_json");
   }
 
   listResults(): TrackResult[] {
@@ -88,6 +91,40 @@ export class TrackResultStore {
     const normalized = normalizeTrackResult(input);
     const now = new Date().toISOString();
 
+    const providersUsedJson = JSON.stringify(normalized.providersUsed);
+    const errorsJson = JSON.stringify(normalized.errors);
+    const responseJson = JSON.stringify(input.json);
+    const legacyInsertColumn = this.hasLegacyToolsUsedColumn
+      ? ",\n          tools_used_json"
+      : "";
+    const legacyValuePlaceholder = this.hasLegacyToolsUsedColumn ? ", ?" : "";
+    const legacyUpdateAssignment = this.hasLegacyToolsUsedColumn
+      ? ",\n          tools_used_json = excluded.tools_used_json"
+      : "";
+    const params: Array<string | number | null> = [
+      normalized.title,
+      normalized.artists,
+      normalized.album,
+      normalizeUniqueKey(normalized.title),
+      normalizeUniqueKey(normalized.artists),
+      normalized.bpm,
+      normalized.genre,
+      normalized.subGenre,
+      normalized.key,
+      normalized.summary,
+      normalized.status,
+      providersUsedJson,
+      errorsJson,
+      responseJson,
+      input.rawResponse,
+      now,
+      now,
+    ];
+
+    if (this.hasLegacyToolsUsedColumn) {
+      params.push(providersUsedJson);
+    }
+
     this.db
       .prepare(`
         INSERT INTO track_results (
@@ -107,8 +144,8 @@ export class TrackResultStore {
           response_json,
           raw_response,
           created_at,
-          updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          updated_at${legacyInsertColumn}
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?${legacyValuePlaceholder})
         ON CONFLICT(title_key, artists_key) DO UPDATE SET
           title = excluded.title,
           artists = excluded.artists,
@@ -123,27 +160,9 @@ export class TrackResultStore {
           errors_json = excluded.errors_json,
           response_json = excluded.response_json,
           raw_response = excluded.raw_response,
-          updated_at = excluded.updated_at
+          updated_at = excluded.updated_at${legacyUpdateAssignment}
       `)
-      .run(
-        normalized.title,
-        normalized.artists,
-        normalized.album,
-        normalizeUniqueKey(normalized.title),
-        normalizeUniqueKey(normalized.artists),
-        normalized.bpm,
-        normalized.genre,
-        normalized.subGenre,
-        normalized.key,
-        normalized.summary,
-        normalized.status,
-        JSON.stringify(normalized.providersUsed),
-        JSON.stringify(normalized.errors),
-        JSON.stringify(input.json),
-        input.rawResponse,
-        now,
-        now,
-      );
+      .run(...params);
 
     const saved = this.db
       .prepare(
@@ -162,10 +181,7 @@ export class TrackResultStore {
   }
 
   private migrate() {
-    const columns = this.db
-      .prepare("PRAGMA table_info(track_results)")
-      .all() as Array<{ name: string }>;
-    const columnNames = new Set(columns.map((column) => column.name));
+    const columnNames = this.getColumnNames();
 
     if (!columnNames.has("album")) {
       this.db.exec("ALTER TABLE track_results ADD COLUMN album TEXT");
@@ -184,6 +200,14 @@ export class TrackResultStore {
         `);
       }
     }
+  }
+
+  private getColumnNames() {
+    const columns = this.db
+      .prepare("PRAGMA table_info(track_results)")
+      .all() as Array<{ name: string }>;
+
+    return new Set(columns.map((column) => column.name));
   }
 }
 

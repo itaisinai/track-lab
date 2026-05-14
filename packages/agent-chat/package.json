@@ -1,27 +1,27 @@
 {
-  "name": "@track-lab/api",
+  "name": "@track-lab/agent-chat",
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "scripts": {
-    "dev": "node --env-file=../../.env src/server.ts",
-    "start": "node --env-file=../../.env src/server.ts",
-    "typecheck": "tsc -p tsconfig.json"
+  "exports": {
+    ".": "./src/index.ts"
   },
-  "optionalDependencies": {
-    "openai": "^4.104.0"
+  "scripts": {
+    "test": "node --test src/__tests__/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
     "@langchain/core": "1.1.42",
-    "@track-lab/agent-chat": "workspace:*",
+    "@langchain/openai": "^1.4.5",
     "@track-lab/api-types": "workspace:*",
     "@track-lab/datastore": "workspace:*",
+    "@track-lab/logger": "workspace:*",
     "@track-lab/remix-search": "workspace:*",
     "@track-lab/track-analysis": "workspace:*",
-    "express": "^5.2.1"
+    "langchain": "^1.3.5",
+    "zod": "^3.25.32"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
     "@types/node": "^25.6.0",
     "typescript": "^5.9.3"
   }

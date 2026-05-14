@@ -8,7 +8,6 @@ export function createTrackAnalysisEnqueueRouter(
   const router = Router();
 
   router.post("/track-analysis", enqueueTrackAnalysis);
-  router.post("/agent", enqueueTrackAnalysis);
 
   function enqueueTrackAnalysis(req: Request, res: Response) {
     try {

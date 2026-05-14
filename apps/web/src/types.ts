@@ -1,4 +1,7 @@
 export type {
+  AgentMessage,
+  AgentSession,
+  AgentToolCall,
   ProviderStatus,
   ResultError,
   RemixSearchCandidate,
