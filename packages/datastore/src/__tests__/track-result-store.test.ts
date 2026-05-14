@@ -1,10 +1,10 @@
-import assert from "node:assert/strict";
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { DatabaseSync } from "node:sqlite";
-import test from "node:test";
 import { TrackResultStore } from "../track-result-store.ts";
+import assert from "node:assert/strict";
+import { join } from "node:path";
+import { mkdtempSync } from "node:fs";
+import test from "node:test";
+import { tmpdir } from "node:os";
 
 test("saved result status is complete when final metadata has bpm and genre", () => {
   const databasePath = join(mkdtempSync(join(tmpdir(), "track-lab-")), "db.sqlite");

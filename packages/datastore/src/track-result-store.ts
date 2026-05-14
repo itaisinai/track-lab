@@ -1,17 +1,18 @@
-import { mkdirSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { DatabaseSync } from "node:sqlite";
-import { getDefaultDatabasePath } from "./db-path.ts";
-import { parseJson, parseJsonArray } from "./lib/json.ts";
-import { normalizeUniqueKey } from "./lib/object.ts";
-import { normalizeTrackResult } from "./normalization.ts";
 import type {
+  ProviderExecutionStatus,
   ResultError,
   SaveTrackResultInput,
-  ProviderExecutionStatus,
   TrackResult,
   TrackResultRow,
 } from "./types.ts";
+import { dirname, resolve } from "node:path";
+import { parseJson, parseJsonArray } from "./lib/json.ts";
+
+import { DatabaseSync } from "node:sqlite";
+import { getDefaultDatabasePath } from "./db-path.ts";
+import { mkdirSync } from "node:fs";
+import { normalizeTrackResult } from "./normalization.ts";
+import { normalizeUniqueKey } from "./lib/object.ts";
 
 export class TrackResultStore {
   readonly db: DatabaseSync;
