@@ -6,6 +6,7 @@ import type {
 import { useEffect, useRef } from "react";
 import { SparkIcon } from "../../../app/layout/sidebar/icons";
 import { useJobsContext } from "../../../app/providers/app-contexts";
+import { TrashIcon } from "../../../shared/icons/TrashIcon";
 import type { TrackAnalysisJob } from "../../../types";
 import { useAgentChat } from "../hooks/useAgentChat";
 import "./AgentChat.css";
@@ -71,19 +72,41 @@ export function AgentChat() {
               </button>
               <div className="agent-session-scroll">
                 {chat.sessions.map((session) => (
-                  <button
+                  <div
                     className={
                       session.id === chat.selectedSessionId
-                        ? "agent-session-item active"
-                        : "agent-session-item"
+                        ? "agent-session-row active"
+                        : "agent-session-row"
                     }
-                    type="button"
                     key={session.id}
-                    onClick={() => chat.setSelectedSessionId(session.id)}
                   >
-                    <span>{session.title}</span>
-                    <small>{formatDate(session.updatedAt)}</small>
-                  </button>
+                    <button
+                      className="agent-session-item"
+                      type="button"
+                      onClick={() => chat.setSelectedSessionId(session.id)}
+                    >
+                      <span>{session.title}</span>
+                      <small>{formatDate(session.updatedAt)}</small>
+                    </button>
+                    <button
+                      className="agent-session-delete"
+                      type="button"
+                      aria-label={`Delete ${session.title}`}
+                      title="Delete chat"
+                      disabled={chat.deleteSessionMutation.isPending}
+                      onClick={() => {
+                        if (
+                          window.confirm(
+                            `Delete "${session.title}" and its conversation history?`,
+                          )
+                        ) {
+                          void chat.deleteSession(session.id);
+                        }
+                      }}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
                 ))}
               </div>
             </section>

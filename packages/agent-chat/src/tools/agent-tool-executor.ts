@@ -1,13 +1,16 @@
 import type {
+  AgentTrackReference,
   AgentToolInput,
   AgentToolName,
   AnalyzeTrackToolInput,
+  RemixSearchResponse,
   SearchRemixesToolInput,
 } from "@track-lab/api-types";
 import type { AgentSessionStore } from "@track-lab/datastore";
 import type { RemixSearchOrchestrator } from "@track-lab/remix-search";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import type { ToolExecution } from "../tool-execution.ts";
+import { hasConcreteTrackReference } from "../planning/local-request-parser.ts";
 import {
   createAnalyzeTrackTool,
   executeAnalyzeTrackTool,
@@ -71,26 +74,32 @@ export class AgentToolExecutor {
     arguments: AgentToolInput;
   }): Promise<ToolExecution> {
     logToolCallStarted(input);
+    const resolvedArguments = this.resolveToolArguments(
+      input.sessionId,
+      input.toolName,
+      input.arguments,
+    );
 
     const call = this.store.startToolCall({
       sessionId: input.sessionId,
       requestMessageId: input.requestMessageId,
       toolName: input.toolName,
-      arguments: input.arguments,
+      arguments: resolvedArguments,
     });
 
     try {
       const result =
         input.toolName === "analyze_track"
           ? await executeAnalyzeTrackTool(
-              input.arguments as AnalyzeTrackToolInput,
+              resolvedArguments as AnalyzeTrackToolInput,
               this.trackAnalysis,
             )
           : await executeSearchRemixesTool(
-              input.arguments as SearchRemixesToolInput,
+              resolvedArguments as SearchRemixesToolInput,
               this.remixSearch,
             );
       const completed = this.store.completeToolCall(call.id, result) ?? call;
+      this.updateSessionContext(input.sessionId, input.toolName, resolvedArguments, result);
       logToolCallCompleted({
         sessionId: input.sessionId,
         requestMessageId: input.requestMessageId,
@@ -118,6 +127,97 @@ export class AgentToolExecutor {
         result: null,
       };
     }
+  }
+
+  private resolveToolArguments(
+    sessionId: number,
+    toolName: AgentToolName,
+    input: AgentToolInput,
+  ): AgentToolInput {
+    if (toolName !== "search_remixes") {
+      return input;
+    }
+
+    const searchInput = input as SearchRemixesToolInput;
+    if (
+      searchInput.spotifyUrl ||
+      (hasConcreteTrackReference(searchInput.title) &&
+        hasConcreteTrackReference(searchInput.artists))
+    ) {
+      return searchInput;
+    }
+
+    const focusTrack = this.store.getSession(sessionId)?.metadata.currentFocusTrack;
+    if (!focusTrack) {
+      return searchInput;
+    }
+
+    return {
+      ...searchInput,
+      title: hasConcreteTrackReference(searchInput.title)
+        ? searchInput.title
+        : focusTrack.title,
+      artists: hasConcreteTrackReference(searchInput.artists)
+        ? searchInput.artists
+        : focusTrack.artists,
+      spotifyUrl: searchInput.spotifyUrl ?? focusTrack.spotifyUrl ?? null,
+      genre: searchInput.genre ?? focusTrack.genre ?? null,
+    };
+  }
+
+  private updateSessionContext(
+    sessionId: number,
+    toolName: AgentToolName,
+    input: AgentToolInput,
+    result: unknown,
+  ) {
+    if (toolName === "analyze_track") {
+      const analysisInput = input as AnalyzeTrackToolInput;
+      const track: AgentTrackReference = {
+        title: analysisInput.title,
+        artists: analysisInput.artists,
+        spotifyUrl: analysisInput.knownMetadata?.spotifyUrl ?? null,
+        genre: analysisInput.knownMetadata?.genre ?? null,
+      };
+
+      this.store.updateSessionMetadata(sessionId, (current) => ({
+        ...current,
+        currentFocusTrack: track,
+        latestAnalyzedTrack: track,
+        latestAnalysisResult: result,
+      }));
+      return;
+    }
+
+    const searchInput = input as SearchRemixesToolInput;
+    const remixResult = result as RemixSearchResponse | null;
+    const track: AgentTrackReference = remixResult?.originalTrack
+      ? {
+          title: remixResult.originalTrack.title,
+          artists: remixResult.originalTrack.artists,
+          spotifyUrl: remixResult.originalTrack.spotifyUrl ?? null,
+          genre: searchInput.genre ?? remixResult.requestedGenre ?? null,
+        }
+      : {
+          title: searchInput.title ?? "",
+          artists: searchInput.artists ?? "",
+          spotifyUrl: searchInput.spotifyUrl ?? null,
+          genre: searchInput.genre ?? null,
+        };
+
+    if (!track.title || !track.artists) {
+      return;
+    }
+
+    this.store.updateSessionMetadata(sessionId, (current) => ({
+      ...current,
+      currentFocusTrack: track,
+      latestRemixSearchContext: {
+        track,
+        requestedGenre: remixResult?.requestedGenre ?? searchInput.genre ?? null,
+        resultCount: remixResult?.candidates.length,
+      },
+    }));
   }
 }
 

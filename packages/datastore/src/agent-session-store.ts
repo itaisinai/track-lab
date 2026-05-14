@@ -9,6 +9,7 @@ import type {
   AgentMessageRole,
   AgentMessageRow,
   AgentSession,
+  AgentSessionMetadata,
   AgentSessionRow,
   AgentToolCall,
   AgentToolCallRow,
@@ -57,6 +58,14 @@ export class AgentSessionStore {
     return row ? mapSessionRow(row) : null;
   }
 
+  deleteSession(id: number): boolean {
+    const result = this.db
+      .prepare("DELETE FROM agent_sessions WHERE id = ?")
+      .run(id);
+
+    return result.changes > 0;
+  }
+
   listMessages(sessionId: number): AgentMessage[] {
     const rows = this.db
       .prepare(`
@@ -79,6 +88,32 @@ export class AgentSessionStore {
       .all(sessionId) as AgentToolCallRow[];
 
     return rows.map(mapToolCallRow);
+  }
+
+  updateSessionMetadata(
+    sessionId: number,
+    metadata:
+      | AgentSessionMetadata
+      | ((current: AgentSessionMetadata) => AgentSessionMetadata),
+  ): AgentSession {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error("Agent session was not found.");
+    }
+
+    const nextMetadata =
+      typeof metadata === "function" ? metadata(session.metadata) : metadata;
+    const now = new Date().toISOString();
+    this.db
+      .prepare(`
+        UPDATE agent_sessions
+        SET metadata_json = ?,
+            updated_at = ?
+        WHERE id = ?
+      `)
+      .run(JSON.stringify(nextMetadata), now, sessionId);
+
+    return this.getSession(sessionId) as AgentSession;
   }
 
   addMessage(input: {
@@ -238,10 +273,12 @@ export class AgentSessionStore {
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    this.addColumnIfMissing("agent_sessions", "metadata_json", "TEXT NOT NULL DEFAULT '{}'");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS agent_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -281,12 +318,25 @@ export class AgentSessionStore {
       ON agent_tool_calls(session_id, started_at, id)
     `);
   }
+
+  private addColumnIfMissing(tableName: string, columnName: string, definition: string) {
+    const rows = this.db
+      .prepare(`PRAGMA table_info(${tableName})`)
+      .all() as Array<{ name: string }>;
+
+    if (rows.some((row) => row.name === columnName)) {
+      return;
+    }
+
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
 }
 
 function mapSessionRow(row: AgentSessionRow): AgentSession {
   return {
     id: row.id,
     title: row.title,
+    metadata: parseJson(row.metadata_json) as AgentSessionMetadata,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };

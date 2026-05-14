@@ -8,6 +8,32 @@ export function isRemixRequest(content: string) {
   return lower.includes("remix") || lower.includes("bootleg") || lower.includes("edit");
 }
 
+export function isAnalyzeRequest(content: string) {
+  const lower = content.toLowerCase();
+  return /\b(analy[sz]e|enrich)\b/.test(lower);
+}
+
+export function hasConcreteTrackReference(value: string | null | undefined) {
+  if (!value?.trim()) {
+    return false;
+  }
+
+  const normalized = value.toLowerCase().replace(/\s+/g, " ").trim();
+  return ![
+    "it",
+    "this",
+    "that",
+    "this track",
+    "that track",
+    "this song",
+    "that song",
+    "same track",
+    "the same track",
+    "same song",
+    "the same song",
+  ].includes(normalized);
+}
+
 export function parseAnalyzeRequest(content: string): AnalyzeTrackToolInput {
   const parsed = parseTrackAndArtist(content);
   return {

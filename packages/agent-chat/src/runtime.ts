@@ -1,14 +1,19 @@
 import type {
   AgentMessage,
+  AgentSession,
+  AgentToolCall,
+  SearchRemixesToolInput,
 } from "@track-lab/api-types";
 import { ChatOpenAI } from "@langchain/openai";
-import { HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage } from "@langchain/core/messages";
 import { AgentSessionStore } from "@track-lab/datastore";
 import { RemixSearchOrchestrator } from "@track-lab/remix-search";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { createAgent } from "langchain";
 import { AGENT_SYSTEM_PROMPT } from "./prompts/agent-system-prompt.ts";
 import {
+  hasConcreteTrackReference,
+  isAnalyzeRequest,
   isRemixRequest,
   parseAnalyzeRequest,
   parseRemixRequest,
@@ -33,6 +38,9 @@ type AgentInvocation = {
   content: string;
   toolCalls: ToolExecution[];
 };
+
+const RECENT_MESSAGE_LIMIT = 8;
+const RELEVANT_TOOL_RESULT_LIMIT = 4;
 
 export class AgentRuntime {
   private readonly store: AgentSessionStore;
@@ -68,19 +76,21 @@ export class AgentRuntime {
       throw new Error("Message content is required.");
     }
 
+    const targetSession = this.resolveSessionForMessage(session, trimmed);
+    const targetSessionId = targetSession.id;
     const requestMessage = this.store.addMessage({
-      sessionId,
+      sessionId: targetSessionId,
       role: "user",
       content: trimmed,
     });
 
     const invocation = this.useLlm
-      ? await this.invokeLlmAgent(sessionId, requestMessage, trimmed)
-      : await this.invokeLocalPlanner(sessionId, requestMessage, trimmed);
+      ? await this.invokeLlmAgent(targetSessionId, requestMessage, trimmed)
+      : await this.invokeLocalPlanner(targetSessionId, requestMessage, trimmed);
 
     const metadata = buildAssistantMetadata(invocation.toolCalls);
     const assistantMessage = this.store.addMessage({
-      sessionId,
+      sessionId: targetSessionId,
       role: "assistant",
       content: invocation.content,
       metadata,
@@ -92,9 +102,9 @@ export class AgentRuntime {
 
     return {
       message: assistantMessage,
-      session: this.store.getSession(sessionId),
-      messages: this.store.listMessages(sessionId),
-      toolCalls: this.store.listToolCalls(sessionId),
+      session: this.store.getSession(targetSessionId),
+      messages: this.store.listMessages(targetSessionId),
+      toolCalls: this.store.listToolCalls(targetSessionId),
     };
   }
 
@@ -112,12 +122,12 @@ export class AgentRuntime {
     const agent = createAgent({
       model: new ChatOpenAI({ model: this.modelName }),
       tools,
-      systemPrompt: AGENT_SYSTEM_PROMPT,
+      systemPrompt: this.buildSystemPrompt(sessionId),
     });
 
     try {
       const result = await agent.invoke({
-        messages: [new HumanMessage(content)],
+        messages: this.buildLlmMessages(sessionId),
       });
       return {
         content: getFinalMessageContent(result) ?? summarizeToolCalls(toolCalls),
@@ -141,7 +151,10 @@ export class AgentRuntime {
     content: string,
   ): Promise<AgentInvocation> {
     if (isRemixRequest(content)) {
-      const input = parseRemixRequest(content);
+      const input = this.resolveRemixInputFromSession(
+        sessionId,
+        parseRemixRequest(content),
+      );
 
       if (!input.spotifyUrl && (!input.title || !input.artists)) {
         return {
@@ -183,4 +196,141 @@ export class AgentRuntime {
     };
   }
 
+  private resolveSessionForMessage(session: AgentSession, content: string) {
+    if (!isAnalyzeRequest(content)) {
+      return session;
+    }
+
+    const requestedTrack = parseAnalyzeRequest(content);
+    if (!requestedTrack.title || !requestedTrack.artists) {
+      return session;
+    }
+
+    const focusTrack = session.metadata.currentFocusTrack;
+    if (!focusTrack || sameTrack(focusTrack, requestedTrack)) {
+      return session;
+    }
+
+    return this.store.createSession(
+      `${requestedTrack.title} by ${requestedTrack.artists}`,
+    );
+  }
+
+  private resolveRemixInputFromSession(
+    sessionId: number,
+    input: SearchRemixesToolInput,
+  ): SearchRemixesToolInput {
+    if (
+      input.spotifyUrl ||
+      (hasConcreteTrackReference(input.title) &&
+        hasConcreteTrackReference(input.artists))
+    ) {
+      return input;
+    }
+
+    const focusTrack = this.store.getSession(sessionId)?.metadata.currentFocusTrack;
+    if (!focusTrack) {
+      return input;
+    }
+
+    return {
+      ...input,
+      title: hasConcreteTrackReference(input.title) ? input.title : focusTrack.title,
+      artists: hasConcreteTrackReference(input.artists)
+        ? input.artists
+        : focusTrack.artists,
+      spotifyUrl: input.spotifyUrl ?? focusTrack.spotifyUrl ?? null,
+      genre: input.genre ?? focusTrack.genre ?? null,
+    };
+  }
+
+  private buildSystemPrompt(sessionId: number) {
+    const session = this.store.getSession(sessionId);
+    const relevantToolResults = this.store
+      .listToolCalls(sessionId)
+      .filter((call) => call.status === "completed")
+      .slice(-RELEVANT_TOOL_RESULT_LIMIT)
+      .map(summarizeToolCallForContext);
+
+    return `${AGENT_SYSTEM_PROMPT}
+
+Current session context:
+${JSON.stringify(
+  {
+    metadata: session?.metadata ?? {},
+    relevantToolResults,
+  },
+  null,
+  2,
+)}`;
+  }
+
+  private buildLlmMessages(sessionId: number) {
+    return this.store
+      .listMessages(sessionId)
+      .slice(-RECENT_MESSAGE_LIMIT)
+      .map((message) =>
+        message.role === "assistant"
+          ? new AIMessage(message.content)
+          : new HumanMessage(message.content),
+      );
+  }
+
+}
+
+function sameTrack(
+  left: { title: string; artists: string },
+  right: { title: string; artists: string },
+) {
+  return normalizeTrackText(left.title) === normalizeTrackText(right.title) &&
+    normalizeTrackText(left.artists) === normalizeTrackText(right.artists);
+}
+
+function normalizeTrackText(value: string) {
+  return value.toLowerCase().replace(/\s+/g, " ").trim();
+}
+
+function summarizeToolCallForContext(call: AgentToolCall) {
+  if (call.toolName === "analyze_track") {
+    return {
+      toolName: call.toolName,
+      arguments: call.arguments,
+      result: summarizeAnalysisResult(call.result),
+    };
+  }
+
+  const result = call.result as
+    | { candidates?: unknown[]; originalTrack?: unknown; requestedGenre?: unknown }
+    | null;
+
+  return {
+    toolName: call.toolName,
+    arguments: call.arguments,
+    result: {
+      originalTrack: result?.originalTrack,
+      requestedGenre: result?.requestedGenre ?? null,
+      candidateCount: result?.candidates?.length ?? 0,
+    },
+  };
+}
+
+function summarizeAnalysisResult(result: unknown) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return result;
+  }
+
+  const record = result as {
+    job?: { id?: unknown; status?: unknown; operation?: unknown };
+    summary?: unknown;
+    status?: unknown;
+  };
+
+  if (record.job) {
+    return { job: record.job };
+  }
+
+  return {
+    status: record.status,
+    summary: record.summary,
+  };
 }

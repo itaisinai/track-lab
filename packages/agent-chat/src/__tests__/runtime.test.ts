@@ -80,6 +80,84 @@ test("agent runtime enqueues analyze track jobs instead of running analysis inli
   assert.equal(jobStore.listJobs({ statuses: ["queued"] }).length, 1);
 });
 
+test("agent runtime uses focused track context for remix follow-ups", async () => {
+  const store = createStore();
+  const jobStore = createJobStore();
+  const session = store.createSession();
+  const requestedInputs: unknown[] = [];
+  const runtime = new AgentRuntime({
+    store,
+    useLlm: false,
+    trackAnalysis: new TrackAnalysisOrchestrator(jobStore),
+    remixSearch: {
+      search: async (input: {
+        title?: string | null;
+        artists?: string | null;
+        spotifyUrl?: string | null;
+        genre?: string | null;
+      }) => {
+        requestedInputs.push(input);
+        return {
+          originalTrack: {
+            title: input.title ?? "",
+            artists: input.artists ?? "",
+            spotifyUrl: input.spotifyUrl ?? null,
+            album: null,
+            durationMs: null,
+          },
+          requestedGenre: input.genre ?? null,
+          candidates: [],
+        };
+      },
+    } as never,
+  });
+
+  await runtime.sendMessage(session.id, "Analyze Animals by Martin Garrix");
+  const response = await runtime.sendMessage(session.id, "Search remixes of this track");
+  const latestToolCall = response.toolCalls.at(-1);
+
+  assert.equal(latestToolCall?.toolName, "search_remixes");
+  assert.deepEqual(requestedInputs[0], {
+    title: "Animals",
+    artists: "Martin Garrix",
+    spotifyUrl: null,
+    genre: null,
+  });
+  assert.deepEqual(store.getSession(session.id)?.metadata.currentFocusTrack, {
+    title: "Animals",
+    artists: "Martin Garrix",
+    spotifyUrl: null,
+    genre: null,
+  });
+});
+
+test("agent runtime starts a new session for explicit analysis of a different track", async () => {
+  const store = createStore();
+  const jobStore = createJobStore();
+  const session = store.createSession();
+  const runtime = new AgentRuntime({
+    store,
+    useLlm: false,
+    trackAnalysis: new TrackAnalysisOrchestrator(jobStore),
+  });
+
+  await runtime.sendMessage(session.id, "Analyze Animals by Martin Garrix");
+  const response = await runtime.sendMessage(session.id, "Analyze Strobe by deadmau5");
+
+  assert.notEqual(response.session?.id, session.id);
+  assert.deepEqual(response.session?.metadata.currentFocusTrack, {
+    title: "Strobe",
+    artists: "deadmau5",
+    spotifyUrl: null,
+    genre: null,
+  });
+  assert.equal(store.listSessions().length, 2);
+  assert.deepEqual(
+    store.listMessages(session.id).map((message) => message.content),
+    ["Analyze Animals by Martin Garrix", "Queued track analysis job #1. The worker will analyze it now; this is not the final result yet."],
+  );
+});
+
 function createJobStore() {
   const directory = mkdtempSync(join(tmpdir(), "track-lab-agent-chat-jobs-"));
   return new TrackAnalysisJobStore(join(directory, "test.sqlite"));

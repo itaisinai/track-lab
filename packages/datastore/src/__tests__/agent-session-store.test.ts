@@ -77,6 +77,57 @@ test("agent session store persists failed tool calls", () => {
   );
 });
 
+test("agent session store persists session metadata", () => {
+  const store = createStore();
+  const session = store.createSession("Discovery");
+
+  store.updateSessionMetadata(session.id, {
+    currentFocusTrack: {
+      title: "Animals",
+      artists: "Martin Garrix",
+      spotifyUrl: null,
+    },
+  });
+  store.updateSessionMetadata(session.id, (current) => ({
+    ...current,
+    latestTrackResultId: 12,
+  }));
+
+  assert.deepEqual(store.getSession(session.id)?.metadata, {
+    currentFocusTrack: {
+      title: "Animals",
+      artists: "Martin Garrix",
+      spotifyUrl: null,
+    },
+    latestTrackResultId: 12,
+  });
+});
+
+test("agent session store deletes a session and cascades chat history", () => {
+  const store = createStore();
+  const session = store.createSession("Discovery");
+  const message = store.addMessage({
+    sessionId: session.id,
+    role: "user",
+    content: "Analyze Animals by Martin Garrix",
+  });
+  store.startToolCall({
+    sessionId: session.id,
+    requestMessageId: message.id,
+    toolName: "analyze_track",
+    arguments: {
+      title: "Animals",
+      artists: "Martin Garrix",
+    },
+  });
+
+  assert.equal(store.deleteSession(session.id), true);
+  assert.equal(store.getSession(session.id), null);
+  assert.deepEqual(store.listMessages(session.id), []);
+  assert.deepEqual(store.listToolCalls(session.id), []);
+  assert.equal(store.deleteSession(session.id), false);
+});
+
 function createStore() {
   const directory = mkdtempSync(join(tmpdir(), "track-lab-agent-"));
   return new AgentSessionStore(join(directory, "test.sqlite"));

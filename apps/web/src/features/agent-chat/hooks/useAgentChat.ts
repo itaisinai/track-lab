@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useCreateAgentSessionMutation } from "../../../api/mutations/useCreateAgentSessionMutation";
+import { useDeleteAgentSessionMutation } from "../../../api/mutations/useDeleteAgentSessionMutation";
 import { useSaveEnrichmentResponseMutation } from "../../../api/mutations/useSaveEnrichmentResponseMutation";
 import { useSendAgentMessageMutation } from "../../../api/mutations/useSendAgentMessageMutation";
 import { useAgentSessionQuery } from "../../../api/queries/useAgentSessionQuery";
@@ -26,6 +27,7 @@ export function useAgentChat() {
   const sessionsQuery = useAgentSessionsQuery();
   const sessionQuery = useAgentSessionQuery(selectedSessionId);
   const createSessionMutation = useCreateAgentSessionMutation();
+  const deleteSessionMutation = useDeleteAgentSessionMutation();
   const saveEnrichmentResponseMutation = useSaveEnrichmentResponseMutation();
   const sendMessageMutation = useSendAgentMessageMutation();
   const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
@@ -118,6 +120,18 @@ export function useAgentChat() {
     await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
   }
 
+  async function deleteSession(sessionId: number) {
+    await deleteSessionMutation.mutateAsync(sessionId);
+    const remainingSessions = sessions.filter((session) => session.id !== sessionId);
+
+    queryClient.removeQueries({ queryKey: queryKeys.agentSession(sessionId) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionId(remainingSessions[0]?.id ?? null);
+    }
+  }
+
   async function sendMessage() {
     const content = draft.trim();
     if (!content || sendMessageMutation.isPending) {
@@ -136,7 +150,13 @@ export function useAgentChat() {
       sessionId,
       request: { content },
     });
-    queryClient.setQueryData(queryKeys.agentSession(sessionId), response);
+    setSelectedSessionId(response.session.id);
+    queryClient.setQueryData(queryKeys.agentSession(response.session.id), response);
+    if (response.session.id !== sessionId) {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.agentSession(sessionId),
+      });
+    }
     await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
   }
 
@@ -171,6 +191,8 @@ export function useAgentChat() {
   return {
     createSession,
     createSessionMutation,
+    deleteSession,
+    deleteSessionMutation,
     draft,
     isLoading:
       sessionsQuery.isLoading ||
