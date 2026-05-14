@@ -8,7 +8,7 @@ calling external providers.
 
 - `apps/api` - Express API.
 - `apps/web` - React/Vite UI.
-- `packages/agent-chat` - track-focused agent runtime, session routing, and tool execution.
+- `packages/agent-chat` - track-focused agent orchestration, session routing, and tool execution.
 - `packages/metadata-enrichment` - metadata enrichment strategy, provider planning,
   provider evidence merging, and LLM synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
@@ -206,7 +206,7 @@ success, and requeues failures until `attempt_count >= max_attempts`.
 See [`docs/ai-terminology.md`](docs/ai-terminology.md) for the project naming
 rules. In short: providers fetch external evidence, planners decide execution
 paths, pipelines run multi-step flows, and tools are only capabilities directly
-callable by an LLM or agent runtime.
+callable by an LLM or agent orchestrator.
 
 ## API
 

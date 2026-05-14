@@ -9,7 +9,10 @@ export function createAgentRouter(
   orchestrator: TrackAnalysisOrchestrator,
 ) {
   const router = Router();
-  const runtime = new AgentOrchestrator({ store, trackAnalysis: orchestrator });
+  const agentOrchestrator = new AgentOrchestrator({
+    store,
+    trackAnalysis: orchestrator,
+  });
 
   router.get("/agent/sessions", (_req: Request, res: Response) => {
     res.json({ sessions: store.listSessions() });
@@ -59,7 +62,7 @@ export function createAgentRouter(
       const sessionId = Number(req.params.sessionId);
 
       try {
-        const response = await runtime.sendMessage(
+        const response = await agentOrchestrator.sendMessage(
           sessionId,
           getMessageContent(req.body),
         );

@@ -249,7 +249,7 @@ export class AgentToolExecutor {
 }
 
 function getErrorMessage(error: unknown) {
-  return error instanceof Error ? error.message : "Unknown agent runtime error.";
+  return error instanceof Error ? error.message : "Unknown agent orchestrator error.";
 }
 
 function getQueuedJobId(result: unknown) {

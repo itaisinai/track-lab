@@ -56,7 +56,7 @@ export class AgentOrchestrator {
   constructor(options: AgentOrchestratorOptions = {}) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
-      throw new Error("OPENAI_API_KEY is required for the agent runtime.");
+      throw new Error("OPENAI_API_KEY is required for the agent orchestrator.");
     }
 
     this.store = options.store ?? new AgentSessionStore();

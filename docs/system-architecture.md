@@ -52,4 +52,4 @@ flowchart TD
 - Beatport and SoundCloud are the EDM optional provider group.
 - Remix search separates deterministic provider search from LLM judging.
 - Terminology rules are documented in [`ai-terminology.md`](./ai-terminology.md).
-- The agent runtime flow is documented in [`agent-workflow.md`](./agent-workflow.md).
+- The agent orchestrator flow is documented in [`agent-workflow.md`](./agent-workflow.md).

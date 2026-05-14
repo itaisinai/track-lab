@@ -70,7 +70,7 @@ Your job is to decide which optional provider groups should run next.
 
 Important terminology:
 - Providers fetch external evidence.
-- Tools are only capabilities directly callable by an LLM or agent runtime.
+- Tools are only capabilities directly callable by an LLM or agent orchestrator.
 - Planner policy context is internal policy, provider guidance, and user preferences.
 - This planner decides optional providers from current evidence and planner policy context.
 
