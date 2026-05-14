@@ -9,7 +9,9 @@ export function scoreRemixCandidates(
   candidates: RemixSearchCandidate[],
   request: NormalizedRemixSearchRequest,
 ) {
-  return scoreAndDedupeRemixCandidates(candidates, request);
+  return scoreAndDedupeRemixCandidates(candidates, request).filter(
+    (candidate) => candidate.confidence >= 35,
+  );
 }
 
 export function selectDeterministicRemixCandidates(

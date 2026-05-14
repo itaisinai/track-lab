@@ -20,7 +20,7 @@ export type EdmProviderPlannerInput = {
 
 const edmPlannerModel = new ChatOpenAI({
   model: "gpt-5-nano",
-  apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 const EDM_SIGNAL_TERMS = [
@@ -223,7 +223,7 @@ function parseProvidersToRun(
 }
 
 function hasOpenAiKey() {
-  return Boolean(process.env.OPENAI_API_KEY || process.env.OPEN_AI_KEY);
+  return Boolean(process.env.OPENAI_API_KEY);
 }
 
 function getMessageContent(message: unknown) {

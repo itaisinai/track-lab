@@ -36,6 +36,23 @@ export function createAgentRouter(
     });
   });
 
+  router.delete("/agent/sessions/:sessionId", (req: Request, res: Response) => {
+    const sessionId = Number(req.params.sessionId);
+
+    if (!Number.isInteger(sessionId)) {
+      res.status(400).json({ error: "Agent session id is required." });
+      return;
+    }
+
+    const deleted = store.deleteSession(sessionId);
+    if (!deleted) {
+      res.status(404).json({ error: "Agent session was not found." });
+      return;
+    }
+
+    res.json({ sessionId });
+  });
+
   router.post(
     "/agent/sessions/:sessionId/messages",
     async (req: Request, res: Response) => {

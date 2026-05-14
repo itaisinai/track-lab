@@ -3,6 +3,7 @@ import type {
   AgentMessageMetadata,
   AgentMessageRole,
   AgentSession,
+  AgentSessionMetadata,
   AgentToolCall,
   AgentToolCallStatus,
   AgentToolInput,
@@ -28,6 +29,7 @@ export type {
   AgentMessageMetadata,
   AgentMessageRole,
   AgentSession,
+  AgentSessionMetadata,
   AgentToolCall,
   AgentToolCallStatus,
   AgentToolInput,
@@ -51,6 +53,7 @@ export type {
 export type AgentSessionRow = {
   id: number;
   title: string;
+  metadata_json: string;
   created_at: string;
   updated_at: string;
 };

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import { useCreateAgentSessionMutation } from "../../../api/mutations/useCreateAgentSessionMutation";
+import { useDeleteAgentSessionMutation } from "../../../api/mutations/useDeleteAgentSessionMutation";
 import { useSaveEnrichmentResponseMutation } from "../../../api/mutations/useSaveEnrichmentResponseMutation";
 import { useSendAgentMessageMutation } from "../../../api/mutations/useSendAgentMessageMutation";
 import { useAgentSessionQuery } from "../../../api/queries/useAgentSessionQuery";
@@ -26,6 +27,7 @@ export function useAgentChat() {
   const sessionsQuery = useAgentSessionsQuery();
   const sessionQuery = useAgentSessionQuery(selectedSessionId);
   const createSessionMutation = useCreateAgentSessionMutation();
+  const deleteSessionMutation = useDeleteAgentSessionMutation();
   const saveEnrichmentResponseMutation = useSaveEnrichmentResponseMutation();
   const sendMessageMutation = useSendAgentMessageMutation();
   const [savingMessageId, setSavingMessageId] = useState<number | null>(null);
@@ -81,6 +83,21 @@ export function useAgentChat() {
         .join("|"),
     [queuedTrackAnalysisJobQueries],
   );
+  const completedTrackAnalysisJobVersion = useMemo(
+    () =>
+      queuedTrackAnalysisJobQueries
+        .map((query) => query.data)
+        .filter(
+          (job): job is TrackAnalysisJob =>
+            job !== undefined &&
+            (job.status === "completed" ||
+              job.status === "failed" ||
+              job.status === "dead_lettered"),
+        )
+        .map((job) => `${job.id}:${job.status}:${job.updatedAt}`)
+        .join("|"),
+    [queuedTrackAnalysisJobQueries],
+  );
 
   useEffect(() => {
     window.localStorage.setItem(ASSISTANT_OPEN_KEY, String(isOpen));
@@ -101,6 +118,19 @@ export function useAgentChat() {
     }
   }, [selectedSessionId, sessions]);
 
+  useEffect(() => {
+    if (!completedTrackAnalysisJobVersion) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+    if (selectedSessionId) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.agentSession(selectedSessionId),
+      });
+    }
+  }, [completedTrackAnalysisJobVersion, queryClient, selectedSessionId]);
+
   const toolCallsByMessageId = useMemo(() => {
     const byMessage = new Map<number, typeof toolCalls>();
 
@@ -116,6 +146,18 @@ export function useAgentChat() {
     const response = await createSessionMutation.mutateAsync();
     setSelectedSessionId(response.session.id);
     await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+  }
+
+  async function deleteSession(sessionId: number) {
+    await deleteSessionMutation.mutateAsync(sessionId);
+    const remainingSessions = sessions.filter((session) => session.id !== sessionId);
+
+    queryClient.removeQueries({ queryKey: queryKeys.agentSession(sessionId) });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+
+    if (selectedSessionId === sessionId) {
+      setSelectedSessionId(remainingSessions[0]?.id ?? null);
+    }
   }
 
   async function sendMessage() {
@@ -136,8 +178,20 @@ export function useAgentChat() {
       sessionId,
       request: { content },
     });
-    queryClient.setQueryData(queryKeys.agentSession(sessionId), response);
-    await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+    setSelectedSessionId(response.session.id);
+    queryClient.setQueryData(queryKeys.agentSession(response.session.id), response);
+    if (response.session.id !== sessionId) {
+      await queryClient.invalidateQueries({
+        queryKey: queryKeys.agentSession(sessionId),
+      });
+    }
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activeJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificationJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviewJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.allJobs }),
+    ]);
   }
 
   async function saveAnalysisResult(messageId: number, analysisResult: unknown) {
@@ -171,6 +225,8 @@ export function useAgentChat() {
   return {
     createSession,
     createSessionMutation,
+    deleteSession,
+    deleteSessionMutation,
     draft,
     isLoading:
       sessionsQuery.isLoading ||

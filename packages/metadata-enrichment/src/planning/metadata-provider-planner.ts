@@ -33,7 +33,7 @@ export type MetadataProviderPlanInput = {
 
 const plannerModel = new ChatOpenAI({
   model: "gpt-5-nano",
-  apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function planMetadataProviders(
@@ -50,7 +50,7 @@ export async function planMetadataProviders(
     providerEvidenceSummary,
   });
 
-  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return {
       ...createFallbackPlan(input, edmProviderPlan),
       strategyContext,

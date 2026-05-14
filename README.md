@@ -8,6 +8,7 @@ calling external providers.
 
 - `apps/api` - Express API.
 - `apps/web` - React/Vite UI.
+- `packages/agent-chat` - track-focused agent runtime, session routing, and tool execution.
 - `packages/metadata-enrichment` - metadata enrichment strategy, provider planning,
   provider evidence merging, and LLM synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
@@ -23,6 +24,8 @@ The canonical architecture diagram is [`docs/system-architecture.md`](docs/syste
 The current strategy doc is [`packages/track-analysis/src/strategy/pipeline-strategy.md`](packages/track-analysis/src/strategy/pipeline-strategy.md).
 
 The workflow graph is [`packages/track-analysis/src/strategy/pipeline-workflow.md`](packages/track-analysis/src/strategy/pipeline-workflow.md).
+
+The agent workflow graph is [`docs/agent-workflow.md`](docs/agent-workflow.md).
 
 ```mermaid
 flowchart TD

@@ -5,6 +5,7 @@ import {
   createLlmJudgeCandidateBatches,
   MAX_LLM_JUDGE_ATTEMPTS,
   LLM_JUDGE_BATCH_SIZE,
+  scoreRemixCandidates,
 } from "../selection/remix-candidate-selection.ts";
 import { judgeRemixCandidates } from "../judge/remix-candidate-judge.ts";
 
@@ -23,9 +24,7 @@ test("remix judge batches candidates deterministically", () => {
 
 test("remix judge falls back deterministically without OpenAI when genre is missing", async () => {
   const previousOpenAiKey = process.env.OPENAI_API_KEY;
-  const previousOpenAiLegacyKey = process.env.OPEN_AI_KEY;
   delete process.env.OPENAI_API_KEY;
-  delete process.env.OPEN_AI_KEY;
 
   try {
     const result = await judgeRemixCandidates(
@@ -57,20 +56,12 @@ test("remix judge falls back deterministically without OpenAI when genre is miss
     } else {
       delete process.env.OPENAI_API_KEY;
     }
-
-    if (previousOpenAiLegacyKey) {
-      process.env.OPEN_AI_KEY = previousOpenAiLegacyKey;
-    } else {
-      delete process.env.OPEN_AI_KEY;
-    }
   }
 });
 
 test("remix judge returns empty results without OpenAI when genre is required", async () => {
   const previousOpenAiKey = process.env.OPENAI_API_KEY;
-  const previousOpenAiLegacyKey = process.env.OPEN_AI_KEY;
   delete process.env.OPENAI_API_KEY;
-  delete process.env.OPEN_AI_KEY;
 
   try {
     const result = await judgeRemixCandidates(
@@ -97,13 +88,59 @@ test("remix judge returns empty results without OpenAI when genre is required", 
     } else {
       delete process.env.OPENAI_API_KEY;
     }
-
-    if (previousOpenAiLegacyKey) {
-      process.env.OPEN_AI_KEY = previousOpenAiLegacyKey;
-    } else {
-      delete process.env.OPEN_AI_KEY;
-    }
   }
+});
+
+test("remix judge input excludes same-title candidates without original artist evidence", () => {
+  const scored = scoreRemixCandidates(
+    [
+      candidate(0, {
+        title: "Kumarion - Want It (Chaotic Good Flip)",
+        artists: "Chaotic Good",
+      }),
+      candidate(1, {
+        title: "PEEKABOO - Want It (House Edit)",
+        artists: "Test DJ",
+      }),
+    ],
+    {
+      title: "Want It",
+      artists: "PEEKABOO",
+      genre: null,
+      spotifyUrl: null,
+    },
+  );
+
+  assert.equal(scored.length, 1);
+  assert.equal(scored[0]?.title, "PEEKABOO - Want It (House Edit)");
+});
+
+test("remix judge input excludes originals without remix evidence", () => {
+  const scored = scoreRemixCandidates(
+    [
+      candidate(0, {
+        title: "Want It",
+        artists: "PEEKABOO",
+      }),
+      candidate(1, {
+        title: "Want It",
+        artists: "PEEKABOO, borne",
+      }),
+      candidate(2, {
+        title: "PEEKABOO - Want It (House Edit)",
+        artists: "Test DJ",
+      }),
+    ],
+    {
+      title: "Want It",
+      artists: "PEEKABOO",
+      genre: null,
+      spotifyUrl: null,
+    },
+  );
+
+  assert.equal(scored.length, 1);
+  assert.equal(scored[0]?.title, "PEEKABOO - Want It (House Edit)");
 });
 
 function candidate(

@@ -27,6 +27,26 @@ export type SearchRemixesToolInput = {
 
 export type AgentToolInput = AnalyzeTrackToolInput | SearchRemixesToolInput;
 
+export type AgentTrackReference = {
+  title: string;
+  artists: string;
+  spotifyUrl?: string | null;
+  genre?: string | null;
+};
+
+export type AgentSessionMetadata = Partial<{
+  currentFocusTrack: AgentTrackReference;
+  latestAnalyzedTrack: AgentTrackReference;
+  latestAnalysisResult: unknown;
+  latestTrackResultId: number;
+  latestRemixSearchContext: {
+    track: AgentTrackReference;
+    requestedGenre?: string | null;
+    resultCount?: number;
+    jobId?: number;
+  };
+}>;
+
 export type AgentMessageMetadata = Partial<{
   analysisResult: unknown;
   queuedTrackAnalysisJob: Pick<TrackAnalysisJob, "id" | "status"> & {
@@ -40,6 +60,7 @@ export type AgentMessageMetadata = Partial<{
 export type AgentSession = {
   id: number;
   title: string;
+  metadata: AgentSessionMetadata;
   createdAt: string;
   updatedAt: string;
 };
@@ -70,6 +91,10 @@ export type AgentToolCall = {
 
 export type CreateAgentSessionResponse = {
   session: AgentSession;
+};
+
+export type DeleteAgentSessionResponse = {
+  sessionId: number;
 };
 
 export type ListAgentSessionsResponse = {

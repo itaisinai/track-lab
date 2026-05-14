@@ -23,7 +23,7 @@ type LlmRankedCandidate = {
 
 const remixJudgeModel = new ChatOpenAI({
   model: "gpt-5-nano",
-  apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function judgeRemixCandidates(
@@ -36,7 +36,7 @@ export async function judgeRemixCandidates(
     request,
   );
 
-  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     logRemixSearch("llm judge skipped missing OpenAI key", {
       scoredCandidates: scoredCandidates.length,
       requestedGenre: request.genre,

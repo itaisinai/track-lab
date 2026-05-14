@@ -9,12 +9,14 @@ import type {
   AgentMessageRole,
   AgentMessageRow,
   AgentSession,
+  AgentSessionMetadata,
   AgentSessionRow,
   AgentToolCall,
   AgentToolCallRow,
   AgentToolCallStatus,
   AgentToolInput,
   AgentToolName,
+  TrackAnalysisJob,
 } from "./types.ts";
 
 export class AgentSessionStore {
@@ -57,6 +59,71 @@ export class AgentSessionStore {
     return row ? mapSessionRow(row) : null;
   }
 
+  deleteSession(id: number): boolean {
+    const result = this.db
+      .prepare("DELETE FROM agent_sessions WHERE id = ?")
+      .run(id);
+
+    return result.changes > 0;
+  }
+
+  updateSessionTitle(id: number, title: string): AgentSession {
+    const nextTitle = title.trim();
+    if (!nextTitle) {
+      throw new Error("Agent session title is required.");
+    }
+
+    const now = new Date().toISOString();
+    this.db
+      .prepare(`
+        UPDATE agent_sessions
+        SET title = ?,
+            updated_at = ?
+        WHERE id = ?
+      `)
+      .run(nextTitle, now, id);
+
+    const session = this.getSession(id);
+    if (!session) {
+      throw new Error("Agent session was not found.");
+    }
+
+    return session;
+  }
+
+  syncCompletedAnalysisJob(job: TrackAnalysisJob) {
+    if (
+      job.status !== "completed" ||
+      (job.operation !== "analyze" && job.operation !== "enrich")
+    ) {
+      return;
+    }
+
+    const track = getTrackReferenceFromJob(job);
+    if (!track) {
+      return;
+    }
+
+    const sessionIds = this.findSessionIdsForQueuedJob(job.id);
+    for (const sessionId of sessionIds) {
+      this.updateSessionTitle(sessionId, `${track.title} by ${track.artists}`);
+      this.updateSessionMetadata(sessionId, (current) => ({
+        ...current,
+        currentFocusTrack: {
+          ...current.currentFocusTrack,
+          title: track.title,
+          artists: track.artists,
+        },
+        latestAnalyzedTrack: {
+          ...current.latestAnalyzedTrack,
+          title: track.title,
+          artists: track.artists,
+        },
+        latestAnalysisResult: job.result,
+      }));
+    }
+  }
+
   listMessages(sessionId: number): AgentMessage[] {
     const rows = this.db
       .prepare(`
@@ -79,6 +146,32 @@ export class AgentSessionStore {
       .all(sessionId) as AgentToolCallRow[];
 
     return rows.map(mapToolCallRow);
+  }
+
+  updateSessionMetadata(
+    sessionId: number,
+    metadata:
+      | AgentSessionMetadata
+      | ((current: AgentSessionMetadata) => AgentSessionMetadata),
+  ): AgentSession {
+    const session = this.getSession(sessionId);
+    if (!session) {
+      throw new Error("Agent session was not found.");
+    }
+
+    const nextMetadata =
+      typeof metadata === "function" ? metadata(session.metadata) : metadata;
+    const now = new Date().toISOString();
+    this.db
+      .prepare(`
+        UPDATE agent_sessions
+        SET metadata_json = ?,
+            updated_at = ?
+        WHERE id = ?
+      `)
+      .run(JSON.stringify(nextMetadata), now, sessionId);
+
+    return this.getSession(sessionId) as AgentSession;
   }
 
   addMessage(input: {
@@ -238,10 +331,12 @@ export class AgentSessionStore {
       CREATE TABLE IF NOT EXISTS agent_sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
+        metadata_json TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    this.addColumnIfMissing("agent_sessions", "metadata_json", "TEXT NOT NULL DEFAULT '{}'");
     this.db.exec(`
       CREATE TABLE IF NOT EXISTS agent_messages (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -281,12 +376,48 @@ export class AgentSessionStore {
       ON agent_tool_calls(session_id, started_at, id)
     `);
   }
+
+  private addColumnIfMissing(tableName: string, columnName: string, definition: string) {
+    const rows = this.db
+      .prepare(`PRAGMA table_info(${tableName})`)
+      .all() as Array<{ name: string }>;
+
+    if (rows.some((row) => row.name === columnName)) {
+      return;
+    }
+
+    this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+  }
+
+  private findSessionIdsForQueuedJob(jobId: number) {
+    const rows = this.db
+      .prepare(`
+        SELECT session_id, metadata_json
+        FROM agent_messages
+        WHERE metadata_json LIKE '%queuedTrackAnalysisJob%'
+      `)
+      .all() as Array<{ session_id: number; metadata_json: string }>;
+
+    const sessionIds = new Set<number>();
+    for (const row of rows) {
+      const metadata = parseJson(row.metadata_json) as {
+        queuedTrackAnalysisJob?: { id?: unknown };
+      };
+
+      if (metadata.queuedTrackAnalysisJob?.id === jobId) {
+        sessionIds.add(row.session_id);
+      }
+    }
+
+    return Array.from(sessionIds);
+  }
 }
 
 function mapSessionRow(row: AgentSessionRow): AgentSession {
   return {
     id: row.id,
     title: row.title,
+    metadata: parseJson(row.metadata_json) as AgentSessionMetadata,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -318,4 +449,41 @@ function mapToolCallRow(row: AgentToolCallRow): AgentToolCall {
     startedAt: row.started_at,
     completedAt: row.completed_at,
   };
+}
+
+function getTrackReferenceFromJob(job: TrackAnalysisJob) {
+  if (job.payload.operation === "remix_search") {
+    return null;
+  }
+
+  const resultTrack = getTrackReferenceFromResult(job.result);
+  if (resultTrack) {
+    return resultTrack;
+  }
+
+  return {
+    title: job.payload.track.title,
+    artists: job.payload.track.artists,
+  };
+}
+
+function getTrackReferenceFromResult(result: unknown) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return null;
+  }
+
+  const record = result as {
+    title?: unknown;
+    artists?: unknown;
+    trackName?: unknown;
+    artist?: unknown;
+  };
+  const title = getNonEmptyString(record.title) ?? getNonEmptyString(record.trackName);
+  const artists = getNonEmptyString(record.artists) ?? getNonEmptyString(record.artist);
+
+  return title && artists ? { title, artists } : null;
+}
+
+function getNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }
