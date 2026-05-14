@@ -1,5 +1,5 @@
 import type { AgentSessionStore } from "@track-lab/datastore";
-import { AgentRuntime } from "@track-lab/agent-chat";
+import { AgentOrchestrator } from "@track-lab/agent-chat";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import type { Request, Response } from "express";
 import { Router } from "express";
@@ -9,7 +9,7 @@ export function createAgentRouter(
   orchestrator: TrackAnalysisOrchestrator,
 ) {
   const router = Router();
-  const runtime = new AgentRuntime({ store, trackAnalysis: orchestrator });
+  const runtime = new AgentOrchestrator({ store, trackAnalysis: orchestrator });
 
   router.get("/agent/sessions", (_req: Request, res: Response) => {
     res.json({ sessions: store.listSessions() });

@@ -1,4 +1,4 @@
-import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
+import type { ProviderEvidence } from "../enrichment/provider-evidence.ts";
 import type { EnrichedTrackMetadata } from "../enrichment/types.ts";
 
 export type PlannerCurrentResultSummary = {

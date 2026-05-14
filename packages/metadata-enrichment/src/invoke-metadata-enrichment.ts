@@ -1,5 +1,5 @@
 import { HumanMessage } from "@langchain/core/messages";
-import { conversationalMetadataAgent } from "./conversational-metadata-agent.ts";
+import { metadataAgent } from "./metadata-agent.ts";
 import { enrichmentTrackResultStore } from "./datastore/enrichment-track-result-store.ts";
 import { createDatastoreEnrichmentStore } from "./enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "./enrichment/track-metadata-enrichment.ts";
@@ -43,7 +43,7 @@ export async function invokeMetadataEnrichment(
     return result;
   }
 
-  const result = await conversationalMetadataAgent.invoke({
+  const result = await metadataAgent.invoke({
     messages: [new HumanMessage(message)],
   });
 

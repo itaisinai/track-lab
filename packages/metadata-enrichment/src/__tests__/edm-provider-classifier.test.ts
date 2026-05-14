@@ -1,13 +1,16 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { planEdmProviders } from "../planning/edm-provider-planner.ts";
+import {
+  classifyEdmProviderNeed,
+  classifyEdmProviderNeedDeterministically,
+} from "../planning/edm-provider-classifier.ts";
 import {
   toPlannerCurrentResultSummary,
   toPlannerProviderEvidenceSummary,
 } from "../planning/planner-input.ts";
 
-test("EDM planner runs Beatport and SoundCloud for deterministic EDM signals", async () => {
-  const plan = await planEdmProviders({
+test("EDM classifier runs Beatport and SoundCloud for deterministic EDM signals", async () => {
+  const plan = await classifyEdmProviderNeed({
     currentResult: baseResult({
       genre: "Dubstep",
       subGenre: "Bass",
@@ -32,8 +35,8 @@ test("EDM planner runs Beatport and SoundCloud for deterministic EDM signals", a
   assert.equal(plan.decidedBy, "deterministic");
 });
 
-test("EDM planner skips Beatport and SoundCloud for deterministic non-EDM signals", async () => {
-  const plan = await planEdmProviders({
+test("EDM classifier skips Beatport and SoundCloud for deterministic non-EDM signals", async () => {
+  const plan = await classifyEdmProviderNeed({
     currentResult: baseResult({
       genre: "Hip Hop",
       subGenre: null as string | null,
@@ -55,7 +58,7 @@ test("EDM planner skips Beatport and SoundCloud for deterministic non-EDM signal
   assert.equal(plan.decidedBy, "deterministic");
 });
 
-test("planner summaries stay compact", () => {
+test("classifier summaries stay compact", () => {
   const currentResultSummary = toPlannerCurrentResultSummary(
     baseResult({
       genre: "Dubstep",
@@ -73,6 +76,17 @@ test("planner summaries stay compact", () => {
   assert.ok(providerEvidenceSummary.spotify);
   assert.ok(providerEvidenceSummary.beatport);
   assert.ok(providerEvidenceSummary.spotify?.length < 240);
+});
+
+test("deterministic classifier labels EDM correctly", () => {
+  const decision = classifyEdmProviderNeedDeterministically({
+    currentResult: baseResult(),
+    currentResultSummary: toPlannerCurrentResultSummary(baseResult()),
+    providerEvidenceSummary: toPlannerProviderEvidenceSummary({}),
+  });
+
+  assert.equal(decision.classification, "edm");
+  assert.equal(decision.shouldRunEdmProviders, true);
 });
 
 function baseResult(overrides: Partial<ReturnType<typeof makeBaseResult>> = {}) {

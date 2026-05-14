@@ -7,7 +7,7 @@ import type {
 } from "@track-lab/providers";
 import type { EnrichmentResultStore } from "../enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
-import type { EdmProviderPlan } from "../planning/edm-provider-planner.ts";
+import type { EdmProviderDecision } from "../planning/edm-provider-classifier.ts";
 
 test("analyze reuses local DB data before provider lookup", async () => {
   let providerCalls = 0;
@@ -194,7 +194,7 @@ test("higher-confidence provider can replace weaker metadata before early stop",
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan(),
+        edmProviderDecision: testEdmProviderDecision(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -253,7 +253,7 @@ test("Beatport and Spotify metadata should not be overwritten by weaker SoundClo
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan({
+        edmProviderDecision: testEdmProviderDecision({
           classification: "edm",
           shouldRunEdmProviders: true,
           providersToRun: ["beatport", "soundcloud"],
@@ -319,7 +319,7 @@ test("later providers receive enriched artist identity from earlier providers", 
         lookupContextProvider: false,
         reasons: ["EDM catalog evidence should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan({
+        edmProviderDecision: testEdmProviderDecision({
           classification: "edm",
           shouldRunEdmProviders: true,
           providersToRun: ["beatport", "soundcloud"],
@@ -395,7 +395,7 @@ test("provider planner runs Beatport and SoundCloud together for EDM catalog tra
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan(),
+        edmProviderDecision: testEdmProviderDecision(),
       }),
       contextProviders: [],
       synthesize: async ({ baseResult }) => baseResult,
@@ -465,7 +465,7 @@ test("provider planner skips both Beatport and SoundCloud for non-EDM tracks", a
         lookupContextProvider: false,
         reasons: ["No EDM catalog signal."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan({
+        edmProviderDecision: testEdmProviderDecision({
           classification: "not_edm",
           shouldRunEdmProviders: false,
           providersToRun: [],
@@ -553,7 +553,7 @@ test("normalized Beatport non-genre buckets do not conflict with SoundCloud pare
         lookupContextProvider: false,
         reasons: ["EDM evidence group should run."],
         strategyContext: testStrategyContext(input, currentResult, providerEvidence),
-        edmProviderPlan: testEdmProviderPlan({
+        edmProviderDecision: testEdmProviderDecision({
           classification: "edm",
           shouldRunEdmProviders: true,
           providersToRun: ["beatport", "soundcloud"],
@@ -793,13 +793,13 @@ function testStrategyContext(
   };
 }
 
-function testEdmProviderPlan(overrides: Partial<EdmProviderPlan> = {}): EdmProviderPlan {
+function testEdmProviderDecision(overrides: Partial<EdmProviderDecision> = {}): EdmProviderDecision {
   return {
     classification: "unknown",
     shouldRunEdmProviders: false,
     providersToRun: [],
     confidence: "low",
-    reason: "Test EDM plan.",
+    reason: "Test EDM decision.",
     decidedBy: "deterministic",
     ...overrides,
   };

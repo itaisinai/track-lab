@@ -10,19 +10,19 @@ import { AgentSessionStore } from "@track-lab/datastore";
 import { createScopedLogger } from "@track-lab/logger";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { createAgent } from "langchain";
-import { AGENT_SYSTEM_PROMPT } from "./prompts/agent-system-prompt.ts";
+import { AGENT_SYSTEM_PROMPT } from "./prompts/system-prompt.ts";
 import {
   buildAssistantMetadata,
   getFinalMessageContent,
   summarizeToolCalls,
-} from "./response/agent-response.ts";
-import type { ToolExecution } from "./tool-execution.ts";
+} from "./response/assistant-response-builder.ts";
+import type { ToolExecution } from "./tools/tool-execution-types.ts";
 import {
   AgentToolExecutor,
   type AgentToolRequestContext,
-} from "./tools/agent-tool-executor.ts";
+} from "./tools/tool-executor.ts";
 
-export type AgentRuntimeOptions = {
+export type AgentOrchestratorOptions = {
   modelName?: string;
   store?: AgentSessionStore;
   trackAnalysis?: TrackAnalysisOrchestrator;
@@ -44,16 +44,16 @@ type AgentMessageInterpretation = {
 
 const RECENT_MESSAGE_LIMIT = 8;
 const RELEVANT_TOOL_RESULT_LIMIT = 4;
-const logAgentRuntime = createScopedLogger("agent-runtime");
+const logAgentOrchestrator = createScopedLogger("agent-orchestrator");
 
-export class AgentRuntime {
+export class AgentOrchestrator {
   private readonly store: AgentSessionStore;
   private readonly trackAnalysis: TrackAnalysisOrchestrator;
   private readonly toolExecutor: AgentToolExecutor;
   private readonly modelName: string;
   private readonly apiKey: string;
 
-  constructor(options: AgentRuntimeOptions = {}) {
+  constructor(options: AgentOrchestratorOptions = {}) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) {
       throw new Error("OPENAI_API_KEY is required for the agent runtime.");
@@ -89,7 +89,7 @@ export class AgentRuntime {
       interpretation,
     );
     const targetSessionId = targetSession.id;
-    logAgentRuntime("message received", {
+    logAgentOrchestrator("message received", {
       requestedSessionId: sessionId,
       targetSessionId,
       createdNewSession: targetSessionId !== sessionId,
@@ -109,7 +109,7 @@ export class AgentRuntime {
       trimmed,
       interpretation,
     );
-    logAgentRuntime("message planned", {
+    logAgentOrchestrator("message planned", {
       sessionId: targetSessionId,
       toolCalls: invocation.toolCalls.map(({ call }) => ({
         id: call.id,
@@ -155,7 +155,7 @@ export class AgentRuntime {
     });
     const systemPrompt = this.buildSystemPrompt(sessionId);
     const messages = this.buildLlmMessages(sessionId);
-    logAgentRuntime("llm agent prompt", {
+    logAgentOrchestrator("llm agent prompt", {
       sessionId,
       requestMessageId: requestMessage.id,
       systemPrompt,
@@ -187,7 +187,7 @@ export class AgentRuntime {
         };
       }
 
-      logAgentRuntime("llm agent failed without tool calls", {
+      logAgentOrchestrator("llm agent failed without tool calls", {
         sessionId,
         requestMessageId: requestMessage.id,
         content,
@@ -253,7 +253,7 @@ Do not infer provider-specific tools.`;
           reason: "short diagnostic reason",
         },
       };
-      logAgentRuntime("llm interpretation prompt", {
+      logAgentOrchestrator("llm interpretation prompt", {
         sessionId: session.id,
         systemPrompt,
         payload,
@@ -264,7 +264,7 @@ Do not infer provider-specific tools.`;
       ]);
       const parsed = parseJsonObject(getMessageContent(response));
       const interpretation = normalizeInterpretation(parsed);
-      logAgentRuntime("message interpreted by llm", {
+      logAgentOrchestrator("message interpreted by llm", {
         sessionId: session.id,
         content,
         interpretation,
@@ -274,7 +274,7 @@ Do not infer provider-specific tools.`;
       });
       return interpretation;
     } catch (error) {
-      logAgentRuntime("message interpretation failed", {
+      logAgentOrchestrator("message interpretation failed", {
         sessionId: session.id,
         content,
         error: error instanceof Error ? error.message : "Unknown interpretation error",
@@ -290,7 +290,7 @@ Do not infer provider-specific tools.`;
   ) {
     const requestedTrack = interpretation.requestedTrack;
     if (!requestedTrack?.title || !requestedTrack.artists) {
-      logAgentRuntime("session routing kept", {
+      logAgentOrchestrator("session routing kept", {
         sessionId: session.id,
         reason: interpretation.reason || "no explicit track reference",
         content,
@@ -304,7 +304,7 @@ Do not infer provider-specific tools.`;
 
     const focusTrack = session.metadata.currentFocusTrack;
     if (interpretation.action !== "start_new_session") {
-      logAgentRuntime("session routing kept", {
+      logAgentOrchestrator("session routing kept", {
         sessionId: session.id,
         reason: interpretation.reason || "LLM chose current session",
         requestedTrack,
@@ -317,7 +317,7 @@ Do not infer provider-specific tools.`;
     }
 
     if (!focusTrack || sameTrack(focusTrack, requestedTrack)) {
-      logAgentRuntime("session routing kept", {
+      logAgentOrchestrator("session routing kept", {
         sessionId: session.id,
         reason: focusTrack ? "same focus track" : "no current focus track",
         requestedTrack,
@@ -332,7 +332,7 @@ Do not infer provider-specific tools.`;
     const nextSession = this.store.createSession(
       `${requestedTrack.title} by ${requestedTrack.artists}`,
     );
-    logAgentRuntime("session routing split", {
+    logAgentOrchestrator("session routing split", {
       previousSessionId: session.id,
       nextSessionId: nextSession.id,
       previousFocusTrack: focusTrack,

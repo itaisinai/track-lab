@@ -5,7 +5,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { AgentSessionStore, TrackAnalysisJobStore } from "@track-lab/datastore";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
-import { AgentToolExecutor } from "../tools/agent-tool-executor.ts";
+import { AgentToolExecutor } from "../tools/tool-executor.ts";
 
 test("agent tool executor applies interpreted genre to contextual remix searches", async () => {
   const store = createStore();
