@@ -29,14 +29,14 @@ type BeatportSearchDecisionInput = {
 
 const synthesisModel = new ChatOpenAI({
   model: "gpt-5-nano",
-  apiKey: process.env.OPENAI_API_KEY ?? process.env.OPEN_AI_KEY,
+  apiKey: process.env.OPENAI_API_KEY,
 });
 
 export async function decideBeatportSearch({
   baseResult,
   providerEvidence,
 }: BeatportSearchDecisionInput): Promise<BeatportSearchDecision> {
-  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return {
       shouldSearch: !baseResult.genre,
       classification: baseResult.genre ? "not_edm" : "unknown",
@@ -89,7 +89,7 @@ export async function synthesizeEnrichedTrackMetadata({
   baseResult,
   providerEvidence,
 }: SynthesisInput): Promise<EnrichedTrackMetadata> {
-  if (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY) {
+  if (!process.env.OPENAI_API_KEY) {
     return addFallbackReviewNotes(baseResult);
   }
 
@@ -190,7 +190,7 @@ async function repairStructuredGenreFromSummary(
   result: EnrichedTrackMetadata,
   providerEvidence: ProviderEvidence,
 ): Promise<EnrichedTrackMetadata> {
-  if (result.genre || !result.summary || (!process.env.OPENAI_API_KEY && !process.env.OPEN_AI_KEY)) {
+  if (result.genre || !result.summary || !process.env.OPENAI_API_KEY) {
     return result;
   }
 

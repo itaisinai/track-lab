@@ -235,7 +235,7 @@ function QueuedTrackAnalysisJobCard({
   } | TrackAnalysisJob;
   onOpenJob: (job: TrackAnalysisJob) => void;
 }) {
-  const copy = getQueuedJobCopy(job.status);
+  const copy = getQueuedJobCopy(job.operation, job.status);
   const canOpenJob = isTrackAnalysisJob(job) && job.status === "completed";
 
   return (
@@ -292,35 +292,43 @@ function getQueuedJobResult(result: unknown) {
   return typeof id === "number" ? { id } : null;
 }
 
-function getQueuedJobCopy(status: string) {
+function getQueuedJobCopy(operation: string, status: string) {
+  const isRemixSearch = operation === "remix_search";
+
   if (status === "completed") {
     return {
-      label: "Track analysis completed",
-      description:
-        "The worker finished this analysis. Open the review queue to inspect and save the result.",
+      label: isRemixSearch ? "Remix search completed" : "Track analysis completed",
+      description: isRemixSearch
+        ? "The worker finished this remix search. Open the results to inspect and save candidates."
+        : "The worker finished this analysis. Open the review queue to inspect and save the result.",
     };
   }
 
   if (status === "failed" || status === "dead_lettered") {
     return {
-      label: "Track analysis failed",
-      description:
-        "The worker could not complete this analysis. Check the review queue for retry options.",
+      label: isRemixSearch ? "Remix search failed" : "Track analysis failed",
+      description: isRemixSearch
+        ? "The worker could not complete this remix search. Check the queue for retry options."
+        : "The worker could not complete this analysis. Check the review queue for retry options.",
     };
   }
 
   if (status === "processing") {
     return {
-      label: "Track analysis in progress",
-      description:
-        "The worker is querying providers and building the analysis result.",
+      label: isRemixSearch
+        ? "Remix search in progress"
+        : "Track analysis in progress",
+      description: isRemixSearch
+        ? "The worker is searching providers and ranking remix candidates."
+        : "The worker is querying providers and building the analysis result.",
     };
   }
 
   return {
-    label: "Track analysis queued",
-    description:
-      "The request is waiting for the worker. No analysis result is available yet.",
+    label: isRemixSearch ? "Remix search queued" : "Track analysis queued",
+    description: isRemixSearch
+      ? "The request is waiting for the worker. Remix candidates will appear when it completes."
+      : "The request is waiting for the worker. No analysis result is available yet.",
   };
 }
 

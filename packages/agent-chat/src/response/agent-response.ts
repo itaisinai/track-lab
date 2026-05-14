@@ -9,19 +9,20 @@ export function buildAssistantMetadata(
     toolCallIds: toolCalls.map(({ call }) => call.id),
   };
 
-  if (completed?.call.toolName === "analyze_track") {
+  if (
+    completed?.call.toolName === "analyze_track" ||
+    completed?.call.toolName === "search_remixes"
+  ) {
     const queuedJob = getQueuedTrackAnalysisJob(completed.result);
 
     if (queuedJob) {
       metadata.queuedTrackAnalysisJob = queuedJob;
+    } else if (completed.call.toolName === "search_remixes") {
+      metadata.remixSearchResult =
+        completed.result as AgentMessageMetadata["remixSearchResult"];
     } else {
       metadata.analysisResult = completed.result;
     }
-  }
-
-  if (completed?.call.toolName === "search_remixes") {
-    metadata.remixSearchResult =
-      completed.result as AgentMessageMetadata["remixSearchResult"];
   }
 
   const failed = toolCalls.find(({ call }) => call.status === "failed");
@@ -44,7 +45,14 @@ export function summarizeToolCalls(toolCalls: ToolExecution[]) {
   }
 
   if (completed.call.toolName === "search_remixes") {
-    const result = completed.result as { candidates?: unknown[] } | null;
+    const result = completed.result as {
+      candidates?: unknown[];
+      job?: { id?: number; operation?: string };
+    } | null;
+    if (typeof result?.job?.id === "number") {
+      return `Queued remix search job #${result.job.id}. The worker will search remixes now; open the result when it completes.`;
+    }
+
     const count = result?.candidates?.length ?? 0;
     return count
       ? `Found ${count} remix candidates.`

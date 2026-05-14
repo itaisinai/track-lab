@@ -1,4 +1,5 @@
 import {
+  type AgentSessionStore,
   type TrackAnalysisJobStatus,
   type TrackAnalysisJobStore,
 } from "@track-lab/datastore";
@@ -12,19 +13,25 @@ const VALID_STATUSES = new Set<TrackAnalysisJobStatus>([
   "dead_lettered",
 ]);
 
-export function createTrackAnalysisRouter(jobs: TrackAnalysisJobStore) {
+export function createTrackAnalysisRouter(
+  jobs: TrackAnalysisJobStore,
+  agentSessions?: AgentSessionStore,
+) {
   const router = Router();
 
   router.get("/track-analysis/jobs", (req: Request, res: Response) => {
     const statuses = getStatuses(req);
 
-    res.json({
-      jobs: jobs.listJobs({
+    const listedJobs = jobs.listJobs({
         statuses,
         unresolvedOnly: req.query.unresolved === "true",
         unreadOnly: req.query.unread === "true",
-      }),
-    });
+      });
+    for (const job of listedJobs) {
+      agentSessions?.syncCompletedAnalysisJob(job);
+    }
+
+    res.json({ jobs: listedJobs });
   });
 
   router.get("/track-analysis/jobs/:id", (req: Request, res: Response) => {
@@ -35,6 +42,7 @@ export function createTrackAnalysisRouter(jobs: TrackAnalysisJobStore) {
       return;
     }
 
+    agentSessions?.syncCompletedAnalysisJob(job);
     res.json({ job });
   });
 

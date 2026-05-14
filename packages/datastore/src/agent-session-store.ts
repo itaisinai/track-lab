@@ -16,6 +16,7 @@ import type {
   AgentToolCallStatus,
   AgentToolInput,
   AgentToolName,
+  TrackAnalysisJob,
 } from "./types.ts";
 
 export class AgentSessionStore {
@@ -64,6 +65,63 @@ export class AgentSessionStore {
       .run(id);
 
     return result.changes > 0;
+  }
+
+  updateSessionTitle(id: number, title: string): AgentSession {
+    const nextTitle = title.trim();
+    if (!nextTitle) {
+      throw new Error("Agent session title is required.");
+    }
+
+    const now = new Date().toISOString();
+    this.db
+      .prepare(`
+        UPDATE agent_sessions
+        SET title = ?,
+            updated_at = ?
+        WHERE id = ?
+      `)
+      .run(nextTitle, now, id);
+
+    const session = this.getSession(id);
+    if (!session) {
+      throw new Error("Agent session was not found.");
+    }
+
+    return session;
+  }
+
+  syncCompletedAnalysisJob(job: TrackAnalysisJob) {
+    if (
+      job.status !== "completed" ||
+      (job.operation !== "analyze" && job.operation !== "enrich")
+    ) {
+      return;
+    }
+
+    const track = getTrackReferenceFromJob(job);
+    if (!track) {
+      return;
+    }
+
+    const sessionIds = this.findSessionIdsForQueuedJob(job.id);
+    for (const sessionId of sessionIds) {
+      this.updateSessionTitle(sessionId, `${track.title} by ${track.artists}`);
+      this.updateSessionMetadata(sessionId, (current) => ({
+        ...current,
+        currentFocusTrack: {
+          ...current.currentFocusTrack,
+          title: track.title,
+          artists: track.artists,
+        },
+        latestAnalyzedTrack: {
+          ...current.latestAnalyzedTrack,
+          title: track.title,
+          artists: track.artists,
+        },
+        latestAnalysisResult: job.result,
+      }));
+    }
   }
 
   listMessages(sessionId: number): AgentMessage[] {
@@ -330,6 +388,29 @@ export class AgentSessionStore {
 
     this.db.exec(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
   }
+
+  private findSessionIdsForQueuedJob(jobId: number) {
+    const rows = this.db
+      .prepare(`
+        SELECT session_id, metadata_json
+        FROM agent_messages
+        WHERE metadata_json LIKE '%queuedTrackAnalysisJob%'
+      `)
+      .all() as Array<{ session_id: number; metadata_json: string }>;
+
+    const sessionIds = new Set<number>();
+    for (const row of rows) {
+      const metadata = parseJson(row.metadata_json) as {
+        queuedTrackAnalysisJob?: { id?: unknown };
+      };
+
+      if (metadata.queuedTrackAnalysisJob?.id === jobId) {
+        sessionIds.add(row.session_id);
+      }
+    }
+
+    return Array.from(sessionIds);
+  }
 }
 
 function mapSessionRow(row: AgentSessionRow): AgentSession {
@@ -368,4 +449,41 @@ function mapToolCallRow(row: AgentToolCallRow): AgentToolCall {
     startedAt: row.started_at,
     completedAt: row.completed_at,
   };
+}
+
+function getTrackReferenceFromJob(job: TrackAnalysisJob) {
+  if (job.payload.operation === "remix_search") {
+    return null;
+  }
+
+  const resultTrack = getTrackReferenceFromResult(job.result);
+  if (resultTrack) {
+    return resultTrack;
+  }
+
+  return {
+    title: job.payload.track.title,
+    artists: job.payload.track.artists,
+  };
+}
+
+function getTrackReferenceFromResult(result: unknown) {
+  if (!result || typeof result !== "object" || Array.isArray(result)) {
+    return null;
+  }
+
+  const record = result as {
+    title?: unknown;
+    artists?: unknown;
+    trackName?: unknown;
+    artist?: unknown;
+  };
+  const title = getNonEmptyString(record.title) ?? getNonEmptyString(record.trackName);
+  const artists = getNonEmptyString(record.artists) ?? getNonEmptyString(record.artist);
+
+  return title && artists ? { title, artists } : null;
+}
+
+function getNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }

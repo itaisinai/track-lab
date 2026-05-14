@@ -2,35 +2,29 @@ import type {
   AgentMessage,
   AgentSession,
   AgentToolCall,
-  SearchRemixesToolInput,
+  AgentTrackReference,
 } from "@track-lab/api-types";
 import { ChatOpenAI } from "@langchain/openai";
-import { AIMessage, HumanMessage } from "@langchain/core/messages";
+import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { AgentSessionStore } from "@track-lab/datastore";
-import { RemixSearchOrchestrator } from "@track-lab/remix-search";
+import { createScopedLogger } from "@track-lab/logger";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { createAgent } from "langchain";
 import { AGENT_SYSTEM_PROMPT } from "./prompts/agent-system-prompt.ts";
-import {
-  hasConcreteTrackReference,
-  isAnalyzeRequest,
-  isRemixRequest,
-  parseAnalyzeRequest,
-  parseRemixRequest,
-} from "./planning/local-request-parser.ts";
 import {
   buildAssistantMetadata,
   getFinalMessageContent,
   summarizeToolCalls,
 } from "./response/agent-response.ts";
 import type { ToolExecution } from "./tool-execution.ts";
-import { AgentToolExecutor } from "./tools/agent-tool-executor.ts";
+import {
+  AgentToolExecutor,
+  type AgentToolRequestContext,
+} from "./tools/agent-tool-executor.ts";
 
 export type AgentRuntimeOptions = {
   modelName?: string;
-  useLlm?: boolean;
   store?: AgentSessionStore;
-  remixSearch?: RemixSearchOrchestrator;
   trackAnalysis?: TrackAnalysisOrchestrator;
 };
 
@@ -39,29 +33,41 @@ type AgentInvocation = {
   toolCalls: ToolExecution[];
 };
 
+type AgentMessageInterpretation = {
+  action: "continue_current_session" | "start_new_session" | "ask_clarifying_question";
+  tool: "analyze_track" | "search_remixes" | "none";
+  requestedTrack: AgentTrackReference | null;
+  requestedGenre: string | null;
+  usesCurrentFocus: boolean;
+  reason: string;
+};
+
 const RECENT_MESSAGE_LIMIT = 8;
 const RELEVANT_TOOL_RESULT_LIMIT = 4;
+const logAgentRuntime = createScopedLogger("agent-runtime");
 
 export class AgentRuntime {
   private readonly store: AgentSessionStore;
-  private readonly remixSearch: RemixSearchOrchestrator;
   private readonly trackAnalysis: TrackAnalysisOrchestrator;
   private readonly toolExecutor: AgentToolExecutor;
   private readonly modelName: string;
-  private readonly useLlm: boolean;
+  private readonly apiKey: string;
 
   constructor(options: AgentRuntimeOptions = {}) {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error("OPENAI_API_KEY is required for the agent runtime.");
+    }
+
     this.store = options.store ?? new AgentSessionStore();
-    this.remixSearch = options.remixSearch ?? new RemixSearchOrchestrator();
     this.trackAnalysis =
       options.trackAnalysis ?? new TrackAnalysisOrchestrator();
     this.toolExecutor = new AgentToolExecutor(
       this.store,
-      this.remixSearch,
       this.trackAnalysis,
     );
     this.modelName = options.modelName ?? "gpt-5-nano";
-    this.useLlm = options.useLlm ?? Boolean(process.env.OPENAI_API_KEY);
+    this.apiKey = apiKey;
   }
 
   async sendMessage(sessionId: number, content: string) {
@@ -76,17 +82,43 @@ export class AgentRuntime {
       throw new Error("Message content is required.");
     }
 
-    const targetSession = this.resolveSessionForMessage(session, trimmed);
+    const interpretation = await this.interpretMessage(session, trimmed);
+    const targetSession = this.resolveSessionForMessage(
+      session,
+      trimmed,
+      interpretation,
+    );
     const targetSessionId = targetSession.id;
+    logAgentRuntime("message received", {
+      requestedSessionId: sessionId,
+      targetSessionId,
+      createdNewSession: targetSessionId !== sessionId,
+      content: trimmed,
+      interpretation,
+      context: this.buildLogContext(targetSessionId),
+    });
     const requestMessage = this.store.addMessage({
       sessionId: targetSessionId,
       role: "user",
       content: trimmed,
     });
 
-    const invocation = this.useLlm
-      ? await this.invokeLlmAgent(targetSessionId, requestMessage, trimmed)
-      : await this.invokeLocalPlanner(targetSessionId, requestMessage, trimmed);
+    const invocation = await this.invokeLlmAgent(
+      targetSessionId,
+      requestMessage,
+      trimmed,
+      interpretation,
+    );
+    logAgentRuntime("message planned", {
+      sessionId: targetSessionId,
+      toolCalls: invocation.toolCalls.map(({ call }) => ({
+        id: call.id,
+        toolName: call.toolName,
+        status: call.status,
+        arguments: call.arguments,
+      })),
+      context: this.buildLogContext(targetSessionId),
+    });
 
     const metadata = buildAssistantMetadata(invocation.toolCalls);
     const assistantMessage = this.store.addMessage({
@@ -112,22 +144,36 @@ export class AgentRuntime {
     sessionId: number,
     requestMessage: AgentMessage,
     content: string,
+    interpretation: AgentMessageInterpretation,
   ): Promise<AgentInvocation> {
     const toolCalls: ToolExecution[] = [];
     const tools = this.toolExecutor.createTools({
       sessionId,
       requestMessageId: requestMessage.id,
       executions: toolCalls,
+      requestContext: interpretationToToolRequestContext(interpretation),
+    });
+    const systemPrompt = this.buildSystemPrompt(sessionId);
+    const messages = this.buildLlmMessages(sessionId);
+    logAgentRuntime("llm agent prompt", {
+      sessionId,
+      requestMessageId: requestMessage.id,
+      systemPrompt,
+      messages: messages.map((message) => ({
+        type: message.getType(),
+        content: message.content,
+      })),
+      context: this.buildLogContext(sessionId),
     });
     const agent = createAgent({
-      model: new ChatOpenAI({ model: this.modelName }),
+      model: new ChatOpenAI({ model: this.modelName, apiKey: this.apiKey }),
       tools,
-      systemPrompt: this.buildSystemPrompt(sessionId),
+      systemPrompt,
     });
 
     try {
       const result = await agent.invoke({
-        messages: this.buildLlmMessages(sessionId),
+        messages,
       });
       return {
         content: getFinalMessageContent(result) ?? summarizeToolCalls(toolCalls),
@@ -141,107 +187,161 @@ export class AgentRuntime {
         };
       }
 
-      return this.invokeLocalPlanner(sessionId, requestMessage, content);
-    }
-  }
-
-  private async invokeLocalPlanner(
-    sessionId: number,
-    requestMessage: AgentMessage,
-    content: string,
-  ): Promise<AgentInvocation> {
-    if (isRemixRequest(content)) {
-      const input = this.resolveRemixInputFromSession(
-        sessionId,
-        parseRemixRequest(content),
-      );
-
-      if (!input.spotifyUrl && (!input.title || !input.artists)) {
-        return {
-          content: "Send a Spotify URL or include both the track title and artist.",
-          toolCalls: [],
-        };
-      }
-
-      const execution = await this.toolExecutor.executeTool({
+      logAgentRuntime("llm agent failed without tool calls", {
         sessionId,
         requestMessageId: requestMessage.id,
-        toolName: "search_remixes",
-        arguments: input,
+        content,
+        error: error instanceof Error ? error.message : "Unknown LLM agent error",
+        context: this.buildLogContext(sessionId),
       });
       return {
-        content: summarizeToolCalls([execution]),
-        toolCalls: [execution],
-      };
-    }
-
-    const input = parseAnalyzeRequest(content);
-
-    if (!input.title || !input.artists) {
-      return {
-        content: "Send the track title and artist, for example: analyze Strobe by deadmau5.",
+        content:
+          "I could not interpret that request reliably. Please ask for track analysis or remix search with the track title and artist.",
         toolCalls: [],
       };
     }
-
-    const execution = await this.toolExecutor.executeTool({
-      sessionId,
-      requestMessageId: requestMessage.id,
-      toolName: "analyze_track",
-      arguments: input,
-    });
-    return {
-      content: summarizeToolCalls([execution]),
-      toolCalls: [execution],
-    };
   }
 
-  private resolveSessionForMessage(session: AgentSession, content: string) {
-    if (!isAnalyzeRequest(content)) {
-      return session;
-    }
+  private async interpretMessage(
+    session: AgentSession,
+    content: string,
+  ): Promise<AgentMessageInterpretation> {
+    try {
+      const model = new ChatOpenAI({
+        model: this.modelName,
+        apiKey: this.apiKey,
+      });
+      const systemPrompt = `You classify Track Lab agent messages before tool execution.
+Return only strict JSON.
+Track Lab has only these user-facing tools:
+- analyze_track: analyze/enrich metadata for one explicit track.
+- search_remixes: search remixes/edits/flips/bootlegs/VIPs/reworks for one track.
 
-    const requestedTrack = parseAnalyzeRequest(content);
-    if (!requestedTrack.title || !requestedTrack.artists) {
+Sessions are focused workspaces around one current track.
+If the user explicitly names a different track than the current focus, return action "start_new_session".
+If the user refers to this track, it, same song, or asks a follow-up about the current focus, return action "continue_current_session" and usesCurrentFocus true.
+For remix searches, extract requestedGenre from natural language when present, such as bass, house, techno, dubstep, drum and bass, trance, melodic, hardstyle, or similar style words.
+If the request cannot be satisfied with these tools, return tool "none".
+Do not infer provider-specific tools.`;
+      const payload = {
+        currentSession: {
+          id: session.id,
+          title: session.title,
+          metadata: session.metadata,
+        },
+        recentMessages: this.store
+          .listMessages(session.id)
+          .slice(-RECENT_MESSAGE_LIMIT)
+          .map((message) => ({
+            role: message.role,
+            content: message.content,
+            metadata: message.metadata,
+          })),
+        userMessage: content,
+        requiredShape: {
+          action:
+            "continue_current_session | start_new_session | ask_clarifying_question",
+          tool: "analyze_track | search_remixes | none",
+          requestedTrack: {
+            title: "string",
+            artists: "string",
+            spotifyUrl: "string | null",
+            genre: "string | null",
+          },
+          requestedGenre: "string | null",
+          usesCurrentFocus: "boolean",
+          reason: "short diagnostic reason",
+        },
+      };
+      logAgentRuntime("llm interpretation prompt", {
+        sessionId: session.id,
+        systemPrompt,
+        payload,
+      });
+      const response = await model.invoke([
+        new SystemMessage(systemPrompt),
+        new HumanMessage(JSON.stringify(payload)),
+      ]);
+      const parsed = parseJsonObject(getMessageContent(response));
+      const interpretation = normalizeInterpretation(parsed);
+      logAgentRuntime("message interpreted by llm", {
+        sessionId: session.id,
+        content,
+        interpretation,
+        context: {
+          metadata: session.metadata,
+        },
+      });
+      return interpretation;
+    } catch (error) {
+      logAgentRuntime("message interpretation failed", {
+        sessionId: session.id,
+        content,
+        error: error instanceof Error ? error.message : "Unknown interpretation error",
+      });
+      throw new Error("The agent could not interpret the message with the LLM.");
+    }
+  }
+
+  private resolveSessionForMessage(
+    session: AgentSession,
+    content: string,
+    interpretation: AgentMessageInterpretation,
+  ) {
+    const requestedTrack = interpretation.requestedTrack;
+    if (!requestedTrack?.title || !requestedTrack.artists) {
+      logAgentRuntime("session routing kept", {
+        sessionId: session.id,
+        reason: interpretation.reason || "no explicit track reference",
+        content,
+        interpretation,
+        context: {
+          metadata: session.metadata,
+        },
+      });
       return session;
     }
 
     const focusTrack = session.metadata.currentFocusTrack;
-    if (!focusTrack || sameTrack(focusTrack, requestedTrack)) {
+    if (interpretation.action !== "start_new_session") {
+      logAgentRuntime("session routing kept", {
+        sessionId: session.id,
+        reason: interpretation.reason || "LLM chose current session",
+        requestedTrack,
+        interpretation,
+        context: {
+          metadata: session.metadata,
+        },
+      });
       return session;
     }
 
-    return this.store.createSession(
+    if (!focusTrack || sameTrack(focusTrack, requestedTrack)) {
+      logAgentRuntime("session routing kept", {
+        sessionId: session.id,
+        reason: focusTrack ? "same focus track" : "no current focus track",
+        requestedTrack,
+        interpretation,
+        context: {
+          metadata: session.metadata,
+        },
+      });
+      return session;
+    }
+
+    const nextSession = this.store.createSession(
       `${requestedTrack.title} by ${requestedTrack.artists}`,
     );
-  }
+    logAgentRuntime("session routing split", {
+      previousSessionId: session.id,
+      nextSessionId: nextSession.id,
+      previousFocusTrack: focusTrack,
+      requestedTrack,
+      interpretation,
+      content,
+    });
 
-  private resolveRemixInputFromSession(
-    sessionId: number,
-    input: SearchRemixesToolInput,
-  ): SearchRemixesToolInput {
-    if (
-      input.spotifyUrl ||
-      (hasConcreteTrackReference(input.title) &&
-        hasConcreteTrackReference(input.artists))
-    ) {
-      return input;
-    }
-
-    const focusTrack = this.store.getSession(sessionId)?.metadata.currentFocusTrack;
-    if (!focusTrack) {
-      return input;
-    }
-
-    return {
-      ...input,
-      title: hasConcreteTrackReference(input.title) ? input.title : focusTrack.title,
-      artists: hasConcreteTrackReference(input.artists)
-        ? input.artists
-        : focusTrack.artists,
-      spotifyUrl: input.spotifyUrl ?? focusTrack.spotifyUrl ?? null,
-      genre: input.genre ?? focusTrack.genre ?? null,
-    };
+    return nextSession;
   }
 
   private buildSystemPrompt(sessionId: number) {
@@ -263,6 +363,35 @@ ${JSON.stringify(
   null,
   2,
 )}`;
+  }
+
+  private buildLogContext(sessionId: number) {
+    const session = this.store.getSession(sessionId);
+    const recentMessages = this.store
+      .listMessages(sessionId)
+      .slice(-RECENT_MESSAGE_LIMIT)
+      .map((message) => ({
+        role: message.role,
+        content: message.content,
+        metadata: message.metadata,
+      }));
+    const relevantToolResults = this.store
+      .listToolCalls(sessionId)
+      .filter((call) => call.status === "completed")
+      .slice(-RELEVANT_TOOL_RESULT_LIMIT)
+      .map(summarizeToolCallForContext);
+
+    return {
+      session: session
+        ? {
+            id: session.id,
+            title: session.title,
+            metadata: session.metadata,
+          }
+        : null,
+      recentMessages,
+      relevantToolResults,
+    };
   }
 
   private buildLlmMessages(sessionId: number) {
@@ -300,7 +429,7 @@ function summarizeToolCallForContext(call: AgentToolCall) {
   }
 
   const result = call.result as
-    | { candidates?: unknown[]; originalTrack?: unknown; requestedGenre?: unknown }
+    | { candidates?: unknown[]; originalTrack?: unknown; requestedGenre?: unknown; job?: unknown }
     | null;
 
   return {
@@ -310,6 +439,7 @@ function summarizeToolCallForContext(call: AgentToolCall) {
       originalTrack: result?.originalTrack,
       requestedGenre: result?.requestedGenre ?? null,
       candidateCount: result?.candidates?.length ?? 0,
+      job: result?.job,
     },
   };
 }
@@ -333,4 +463,115 @@ function summarizeAnalysisResult(result: unknown) {
     status: record.status,
     summary: record.summary,
   };
+}
+
+function normalizeInterpretation(value: unknown): AgentMessageInterpretation {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return {
+      action: "continue_current_session",
+      tool: "none",
+      requestedTrack: null,
+      requestedGenre: null,
+      usesCurrentFocus: false,
+      reason: "LLM returned no parseable interpretation.",
+    };
+  }
+
+  const record = value as Record<string, unknown>;
+  const action = getInterpretationAction(record.action);
+  const tool = getInterpretationTool(record.tool);
+  const requestedTrack = getRequestedTrack(record.requestedTrack);
+
+  return {
+    action,
+    tool,
+    requestedTrack,
+    requestedGenre: getNonEmptyString(record.requestedGenre),
+    usesCurrentFocus: record.usesCurrentFocus === true,
+    reason:
+      typeof record.reason === "string" && record.reason.trim()
+        ? record.reason.trim()
+        : "No reason provided.",
+  };
+}
+
+function interpretationToToolRequestContext(
+  interpretation: AgentMessageInterpretation,
+): AgentToolRequestContext {
+  return {
+    requestedTrack: interpretation.requestedTrack,
+    requestedGenre:
+      interpretation.requestedGenre ?? interpretation.requestedTrack?.genre ?? null,
+    usesCurrentFocus: interpretation.usesCurrentFocus,
+    tool: interpretation.tool,
+  };
+}
+
+function getInterpretationAction(
+  value: unknown,
+): AgentMessageInterpretation["action"] {
+  return value === "start_new_session" ||
+    value === "ask_clarifying_question" ||
+    value === "continue_current_session"
+    ? value
+    : "continue_current_session";
+}
+
+function getInterpretationTool(value: unknown): AgentMessageInterpretation["tool"] {
+  return value === "analyze_track" ||
+    value === "search_remixes" ||
+    value === "none"
+    ? value
+    : "none";
+}
+
+function getRequestedTrack(value: unknown): AgentTrackReference | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return null;
+  }
+
+  const record = value as Record<string, unknown>;
+  const title = getNonEmptyString(record.title);
+  const artists = getNonEmptyString(record.artists);
+  if (!title || !artists) {
+    return null;
+  }
+
+  return {
+    title,
+    artists,
+    spotifyUrl: getNonEmptyString(record.spotifyUrl),
+    genre: getNonEmptyString(record.genre),
+  };
+}
+
+function parseJsonObject(value: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  const fencedJson = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
+  const candidate = fencedJson ?? value;
+
+  try {
+    const parsed = JSON.parse(candidate);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
+      ? parsed
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function getMessageContent(message: unknown) {
+  if (!message || typeof message !== "object" || Array.isArray(message)) {
+    return null;
+  }
+
+  const content = (message as Record<string, unknown>).content;
+  return typeof content === "string" ? content : null;
+}
+
+function getNonEmptyString(value: unknown) {
+  return typeof value === "string" && value.trim() ? value.trim() : null;
 }

@@ -27,7 +27,7 @@ export function createApp(store = new TrackResultStore()) {
   app.use(createTrackAnalysisEnqueueRouter(orchestrator));
   app.use(createRemixSearchRouter(orchestrator, remixStore));
   app.use(createResultsRouter(store, orchestrator));
-  app.use(createTrackAnalysisRouter(jobStore));
+  app.use(createTrackAnalysisRouter(jobStore, agentStore));
 
   return app;
 }

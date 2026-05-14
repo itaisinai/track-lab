@@ -43,6 +43,7 @@ export type AgentSessionMetadata = Partial<{
     track: AgentTrackReference;
     requestedGenre?: string | null;
     resultCount?: number;
+    jobId?: number;
   };
 }>;
 

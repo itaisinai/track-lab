@@ -46,6 +46,8 @@ function scoreCandidate(
     .filter(Boolean);
   const genre = normalize(request.genre ?? "");
   const reasons = buildCandidateRelevanceReasons(candidate, title, artistTokens, genre, haystack);
+  const hasOriginalArtistEvidence = hasArtistEvidence(artistTokens, haystack);
+  const hasRemixEvidence = hasRemixTerminology(haystack);
   let score = 0;
 
   if (hasTitleEvidence(title, haystack)) {
@@ -54,11 +56,11 @@ function scoreCandidate(
     score += 24;
   }
 
-  if (hasArtistEvidence(artistTokens, haystack)) {
+  if (hasOriginalArtistEvidence) {
     score += 20;
   }
 
-  if (hasRemixTerminology(haystack)) {
+  if (hasRemixEvidence) {
     score += 18;
   }
 
@@ -71,6 +73,14 @@ function scoreCandidate(
   }
 
   if (!hasTitleEvidence(title, haystack) && !hasCloseTitleEvidence(title, haystack)) {
+    score = Math.min(score, 30);
+  }
+
+  if (!hasOriginalArtistEvidence) {
+    score = Math.min(score, 30);
+  }
+
+  if (!hasRemixEvidence) {
     score = Math.min(score, 30);
   }
 

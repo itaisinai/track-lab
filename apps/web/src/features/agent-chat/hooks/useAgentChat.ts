@@ -83,6 +83,21 @@ export function useAgentChat() {
         .join("|"),
     [queuedTrackAnalysisJobQueries],
   );
+  const completedTrackAnalysisJobVersion = useMemo(
+    () =>
+      queuedTrackAnalysisJobQueries
+        .map((query) => query.data)
+        .filter(
+          (job): job is TrackAnalysisJob =>
+            job !== undefined &&
+            (job.status === "completed" ||
+              job.status === "failed" ||
+              job.status === "dead_lettered"),
+        )
+        .map((job) => `${job.id}:${job.status}:${job.updatedAt}`)
+        .join("|"),
+    [queuedTrackAnalysisJobQueries],
+  );
 
   useEffect(() => {
     window.localStorage.setItem(ASSISTANT_OPEN_KEY, String(isOpen));
@@ -102,6 +117,19 @@ export function useAgentChat() {
       setSelectedSessionId(sessions[0].id);
     }
   }, [selectedSessionId, sessions]);
+
+  useEffect(() => {
+    if (!completedTrackAnalysisJobVersion) {
+      return;
+    }
+
+    void queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+    if (selectedSessionId) {
+      void queryClient.invalidateQueries({
+        queryKey: queryKeys.agentSession(selectedSessionId),
+      });
+    }
+  }, [completedTrackAnalysisJobVersion, queryClient, selectedSessionId]);
 
   const toolCallsByMessageId = useMemo(() => {
     const byMessage = new Map<number, typeof toolCalls>();
@@ -157,7 +185,13 @@ export function useAgentChat() {
         queryKey: queryKeys.agentSession(sessionId),
       });
     }
-    await queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions });
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: queryKeys.agentSessions }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activeJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.notificationJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.reviewJobs }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.allJobs }),
+    ]);
   }
 
   async function saveAnalysisResult(messageId: number, analysisResult: unknown) {

@@ -79,6 +79,58 @@ test("ranker accepts minor title typos and rejects unrelated same-artist remixes
   assert.equal(ranked[0]?.title, "ABBA - Gimme Gimme Gimme (Club Remix)");
 });
 
+test("ranker rejects same-title remixes without requested original artist evidence", () => {
+  const ranked = rankRemixCandidates(
+    [
+      candidate({
+        title: "Kumarion - Want It (Chaotic Good Flip)",
+        artists: "Chaotic Good",
+      }),
+      candidate({
+        title: "PEEKABOO - Want It (House Edit)",
+        artists: "Test DJ",
+      }),
+    ],
+    {
+      title: "Want It",
+      artists: "PEEKABOO",
+      genre: null,
+      spotifyUrl: null,
+    },
+  );
+
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0]?.title, "PEEKABOO - Want It (House Edit)");
+});
+
+test("ranker rejects original track releases without remix evidence", () => {
+  const ranked = rankRemixCandidates(
+    [
+      candidate({
+        title: "Want It",
+        artists: "PEEKABOO",
+      }),
+      candidate({
+        title: "Want It",
+        artists: "PEEKABOO, borne",
+      }),
+      candidate({
+        title: "PEEKABOO - Want It (House Edit)",
+        artists: "Test DJ",
+      }),
+    ],
+    {
+      title: "Want It",
+      artists: "PEEKABOO",
+      genre: null,
+      spotifyUrl: null,
+    },
+  );
+
+  assert.equal(ranked.length, 1);
+  assert.equal(ranked[0]?.title, "PEEKABOO - Want It (House Edit)");
+});
+
 function candidate(
   overrides: Partial<RemixSearchCandidate>,
 ): RemixSearchCandidate {
