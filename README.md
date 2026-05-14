@@ -38,7 +38,7 @@ flowchart TD
   F --> G{Deterministic EDM signals clear?}
   G -->|yes| H[Run Beatport + SoundCloud in code]
   G -->|no| I[Skip EDM providers]
-  G -->|ambiguous| J[Ask LLM EDM planner]
+  G -->|ambiguous| J[Ask LLM EDM classifier]
   J --> H
   H --> K[Normalize / dedupe evidence]
   I --> K
