@@ -7,7 +7,7 @@ import type {
 } from "@track-lab/api-types";
 import type { AgentSessionStore } from "@track-lab/datastore";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
-import type { ToolExecution } from "../tool-execution.ts";
+import type { ToolExecution } from "./tool-execution-types.ts";
 import {
   createAnalyzeTrackTool,
   executeAnalyzeTrackTool,
@@ -20,7 +20,7 @@ import {
   logToolCallCompleted,
   logToolCallFailed,
   logToolCallStarted,
-} from "./tool-logging.ts";
+} from "./tool-execution-logger.ts";
 
 export type AgentToolRequestContext = {
   requestedTrack?: AgentTrackReference | null;

@@ -42,3 +42,5 @@ Always return only the JSON object produced by enrich_track_metadata:
   "errors"?: string[]
 }`,
 });
+
+export const metadataAgent = conversationalMetadataAgent;

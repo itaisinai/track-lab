@@ -1,5 +1,5 @@
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
-import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
+import type { ProviderEvidence } from "../enrichment/provider-evidence.ts";
 
 // Static planner policy context added directly to the LLM prompt to keep
 // provider planning consistent.

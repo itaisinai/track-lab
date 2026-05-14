@@ -1,2 +1,2 @@
-export { AgentRuntime } from "./runtime.ts";
-export type { AgentRuntimeOptions } from "./runtime.ts";
+export { AgentOrchestrator } from "./agent-orchestrator.ts";
+export type { AgentOrchestratorOptions } from "./agent-orchestrator.ts";

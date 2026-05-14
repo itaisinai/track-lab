@@ -1,5 +1,5 @@
 import type { AgentMessageMetadata } from "@track-lab/api-types";
-import type { ToolExecution } from "../tool-execution.ts";
+import type { ToolExecution } from "../tools/tool-execution-types.ts";
 
 export function buildAssistantMetadata(
   toolCalls: ToolExecution[],

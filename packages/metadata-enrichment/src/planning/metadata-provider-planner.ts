@@ -1,16 +1,19 @@
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
-import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "../enrichment/types.ts";
-import type { ProviderEvidence } from "../enrichment/llm-synthesis.ts";
+import type {
+  EnrichedTrackMetadata,
+  EnrichTrackMetadataInput,
+} from "../enrichment/types.ts";
+import type { ProviderEvidence } from "../enrichment/provider-evidence.ts";
 import {
   flattenPlannerPolicyContext,
   getPlannerPolicyContext,
   type PlannerPolicyContext,
 } from "./planner-policy-context.ts";
 import {
-  planEdmProviders,
-  type EdmProviderPlan,
-} from "./edm-provider-planner.ts";
+  classifyEdmProviderNeed,
+  type EdmProviderDecision,
+} from "./edm-provider-classifier.ts";
 import {
   toPlannerCurrentResultSummary,
   toPlannerProviderEvidenceSummary,
@@ -22,7 +25,7 @@ export type MetadataProviderPlan = {
   lookupContextProvider: boolean;
   reasons: string[];
   strategyContext: PlannerPolicyContext;
-  edmProviderPlan: EdmProviderPlan;
+  edmProviderDecision: EdmProviderDecision;
 };
 
 export type MetadataProviderPlanInput = {
@@ -44,7 +47,7 @@ export async function planMetadataProviders(
   const providerEvidenceSummary = toPlannerProviderEvidenceSummary(
     input.providerEvidence,
   );
-  const edmProviderPlan = await planEdmProviders({
+  const edmProviderDecision = await classifyEdmProviderNeed({
     currentResult: input.currentResult,
     currentResultSummary,
     providerEvidenceSummary,
@@ -52,9 +55,9 @@ export async function planMetadataProviders(
 
   if (!process.env.OPENAI_API_KEY) {
     return {
-      ...createFallbackPlan(input, edmProviderPlan),
+      ...createFallbackPlan(input, edmProviderDecision),
       strategyContext,
-      edmProviderPlan,
+      edmProviderDecision,
     };
   }
 
@@ -84,7 +87,7 @@ Rules:
           currentResult: currentResultSummary,
           providerEvidence: providerEvidenceSummary,
           retrievedContext: flattenPlannerPolicyContext(strategyContext),
-          edmProviderPlan,
+          edmProviderDecision,
           requiredShape: {
             lookupBpmProvider: "boolean",
             lookupEdmCatalogProviders: "boolean",
@@ -97,36 +100,39 @@ Rules:
     const parsed = parseJsonObject(getMessageContent(response));
 
     return {
-      lookupBpmProvider: getBoolean(parsed?.lookupBpmProvider) ?? shouldLookupBpm(input),
+      lookupBpmProvider:
+        getBoolean(parsed?.lookupBpmProvider) ?? shouldLookupBpm(input),
       lookupEdmCatalogProviders:
         getBoolean(parsed?.lookupEdmCatalogProviders) ??
-        edmProviderPlan.shouldRunEdmProviders,
+        edmProviderDecision.shouldRunEdmProviders,
       lookupContextProvider:
         getBoolean(parsed?.lookupContextProvider) ?? shouldLookupContext(input),
-      reasons: getStringArray(parsed?.reasons) ?? createFallbackReasons(input, edmProviderPlan),
+      reasons:
+        getStringArray(parsed?.reasons) ??
+        createFallbackReasons(input, edmProviderDecision),
       strategyContext,
-      edmProviderPlan,
+      edmProviderDecision,
     };
   } catch (error) {
     return {
-      ...createFallbackPlan(input, edmProviderPlan, error),
+      ...createFallbackPlan(input, edmProviderDecision, error),
       strategyContext,
-      edmProviderPlan,
+      edmProviderDecision,
     };
   }
 }
 
 function createFallbackPlan(
   input: MetadataProviderPlanInput,
-  edmProviderPlan: EdmProviderPlan,
+  edmProviderDecision: EdmProviderDecision,
   error?: unknown,
 ): Omit<MetadataProviderPlan, "strategyContext"> {
   return {
     lookupBpmProvider: shouldLookupBpm(input),
-    lookupEdmCatalogProviders: edmProviderPlan.shouldRunEdmProviders,
+    lookupEdmCatalogProviders: edmProviderDecision.shouldRunEdmProviders,
     lookupContextProvider: shouldLookupContext(input),
-    reasons: createFallbackReasons(input, edmProviderPlan, error),
-    edmProviderPlan,
+    reasons: createFallbackReasons(input, edmProviderDecision, error),
+    edmProviderDecision,
   };
 }
 
@@ -144,7 +150,7 @@ function shouldLookupContext({ input, currentResult }: MetadataProviderPlanInput
 
 function createFallbackReasons(
   input: MetadataProviderPlanInput,
-  edmProviderPlan: EdmProviderPlan,
+  edmProviderDecision: EdmProviderDecision,
   error?: unknown,
 ) {
   const reasons: string[] = [];
@@ -153,7 +159,7 @@ function createFallbackReasons(
     reasons.push("BPM or key is missing, so GetSongBPM is useful.");
   }
 
-  if (edmProviderPlan.shouldRunEdmProviders) {
+  if (edmProviderDecision.shouldRunEdmProviders) {
     reasons.push(
       "EDM providers should run based on deterministic or LLM EDM planning.",
     );

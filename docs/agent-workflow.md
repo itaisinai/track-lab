@@ -8,7 +8,7 @@ message to the right session, and uses only the user-facing tools.
 flowchart TD
   U[User message] --> W[apps/web agent chat]
   W --> A[apps/api /agent/sessions/:id/messages]
-  A --> R[packages/agent-chat AgentRuntime]
+  A --> R[packages/agent-chat AgentOrchestrator]
 
   R --> I[LLM message interpretation]
   I --> S{Session routing}

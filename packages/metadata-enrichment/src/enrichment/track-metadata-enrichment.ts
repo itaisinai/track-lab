@@ -11,8 +11,8 @@ import { getEnrichmentStatus } from "./enrichment-status.ts";
 import type { EnrichmentResultStore } from "./enrichment-result-store.ts";
 import {
   synthesizeEnrichedTrackMetadata,
-  type ProviderEvidence,
-} from "./llm-synthesis.ts";
+} from "./metadata-synthesizer.ts";
+import type { ProviderEvidence } from "./provider-evidence.ts";
 import type {
   EnrichedTrackMetadata,
   EnrichTrackMetadataInput,
@@ -288,7 +288,7 @@ async function applyProviderStrategy(
           providerRules: [],
           userPreferences: [],
         },
-        edmProviderPlan: {
+        edmProviderDecision: {
           classification: "unknown",
           shouldRunEdmProviders: false,
           providersToRun: [],

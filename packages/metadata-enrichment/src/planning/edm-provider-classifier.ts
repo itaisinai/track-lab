@@ -3,7 +3,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { EnrichedTrackMetadata } from "../enrichment/types.ts";
 import type { PlannerCurrentResultSummary, PlannerProviderEvidenceSummary } from "./planner-input.ts";
 
-export type EdmProviderPlan = {
+export type EdmProviderDecision = {
   classification: "edm" | "unknown" | "not_edm";
   shouldRunEdmProviders: boolean;
   providersToRun: Array<"beatport" | "soundcloud">;
@@ -12,13 +12,13 @@ export type EdmProviderPlan = {
   decidedBy: "deterministic" | "llm" | "fallback";
 };
 
-export type EdmProviderPlannerInput = {
+export type EdmProviderClassificationInput = {
   currentResult: EnrichedTrackMetadata;
   currentResultSummary: PlannerCurrentResultSummary;
   providerEvidenceSummary: PlannerProviderEvidenceSummary;
 };
 
-const edmPlannerModel = new ChatOpenAI({
+const edmClassifierModel = new ChatOpenAI({
   model: "gpt-5-nano",
   apiKey: process.env.OPENAI_API_KEY,
 });
@@ -57,10 +57,10 @@ const NON_EDM_SIGNAL_TERMS = [
   "classical",
 ];
 
-export async function planEdmProviders(
-  input: EdmProviderPlannerInput,
-): Promise<EdmProviderPlan> {
-  const deterministic = classifyEdmDeterministically(input);
+export async function classifyEdmProviderNeed(
+  input: EdmProviderClassificationInput,
+): Promise<EdmProviderDecision> {
+  const deterministic = classifyEdmProviderNeedDeterministically(input);
 
   if (deterministic.classification !== "unknown") {
     return deterministic;
@@ -78,7 +78,7 @@ export async function planEdmProviders(
   }
 
   try {
-    const response = await edmPlannerModel.invoke([
+    const response = await edmClassifierModel.invoke([
       new SystemMessage(`Classify whether Beatport and SoundCloud should run for this track.
 Return only strict JSON.
 Use "edm" when the track is likely EDM, DJ, club, remix, bass, or underground dance music.
@@ -132,9 +132,9 @@ Do not classify as EDM only because BPM or key exists.`),
   }
 }
 
-export function classifyEdmDeterministically(
-  input: EdmProviderPlannerInput,
-): EdmProviderPlan {
+export function classifyEdmProviderNeedDeterministically(
+  input: EdmProviderClassificationInput,
+): EdmProviderDecision {
   const text = [
     input.currentResultSummary.trackName,
     input.currentResultSummary.artist,
@@ -185,13 +185,13 @@ export function classifyEdmDeterministically(
   };
 }
 
-function parseClassification(value: unknown): EdmProviderPlan["classification"] {
+function parseClassification(value: unknown): EdmProviderDecision["classification"] {
   return value === "edm" || value === "unknown" || value === "not_edm"
     ? value
     : "unknown";
 }
 
-function parseConfidence(value: unknown): EdmProviderPlan["confidence"] | null {
+function parseConfidence(value: unknown): EdmProviderDecision["confidence"] | null {
   return value === "high" || value === "medium" || value === "low"
     ? value
     : null;
@@ -199,9 +199,9 @@ function parseConfidence(value: unknown): EdmProviderPlan["confidence"] | null {
 
 function parseProvidersToRun(
   value: unknown,
-  classification: EdmProviderPlan["classification"],
-): EdmProviderPlan["providersToRun"] {
-  const edmProviders: EdmProviderPlan["providersToRun"] = [
+  classification: EdmProviderDecision["classification"],
+): EdmProviderDecision["providersToRun"] {
+  const edmProviders: EdmProviderDecision["providersToRun"] = [
     "beatport",
     "soundcloud",
   ];
@@ -216,7 +216,7 @@ function parseProvidersToRun(
   );
 
   return providers.length > 0
-    ? (Array.from(new Set(providers)) as EdmProviderPlan["providersToRun"])
+    ? (Array.from(new Set(providers)) as EdmProviderDecision["providersToRun"])
     : classification === "edm"
       ? edmProviders
       : [];

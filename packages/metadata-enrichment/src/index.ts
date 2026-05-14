@@ -1,4 +1,4 @@
-export { conversationalMetadataAgent } from "./conversational-metadata-agent.ts";
+export { conversationalMetadataAgent, metadataAgent } from "./metadata-agent.ts";
 export { enrichTrackMetadata } from "./enrichment/track-metadata-enrichment.ts";
 export { invokeMetadataEnrichment } from "./invoke-metadata-enrichment.ts";
 export type {
