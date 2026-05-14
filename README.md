@@ -10,7 +10,7 @@ calling external providers.
 - `apps/web` - React/Vite UI.
 - `packages/agent-chat` - track-focused agent orchestration, session routing, and tool execution.
 - `packages/metadata-enrichment` - metadata enrichment strategy, provider planning,
-  provider evidence merging, and LLM synthesis.
+  provider evidence merging, and metadata synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
 - `packages/remix-search` - Remix discovery providers and ranking.
 - `packages/datastore` - SQLite result store.
@@ -42,7 +42,7 @@ flowchart TD
   J --> H
   H --> K[Normalize / dedupe evidence]
   I --> K
-  K --> L[LLM synthesis]
+  K --> L[metadata synthesis]
   L --> M[Final metadata]
 
   C -->|remix_search| N[Resolve original track]
