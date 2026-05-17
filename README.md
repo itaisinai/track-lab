@@ -94,16 +94,14 @@ yarn workspace @track-lab/web build
 
 ## Environment
 
-Create `.env` in the repo root.
+Create `.env` in the repo root from [.env.example](.env.example).
 
 ```sh
-OPENAI_API_KEY=
-SPOTIFY_CLIENT_ID=
-SPOTIFY_CLIENT_SECRET=
-GETSONGBPM_API_KEY=
-# Optional fallback search service for SoundCloud discovery.
-SEARXNG_SEARCH_URL=http://localhost:8080/search
+cp .env.example .env
 ```
+
+Set `DATABASE_URL` to the local Docker Postgres URL or to your RDS URL with
+`sslmode=no-verify` for container access.
 
 Provider credentials are optional for local wiring, but real enrichment quality
 depends on them.
@@ -137,7 +135,7 @@ To use the Prisma/PostgreSQL repository instead of SQLite:
 
 ```sh
 DATASTORE_PROVIDER=prisma
-DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?sslmode=no-verify
 ```
 
 To copy existing `track_results` rows from the SQLite database into
