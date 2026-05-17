@@ -73,6 +73,18 @@ yarn dev:web
 
 Docker setup: [`docker/README.md`](docker/README.md)
 
+## Docker Development
+
+Run the full local stack with:
+
+```sh
+yarn dev:docker
+```
+
+This starts the API, worker, web app, PostgreSQL, and the one-shot migration
+service that applies Prisma migrations and copies existing `track_results`
+from SQLite into PostgreSQL when present.
+
 Useful checks:
 
 ```sh
