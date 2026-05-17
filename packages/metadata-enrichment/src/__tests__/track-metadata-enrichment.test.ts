@@ -760,7 +760,7 @@ function metadataProvider(
 
 function localStore(): EnrichmentResultStore {
   return {
-    findByTrack: () => ({
+    findByTrack: async () => ({
       id: 1,
       title: "HUMBLE.",
       artists: "Kendrick Lamar",

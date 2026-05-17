@@ -29,7 +29,7 @@ flowchart TD
   J --> X[apps/worker]
   M --> X
 
-  X --> D[SQLite datastore]
+  X --> D[Datastore provider]
   D --> U1[Update session title and metadata]
   U1 --> W
 

@@ -5,6 +5,7 @@ import type {
   TrackResult,
   TrackResultRow,
 } from "./types.ts";
+import type { TrackResultRepository } from "./track-result-repository.ts";
 import { dirname, resolve } from "node:path";
 import { parseJson, parseJsonArray } from "./lib/json.ts";
 
@@ -14,7 +15,7 @@ import { mkdirSync } from "node:fs";
 import { normalizeTrackResult } from "./normalization.ts";
 import { normalizeUniqueKey } from "./lib/object.ts";
 
-export class TrackResultStore {
+export class TrackResultStore implements TrackResultRepository {
   readonly db: DatabaseSync;
   private hasLegacyToolsUsedColumn = false;
 

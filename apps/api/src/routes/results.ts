@@ -1,33 +1,50 @@
-import { extractEnrichmentResponse, type TrackResultStore } from "@track-lab/datastore";
+import {
+  extractEnrichmentResponse,
+  type TrackResultRepository,
+} from "@track-lab/datastore";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import { Router, type Request, type Response } from "express";
 
 export function createResultsRouter(
-  store: TrackResultStore,
+  store: TrackResultRepository,
   orchestrator: TrackAnalysisOrchestrator,
 ) {
   const router = Router();
 
-  router.get("/results", (_req: Request, res: Response) => {
-    res.json({ results: store.listResults() });
-  });
-
-  router.get("/results/:id", (req: Request, res: Response) => {
-    const result = store.getResult(Number(req.params.id));
-
-    if (!result) {
-      res.status(404).json({ error: "Result not found." });
-      return;
+  router.get("/results", async (_req: Request, res: Response) => {
+    try {
+      res.json({ results: await store.listResults() });
+    } catch (error) {
+      console.error("Error listing results:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Could not list results.",
+      });
     }
-
-    res.json({ result });
   });
 
-  router.post("/results", (req: Request, res: Response) => {
+  router.get("/results/:id", async (req: Request, res: Response) => {
+    try {
+      const result = await store.getResult(Number(req.params.id));
+
+      if (!result) {
+        res.status(404).json({ error: "Result not found." });
+        return;
+      }
+
+      res.json({ result });
+    } catch (error) {
+      console.error("Error loading result:", error);
+      res.status(500).json({
+        error: error instanceof Error ? error.message : "Could not load result.",
+      });
+    }
+  });
+
+  router.post("/results", async (req: Request, res: Response) => {
     try {
       const enrichmentResponse =
         req.body.enrichmentResponse ?? req.body.agentResponse ?? req.body;
-      const saved = store.saveResult(extractEnrichmentResponse(enrichmentResponse));
+      const saved = await store.saveResult(extractEnrichmentResponse(enrichmentResponse));
       res.status(201).json({ result: saved });
     } catch (error) {
       console.error("Error saving result:", error);
@@ -37,26 +54,34 @@ export function createResultsRouter(
     }
   });
 
-  router.delete("/results/:id", (req: Request, res: Response) => {
-    const deleted = store.deleteResult(Number(req.params.id));
+  router.delete("/results/:id", async (req: Request, res: Response) => {
+    try {
+      const deleted = await store.deleteResult(Number(req.params.id));
 
-    if (!deleted) {
-      res.status(404).json({ error: "Result not found." });
-      return;
+      if (!deleted) {
+        res.status(404).json({ error: "Result not found." });
+        return;
+      }
+
+      res.sendStatus(204);
+    } catch (error) {
+      console.error("Error deleting result:", error);
+      res.status(500).json({
+        error:
+          error instanceof Error ? error.message : "Could not delete result.",
+      });
     }
-
-    res.sendStatus(204);
   });
 
-  router.post("/results/:id/enrich", (req: Request, res: Response) => {
-    const saved = store.getResult(Number(req.params.id));
-
-    if (!saved) {
-      res.status(404).json({ error: "Result not found." });
-      return;
-    }
-
+  router.post("/results/:id/enrich", async (req: Request, res: Response) => {
     try {
+      const saved = await store.getResult(Number(req.params.id));
+
+      if (!saved) {
+        res.status(404).json({ error: "Result not found." });
+        return;
+      }
+
       const job = orchestrator.enqueue({
         operation: "enrich",
         track: {

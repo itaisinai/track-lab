@@ -14,6 +14,13 @@ That command starts the API, worker, and web containers through
 - The compose file uses the repository root as the build context.
 - Local `.env` values are passed into containers through compose.
 - Container entrypoints use the `start:docker` and `dev:docker` scripts.
+- The PostgreSQL service is available for the Prisma datastore path.
+- Set `DATASTORE_PROVIDER=prisma` and
+  `DATABASE_URL=postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public`
+  to point the API and worker at PostgreSQL inside Docker.
+- Compose runs the Prisma migration service before the API and worker start.
+- That migration service also copies existing `track_results` rows from the
+  mounted SQLite database into PostgreSQL when the SQLite file is present.
 
 ## Direct compose command
 

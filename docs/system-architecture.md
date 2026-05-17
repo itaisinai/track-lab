@@ -8,7 +8,7 @@ flowchart TD
   W --> A[apps/api]
   A --> Q[SQLite job queue]
   Q --> R[apps/worker]
-  R --> D[SQLite datastore]
+  R --> D[Datastore provider]
 
   R --> P1[packages/metadata-enrichment]
   R --> P2[packages/remix-search]
@@ -19,7 +19,7 @@ flowchart TD
   P1 --> S4[Beatport]
   P1 --> S5[SoundCloud]
   P1 --> S6[Wikipedia context]
-  P1 --> S7[LLM synthesis]
+  P1 --> S7[metadata synthesis]
 
   P2 --> T1[Spotify remix search]
   P2 --> T2[SoundCloud web search]
@@ -51,5 +51,6 @@ flowchart TD
 - The LLM plans, judges, or synthesizes; it does not autonomously call tools.
 - Beatport and SoundCloud are the EDM optional provider group.
 - Remix search separates deterministic provider search from LLM judging.
+- The datastore provider defaults to SQLite and can switch to Prisma/PostgreSQL for `track_results`.
 - Terminology rules are documented in [`ai-terminology.md`](./ai-terminology.md).
 - The agent orchestrator flow is documented in [`agent-workflow.md`](./agent-workflow.md).

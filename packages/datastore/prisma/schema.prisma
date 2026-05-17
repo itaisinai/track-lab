@@ -1,0 +1,32 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../.prisma/generated"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model TrackResult {
+  id               Int      @id @default(autoincrement())
+  title            String
+  artists          String
+  album            String?
+  titleKey         String   @map("title_key")
+  artistsKey       String   @map("artists_key")
+  bpm              Float?
+  genre            String?
+  subGenre         String?  @map("sub_genre")
+  trackKey         String?  @map("track_key")
+  summary          String?
+  status           String
+  providersUsedJson String   @map("providers_used_json")
+  errorsJson       String   @map("errors_json")
+  responseJson     String   @map("response_json")
+  rawResponse      String   @map("raw_response")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([titleKey, artistsKey])
+  @@map("track_results")
+}

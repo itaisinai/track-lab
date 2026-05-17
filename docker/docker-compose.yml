@@ -1,33 +1,104 @@
+x-database-urls: &database_urls
+  build: &build_database_url
+    DATABASE_URL: postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+  runtime: &runtime_database_url
+    DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
+
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: track_lab
+      POSTGRES_USER: track_lab
+      POSTGRES_PASSWORD: track_lab
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U track_lab -d track_lab"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  migrate:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.api
+      args: *build_database_url
+    env_file:
+      - ../.env
+    environment:
+      DATASTORE_PROVIDER: prisma
+      <<: *runtime_database_url
+    command:
+      [
+        "sh",
+        "-lc",
+        "yarn prisma:migrate:deploy && node --input-type=module -e \"import { migrateTrackResults } from './packages/datastore/src/migrate-track-results.ts'; console.log(JSON.stringify(await migrateTrackResults()));\"",
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ../data:/app/data
+    restart: "no"
+
   api:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
+      args: *build_database_url
     env_file:
       - ../.env
+    environment:
+      DATASTORE_PROVIDER: prisma
+      <<: *runtime_database_url
     ports:
       - "3000:3000"
     volumes:
       - ../data:/app/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   worker:
     build:
       context: ..
       dockerfile: docker/Dockerfile.worker
+      args: *build_database_url
     env_file:
       - ../.env
+    environment:
+      DATASTORE_PROVIDER: prisma
+      <<: *runtime_database_url
     volumes:
       - ../data:/app/data
     depends_on:
-      - api
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
 
   web:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
+      args: *build_database_url
     env_file:
       - ../.env
+    environment:
+      <<: *runtime_database_url
     ports:
       - "5173:5173"
     depends_on:
       - api
+    restart: unless-stopped
+
+volumes:
+  postgres-data:
