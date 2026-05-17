@@ -19,7 +19,6 @@
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
     "migrate:track-results": "yarn workspace @track-lab/datastore migrate:track-results",
-    "postinstall": "yarn prisma:generate",
     "start": "yarn workspace @track-lab/api start",
     "affected": "nx affected",
     "affected:check": "nx affected -t test,typecheck",
