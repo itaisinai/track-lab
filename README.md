@@ -1,8 +1,9 @@
 # Track Lab
 
 Track Lab enriches music track metadata with a metadata enrichment pipeline,
-stores saved results in a local SQLite database, and reuses saved results before
-calling external providers.
+stores saved results in a local SQLite database by default with optional
+Prisma/PostgreSQL support, and reuses saved results before calling external
+providers.
 
 ## Structure
 
@@ -13,7 +14,7 @@ calling external providers.
   provider evidence merging, and metadata synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
 - `packages/remix-search` - Remix discovery providers and ranking.
-- `packages/datastore` - SQLite result store.
+- `packages/datastore` - track result repository with SQLite default and Prisma/PostgreSQL support.
 
 ## Architecture
 
@@ -119,6 +120,13 @@ TRACK_LAB_DB_PATH=/path/to/track-lab.sqlite
 ```
 
 Saved tracks are unique by returned `Title + Artists`.
+
+To use the Prisma/PostgreSQL repository instead of SQLite:
+
+```sh
+DATASTORE_PROVIDER=prisma
+DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+```
 
 ## Worker Jobs
 

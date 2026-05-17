@@ -1,31 +1,34 @@
-import type { TrackResult, TrackResultStore } from "@track-lab/datastore";
+import type {
+  TrackResult,
+  TrackResultRepository,
+} from "@track-lab/datastore";
 import type { EnrichedTrackMetadata, EnrichTrackMetadataInput } from "./types.ts";
 
 export type EnrichmentResultStore = {
-  findByTrack: (trackName: string, artist?: string) => TrackResult | null;
+  findByTrack: (trackName: string, artist?: string) => Promise<TrackResult | null>;
   saveEnrichedResult?: (
     result: EnrichedTrackMetadata,
     input: EnrichTrackMetadataInput,
-  ) => void;
+  ) => Promise<void> | void;
 };
 
 export function createDatastoreEnrichmentStore(
-  store: TrackResultStore,
+  store: TrackResultRepository,
 ): EnrichmentResultStore {
   return {
-    findByTrack(trackName, artist) {
+    async findByTrack(trackName, artist) {
       if (!artist) {
         return null;
       }
 
       return store.findByTrack(trackName, artist);
     },
-    saveEnrichedResult(result, input) {
+    async saveEnrichedResult(result, input) {
       if (!input.artist) {
         return;
       }
 
-      store.saveResult({
+      await store.saveResult({
         rawResponse: JSON.stringify(toEnrichmentResult(result, input)),
         json: toEnrichmentResult(result, input),
       });

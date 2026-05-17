@@ -8,7 +8,12 @@ COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 COPY apps ./apps
 COPY packages ./packages
+COPY scripts ./scripts
+COPY prisma.config.ts ./
 COPY nx.json ./
+
+ARG DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+ENV DATABASE_URL=${DATABASE_URL}
 
 RUN yarn install --immutable
 

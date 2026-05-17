@@ -15,6 +15,10 @@
     "dev": "yarn workspace @track-lab/api start",
     "dev:docker": "docker compose -f docker/docker-compose.yml up --build",
     "dev:web": "yarn workspace @track-lab/web dev",
+    "prisma:generate": "prisma generate --config prisma.config.ts",
+    "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
+    "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "postinstall": "yarn prisma:generate && node scripts/create-prisma-client-proxy.mjs",
     "start": "yarn workspace @track-lab/api start",
     "affected": "nx affected",
     "affected:check": "nx affected -t test,typecheck",
@@ -22,6 +26,7 @@
     "typecheck": "yarn workspaces foreach --all --topological-dev run typecheck"
   },
   "devDependencies": {
-    "nx": "^22.7.1"
+    "nx": "^22.7.1",
+    "prisma": "^7.8.0"
   }
 }

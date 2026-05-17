@@ -41,7 +41,7 @@ export async function enrichTrackMetadata(
   const errors: string[] = [];
   const result = createBaseResult(input);
   applyKnownMetadata(result, input);
-  applyLocalResultIfNeeded(result, input, dependencies);
+  await applyLocalResultIfNeeded(result, input, dependencies);
 
   const providerEvidence: ProviderEvidence = {};
   const providerPlan = await collectProviderEvidence(
@@ -95,7 +95,7 @@ function createBaseResult(
   };
 }
 
-function applyLocalResultIfNeeded(
+async function applyLocalResultIfNeeded(
   result: EnrichedTrackMetadata,
   input: EnrichTrackMetadataInput,
   dependencies: EnrichmentDependencies,
@@ -106,7 +106,7 @@ function applyLocalResultIfNeeded(
 
   applyLocalResult(
     result,
-    dependencies.store?.findByTrack(input.trackName, input.artist),
+    await dependencies.store?.findByTrack(input.trackName, input.artist),
   );
 }
 

@@ -2,7 +2,9 @@ export { AgentSessionStore } from "./agent-session-store.ts";
 export { extractEnrichmentResponse } from "./enrichment-response.ts";
 export { TrackAnalysisJobStore } from "./track-analysis-job-store.ts";
 export { RemixResultStore } from "./remix-result-store.ts";
+export { createTrackResultRepository } from "./track-result-repository-factory.ts";
 export { TrackResultStore } from "./track-result-store.ts";
+export type { TrackResultRepository } from "./track-result-repository.ts";
 export type {
   AgentMessage,
   AgentMessageMetadata,
