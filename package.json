@@ -12,7 +12,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "dev": "yarn workspace @track-lab/api start",
+    "dev": "cd docker && docker compose up --build",
     "dev:web": "yarn workspace @track-lab/web dev",
     "start": "yarn workspace @track-lab/api start",
     "affected": "nx affected",
