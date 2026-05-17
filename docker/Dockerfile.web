@@ -9,7 +9,6 @@ COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 COPY apps ./apps
 COPY packages ./packages
-COPY scripts ./scripts
 COPY prisma.config.ts ./
 COPY nx.json ./
 
