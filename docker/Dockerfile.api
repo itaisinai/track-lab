@@ -8,8 +8,8 @@ COPY package.json yarn.lock .yarnrc.yml ./
 COPY .yarn ./.yarn
 COPY apps ./apps
 COPY packages ./packages
-COPY nx.json tsconfig.base.json ./
+COPY nx.json ./
 
 RUN yarn install --immutable
 
-CMD ["yarn", "workspace", "@track-lab/api", "start"]
+CMD ["yarn", "workspace", "@track-lab/api", "start:docker"]

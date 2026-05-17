@@ -13,6 +13,7 @@
   },
   "scripts": {
     "dev": "cd docker && docker compose up --build",
+    "dev:docker": "docker compose -f docker/docker-compose.yml up --build",
     "dev:web": "yarn workspace @track-lab/web dev",
     "start": "yarn workspace @track-lab/api start",
     "affected": "nx affected",

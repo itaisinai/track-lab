@@ -1,32 +1,32 @@
 services:
   api:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.api
     env_file:
-      - .env
+      - ../.env
     ports:
       - "3000:3000"
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
 
   worker:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.worker
     env_file:
-      - .env
+      - ../.env
     volumes:
-      - ./data:/app/data
+      - ../data:/app/data
     depends_on:
       - api
 
   web:
     build:
-      context: .
+      context: ..
       dockerfile: docker/Dockerfile.web
     env_file:
-      - .env
+      - ../.env
     ports:
       - "5173:5173"
     depends_on:

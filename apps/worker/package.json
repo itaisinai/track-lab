@@ -4,8 +4,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "node --env-file=../../.env src/index.ts",
-    "start": "node --env-file=../../.env src/index.ts",
+    "dev": "node --env-file=../../.env src/main.ts",
+    "start": "node --env-file=../../.env src/main.ts",
+    "start:docker": "node src/main.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
   "dependencies": {
