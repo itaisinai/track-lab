@@ -70,6 +70,8 @@ yarn dev
 yarn dev:web
 ```
 
+Docker setup: [`docker/README.md`](docker/README.md)
+
 Useful checks:
 
 ```sh
