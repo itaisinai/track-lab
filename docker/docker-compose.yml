@@ -24,10 +24,17 @@ services:
     environment:
       DATASTORE_PROVIDER: prisma
       DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
-    command: ["yarn", "prisma:migrate:deploy"]
+    command:
+      [
+        "sh",
+        "-lc",
+        "yarn prisma:migrate:deploy && node --input-type=module -e \"import { migrateTrackResults } from './packages/datastore/src/migrate-track-results.ts'; console.log(JSON.stringify(await migrateTrackResults()));\"",
+      ]
     depends_on:
       postgres:
         condition: service_healthy
+    volumes:
+      - ../data:/app/data
     restart: "no"
 
   api:

@@ -13,11 +13,12 @@
   },
   "scripts": {
     "dev": "yarn workspace @track-lab/api start",
-    "dev:docker": "docker compose -f docker/docker-compose.yml up --build",
+    "dev:docker": "docker compose -f docker/docker-compose.yml up --build --force-recreate",
     "dev:web": "yarn workspace @track-lab/web dev",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",
     "prisma:migrate:deploy": "prisma migrate deploy --config prisma.config.ts",
+    "migrate:track-results": "yarn workspace @track-lab/datastore migrate:track-results",
     "postinstall": "yarn prisma:generate && node scripts/create-prisma-client-proxy.mjs",
     "start": "yarn workspace @track-lab/api start",
     "affected": "nx affected",

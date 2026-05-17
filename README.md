@@ -128,6 +128,13 @@ DATASTORE_PROVIDER=prisma
 DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
 ```
 
+To copy existing `track_results` rows from the SQLite database into
+PostgreSQL:
+
+```sh
+yarn migrate:track-results
+```
+
 ## Worker Jobs
 
 Background work is stored in the `track_analysis_jobs` SQLite table and exposed
