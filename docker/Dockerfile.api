@@ -12,7 +12,7 @@ COPY packages ./packages
 COPY prisma.config.ts ./
 COPY nx.json ./
 
-ARG DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+ARG DATABASE_URL
 ENV DATABASE_URL=${DATABASE_URL}
 
 RUN yarn install --immutable

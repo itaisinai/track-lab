@@ -1,3 +1,9 @@
+x-database-urls: &database_urls
+  build: &build_database_url
+    DATABASE_URL: postgresql://track_lab:track_lab@localhost:5432/track_lab?schema=public
+  runtime: &runtime_database_url
+    DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -20,11 +26,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
+      args: *build_database_url
     env_file:
       - ../.env
     environment:
       DATASTORE_PROVIDER: prisma
-      DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
+      <<: *runtime_database_url
     command:
       [
         "sh",
@@ -42,11 +49,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.api
+      args: *build_database_url
     env_file:
       - ../.env
     environment:
       DATASTORE_PROVIDER: prisma
-      DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
+      <<: *runtime_database_url
     ports:
       - "3000:3000"
     volumes:
@@ -62,11 +70,12 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.worker
+      args: *build_database_url
     env_file:
       - ../.env
     environment:
       DATASTORE_PROVIDER: prisma
-      DATABASE_URL: postgresql://track_lab:track_lab@postgres:5432/track_lab?schema=public
+      <<: *runtime_database_url
     volumes:
       - ../data:/app/data
     depends_on:
@@ -80,8 +89,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
+      args: *build_database_url
     env_file:
       - ../.env
+    environment:
+      <<: *runtime_database_url
     ports:
       - "5173:5173"
     depends_on:
