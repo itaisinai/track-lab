@@ -1,6 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { enrichmentTrackResultRepository } from "../datastore/enrichment-track-result-repository.ts";
+import { getEnrichmentTrackResultRepository } from "../datastore/enrichment-track-result-repository.ts";
 import { createDatastoreEnrichmentStore } from "../enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "../enrichment/track-metadata-enrichment.ts";
 
@@ -8,7 +8,7 @@ export const enrichTrackMetadataTool = tool(
   async (input) =>
     JSON.stringify(
       await enrichTrackMetadata(input, {
-        store: createDatastoreEnrichmentStore(enrichmentTrackResultRepository),
+        store: createDatastoreEnrichmentStore(getEnrichmentTrackResultRepository()),
       }),
     ),
   {

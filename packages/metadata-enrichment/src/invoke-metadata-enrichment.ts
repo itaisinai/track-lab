@@ -1,6 +1,6 @@
 import { HumanMessage } from "@langchain/core/messages";
 import { metadataAgent } from "./metadata-agent.ts";
-import { enrichmentTrackResultRepository } from "./datastore/enrichment-track-result-repository.ts";
+import { getEnrichmentTrackResultRepository } from "./datastore/enrichment-track-result-repository.ts";
 import { createDatastoreEnrichmentStore } from "./enrichment/enrichment-result-store.ts";
 import { enrichTrackMetadata } from "./enrichment/track-metadata-enrichment.ts";
 import { parseTrackRequest } from "./input/track-request.ts";
@@ -35,7 +35,7 @@ export async function invokeMetadataEnrichment(
       },
       {
         store: preferDatastore && options.operation !== "enrich"
-          ? createDatastoreEnrichmentStore(enrichmentTrackResultRepository)
+          ? createDatastoreEnrichmentStore(getEnrichmentTrackResultRepository())
           : undefined,
       },
     );
