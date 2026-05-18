@@ -208,6 +208,55 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
     );
   }
 
+  async claimJob(id: number): Promise<TrackAnalysisJob | null> {
+    const staleCutoff = new Date(Date.now() - CLAIM_LEASE_MS);
+
+    return this.client.$transaction(
+      async (tx) => {
+        const rows = await tx.$queryRaw<Array<PrismaTrackAnalysisJobClaimRow>>(Prisma.sql`
+          WITH target AS (
+            SELECT id
+            FROM track_analysis_jobs
+            WHERE id = ${id}
+              AND (
+                status = 'queued'
+                OR (status = 'processing' AND updated_at <= ${staleCutoff})
+              )
+            FOR UPDATE SKIP LOCKED
+          )
+          UPDATE track_analysis_jobs AS job
+          SET status = 'processing',
+              attempt_count = job.attempt_count + 1,
+              error_message = NULL,
+              updated_at = NOW()
+          FROM target
+          WHERE job.id = target.id
+          RETURNING
+            job.id,
+            job.operation,
+            job.status,
+            job.payload_json,
+            job.result_json,
+            job.error_message,
+            job.attempt_count,
+            job.max_attempts,
+            job.created_at,
+            job.updated_at,
+            job.completed_at,
+            job.notification_read_at,
+            job.resolved_at
+        `);
+
+        const row = rows[0];
+        return row ? mapClaimRowToTrackAnalysisJob(row) : null;
+      },
+      {
+        maxWait: 20_000,
+        timeout: 60_000,
+      },
+    );
+  }
+
   async completeJob(id: number, result: unknown): Promise<TrackAnalysisJob | null> {
     const row = await this.client.trackAnalysisJob.update({
       where: { id },

@@ -102,6 +102,12 @@ cp .env.example .env
 
 Set `DATABASE_URL` to the real connection string you want everywhere, such as
 your RDS URL with `sslmode=no-verify`.
+`QUEUE_PROVIDER=database` keeps the current database-backed job queue.
+`QUEUE_PROVIDER=sqs` uses AWS SQS for job delivery, while
+`track_analysis_jobs` remains the source of truth for job state and history.
+When using `QUEUE_PROVIDER=sqs` from Docker, mount your host `~/.aws`
+directory into the `api` and `worker` containers and set `AWS_PROFILE` in
+`.env` so the SDK can read your local AWS credentials or SSO cache.
 
 Provider credentials are optional for local wiring, but real enrichment quality
 depends on them.

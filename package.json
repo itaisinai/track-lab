@@ -30,5 +30,8 @@
   "devDependencies": {
     "nx": "^22.7.1",
     "prisma": "^7.8.0"
+  },
+  "dependencies": {
+    "@aws-sdk/client-sqs": "^3.1048.0"
   }
 }

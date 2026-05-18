@@ -1,26 +1,37 @@
 import type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
 import {
   createTrackAnalysisJobRepository,
+  createTrackAnalysisQueueProvider,
   type TrackAnalysisJobRepository,
   type TrackAnalysisJob,
   type TrackAnalysisKnownMetadata,
   type TrackAnalysisPayload,
+  type TrackAnalysisQueueProvider,
 } from "@track-lab/datastore";
 
 export class TrackAnalysisOrchestrator {
   private readonly jobs: TrackAnalysisJobRepository;
+  private readonly queue: TrackAnalysisQueueProvider;
 
-  constructor(jobs = createTrackAnalysisJobRepository()) {
+  constructor(
+    jobs = createTrackAnalysisJobRepository(),
+    queue = createTrackAnalysisQueueProvider(),
+  ) {
     this.jobs = jobs;
+    this.queue = queue;
   }
 
   async enqueue(request: EnqueueTrackAnalysisRequest): Promise<TrackAnalysisJob> {
     const payload = validateRequest(request);
 
-    return this.jobs.enqueue({
+    const job = await this.jobs.enqueue({
       operation: payload.operation,
       payload,
     });
+
+    await this.queue.enqueue(job.id);
+
+    return job;
   }
 }
 

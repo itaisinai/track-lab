@@ -2,6 +2,7 @@ import {
   createAgentSessionRepository,
   createRemixResultRepository,
   createTrackAnalysisJobRepository,
+  createTrackAnalysisQueueProvider,
   createTrackResultRepository,
 } from "@track-lab/datastore";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
@@ -15,9 +16,10 @@ import { createTrackAnalysisEnqueueRouter } from "./routes/track-analysis-enqueu
 
 export function createApp(trackResultRepository = createTrackResultRepository()) {
   const jobStore = createTrackAnalysisJobRepository();
+  const queue = createTrackAnalysisQueueProvider();
   const remixStore = createRemixResultRepository();
   const agentStore = createAgentSessionRepository();
-  const orchestrator = new TrackAnalysisOrchestrator(jobStore);
+  const orchestrator = new TrackAnalysisOrchestrator(jobStore, queue);
   const app = express();
 
   app.use(express.json());

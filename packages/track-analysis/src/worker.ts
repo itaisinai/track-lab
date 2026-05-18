@@ -1,9 +1,12 @@
 import { invokeMetadataEnrichment } from "@track-lab/metadata-enrichment";
 import {
   createTrackAnalysisJobRepository,
+  createTrackAnalysisQueueProvider,
   type TrackAnalysisJobRepository,
   type TrackAnalysisJob,
   type TrackAnalysisPayload,
+  type TrackAnalysisQueueMessage,
+  type TrackAnalysisQueueProvider,
 } from "@track-lab/datastore";
 import { RemixSearchOrchestrator } from "@track-lab/remix-search";
 import { createTrackAnalysisPrompt } from "./prompts/track-analysis-prompt.ts";
@@ -21,17 +24,24 @@ export type TrackAnalysisWorkerOptions = {
 export class TrackAnalysisWorker {
   private stopped = false;
   private readonly jobs: TrackAnalysisJobRepository;
+  private readonly queue: TrackAnalysisQueueProvider;
   private readonly options: TrackAnalysisWorkerOptions;
 
   constructor(
     jobs = createTrackAnalysisJobRepository(),
     options: TrackAnalysisWorkerOptions = {},
+    queue = createTrackAnalysisQueueProvider(),
   ) {
     this.jobs = jobs;
     this.options = options;
+    this.queue = queue;
   }
 
   async processNextJob(): Promise<TrackAnalysisJob | null> {
+    if (this.queue.mode === "sqs") {
+      return this.processNextQueueMessage();
+    }
+
     const job = await this.jobs.claimNextJob();
 
     if (!job) {
@@ -45,6 +55,58 @@ export class TrackAnalysisWorker {
       return await this.jobs.completeJob(job.id, result);
     } catch (error) {
       const failed = await this.jobs.failJob(job.id, getErrorMessage(error));
+      this.options.onError?.(error);
+      return failed;
+    }
+  }
+
+  private async processNextQueueMessage(): Promise<TrackAnalysisJob | null> {
+    const message = await this.queue.receiveNextMessage();
+
+    if (!message) {
+      return null;
+    }
+
+    const jobId = parseJobIdFromMessage(message);
+
+    if (jobId === null) {
+      this.options.onError?.(new Error("Invalid SQS job message body."));
+      return null;
+    }
+
+    const currentJob = await this.jobs.getJob(jobId);
+
+    if (!currentJob) {
+      await this.queue.deleteMessage(message);
+      return null;
+    }
+
+    if (currentJob.status === "completed" || currentJob.status === "dead_lettered") {
+      await this.queue.deleteMessage(message);
+      return currentJob;
+    }
+
+    const claimed = await this.jobs.claimJob(jobId);
+
+    if (!claimed) {
+      return null;
+    }
+
+    try {
+      const result = await (this.options.processor ?? processTrackAnalysisPayload)(
+        claimed.payload as TrackAnalysisPayload,
+      );
+      const completed = await this.jobs.completeJob(claimed.id, result);
+
+      try {
+        await this.queue.deleteMessage(message);
+      } catch (deleteError) {
+        this.options.onError?.(deleteError);
+      }
+
+      return completed;
+    } catch (error) {
+      const failed = await this.jobs.failJob(claimed.id, getErrorMessage(error));
       this.options.onError?.(error);
       return failed;
     }
@@ -88,4 +150,18 @@ function delay(ms: number) {
 
 function getErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Unknown worker error.";
+}
+
+function parseJobIdFromMessage(message: TrackAnalysisQueueMessage): number | null {
+  try {
+    const parsed = JSON.parse(message.body) as { jobId?: unknown };
+
+    if (typeof parsed.jobId !== "number" || !Number.isInteger(parsed.jobId)) {
+      return null;
+    }
+
+    return parsed.jobId;
+  } catch {
+    return null;
+  }
 }

@@ -219,6 +219,48 @@ export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
     }
   }
 
+  claimJob(id: number): TrackAnalysisJob | null {
+    const now = new Date().toISOString();
+    const staleCutoff = new Date(Date.now() - CLAIM_LEASE_MS).toISOString();
+
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const row = this.db
+        .prepare(`
+          SELECT * FROM track_analysis_jobs
+          WHERE id = ?
+            AND (
+              status = 'queued'
+              OR (status = 'processing' AND updated_at <= ?)
+            )
+          LIMIT 1
+        `)
+        .get(id, staleCutoff) as TrackAnalysisJobRow | undefined;
+
+      if (!row) {
+        this.db.exec("COMMIT");
+        return null;
+      }
+
+      this.db
+        .prepare(`
+          UPDATE track_analysis_jobs
+          SET status = 'processing',
+              attempt_count = attempt_count + 1,
+              error_message = NULL,
+              updated_at = ?
+          WHERE id = ?
+        `)
+        .run(now, row.id);
+
+      this.db.exec("COMMIT");
+      return this.getJob(row.id);
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+
   completeJob(id: number, result: unknown): TrackAnalysisJob | null {
     const now = new Date().toISOString();
     this.db
