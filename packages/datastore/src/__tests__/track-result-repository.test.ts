@@ -6,16 +6,43 @@ import {
   createTrackResultRepository,
   type TrackResultRepositoryFactoryOptions,
 } from "../track-result-repository-factory.ts";
-import { TrackResultStore } from "../track-result-store.ts";
 
-test("track result repository factory defaults to sqlite", () => {
+test("track result repository factory defaults to prisma", () => {
   const previousProvider = process.env.DATASTORE_PROVIDER;
   delete process.env.DATASTORE_PROVIDER;
 
   try {
-    const repository = createTrackResultRepository();
+    const repository = createTrackResultRepository({
+      prismaClient: {
+        trackResult: {
+          findMany: async () => [],
+          findUnique: async () => null,
+          deleteMany: async () => ({ count: 0 }),
+          upsert: async () => ({
+            id: 1,
+            title: "Test",
+            artists: "Artist",
+            album: null,
+            titleKey: "test",
+            artistsKey: "artist",
+            bpm: null,
+            genre: null,
+            subGenre: null,
+            trackKey: null,
+            summary: null,
+            status: "partial",
+            providersUsedJson: "[]",
+            errorsJson: "[]",
+            responseJson: "{}",
+            rawResponse: "{}",
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          }),
+        },
+      } as TrackResultRepositoryFactoryOptions["prismaClient"],
+    });
 
-    assert.ok(repository instanceof TrackResultStore);
+    assert.ok(repository instanceof PrismaTrackResultRepository);
   } finally {
     if (previousProvider) {
       process.env.DATASTORE_PROVIDER = previousProvider;

@@ -1,9 +1,8 @@
 # Track Lab
 
 Track Lab enriches music track metadata with a metadata enrichment pipeline,
-stores saved results in a local SQLite database by default with optional
-Prisma/PostgreSQL support, and reuses saved results before calling external
-providers.
+stores saved results in Prisma/PostgreSQL by default, and reuses saved results
+before calling external providers.
 
 ## Structure
 
@@ -14,7 +13,7 @@ providers.
   provider evidence merging, and metadata synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
 - `packages/remix-search` - Remix discovery providers and ranking.
-- `packages/datastore` - track result repository with SQLite default and Prisma/PostgreSQL support.
+- `packages/datastore` - Prisma/PostgreSQL datastore repositories for track results, remix results, agent sessions, and jobs.
 
 ## Architecture
 
@@ -82,8 +81,7 @@ yarn dev:docker
 ```
 
 This starts the API, worker, web app, PostgreSQL, and the one-shot migration
-service that applies Prisma migrations and copies the existing SQLite
-datastore into PostgreSQL when present.
+service that applies Prisma migrations.
 
 Useful checks:
 
@@ -123,31 +121,12 @@ docker run --rm -p 8080:8080 searxng/searxng
 
 ## Persistence
 
-Saved results are stored in:
-
-```sh
-data/track-lab.sqlite
-```
-
-Override with:
-
-```sh
-TRACK_LAB_DB_PATH=/path/to/track-lab.sqlite
-```
-
-Saved tracks are unique by returned `Title + Artists`.
-
-To use the Prisma/PostgreSQL repository instead of SQLite:
+Saved results are stored in PostgreSQL through Prisma by default.
+The datastore uses normalized `Title + Artists` keys for uniqueness.
 
 ```sh
 DATASTORE_PROVIDER=prisma
 DATABASE_URL=postgresql://track_lab:track_lab@your-rds-endpoint:5432/track_lab?sslmode=no-verify
-```
-
-To copy the existing SQLite datastore into PostgreSQL:
-
-```sh
-yarn migrate:datastore
 ```
 
 ## Worker Jobs
