@@ -9,12 +9,12 @@ export function createTrackAnalysisEnqueueRouter(
 
   router.post("/track-analysis", enqueueTrackAnalysis);
 
-  function enqueueTrackAnalysis(req: Request, res: Response) {
+  async function enqueueTrackAnalysis(req: Request, res: Response) {
     try {
       const body = req.body as Partial<TrackMetadataAnalysisPayload>;
       const operation = body.operation === "enrich" ? "enrich" : "analyze";
 
-      const job = orchestrator.enqueue({
+      const job = await orchestrator.enqueue({
         operation,
         track: getTrackFromRequestBody(body),
         source: body.source ?? "manual",

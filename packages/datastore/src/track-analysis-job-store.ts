@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { TrackAnalysisJobRepository } from "./track-analysis-job-repository.ts";
 import { getDefaultDatabasePath } from "./db-path.ts";
 import { parseJson } from "./lib/json.ts";
 import type {
@@ -17,7 +18,7 @@ const TERMINAL_STATUSES = new Set<TrackAnalysisJobStatus>([
   "dead_lettered",
 ]);
 
-export class TrackAnalysisJobStore {
+export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
   readonly db: DatabaseSync;
 
   constructor(databasePath = getDefaultDatabasePath()) {

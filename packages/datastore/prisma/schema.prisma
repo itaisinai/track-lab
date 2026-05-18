@@ -30,3 +30,96 @@ model TrackResult {
   @@unique([titleKey, artistsKey])
   @@map("track_results")
 }
+
+model RemixResult {
+  id              Int      @id @default(autoincrement())
+  provider        String
+  link            String
+  title           String
+  artists         String
+  remixArtist     String?  @map("remix_artist")
+  album           String?
+  genre           String?
+  subGenre        String?  @map("sub_genre")
+  bpm             Float?
+  uploadedAt      String?  @map("uploaded_at")
+  durationMs      Int?     @map("duration_ms")
+  confidence      Float
+  relevanceReason String   @map("relevance_reason")
+  originalTrackJson String @map("original_track_json")
+  requestedGenre  String?  @map("requested_genre")
+  candidateJson   String    @map("candidate_json")
+  savedAt         DateTime  @default(now()) @map("saved_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([provider, link])
+  @@map("remix_results")
+}
+
+model AgentSession {
+  id          Int             @id @default(autoincrement())
+  title       String
+  metadataJson String         @default("{}") @map("metadata_json")
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @default(now()) @updatedAt @map("updated_at")
+  messages    AgentMessage[]
+  toolCalls   AgentToolCall[]
+
+  @@map("agent_sessions")
+}
+
+model AgentMessage {
+  id           Int             @id @default(autoincrement())
+  sessionId    Int             @map("session_id")
+  session      AgentSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role         String
+  content      String
+  metadataJson String         @default("{}") @map("metadata_json")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  requestToolCalls AgentToolCall[] @relation("RequestMessage")
+  assistantToolCalls AgentToolCall[] @relation("AssistantMessage")
+
+  @@index([sessionId, createdAt, id], map: "idx_agent_messages_session_created")
+  @@map("agent_messages")
+}
+
+model AgentToolCall {
+  id                Int           @id @default(autoincrement())
+  sessionId         Int           @map("session_id")
+  session           AgentSession  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  requestMessageId  Int           @map("request_message_id")
+  requestMessage    AgentMessage  @relation("RequestMessage", fields: [requestMessageId], references: [id], onDelete: Cascade)
+  assistantMessageId Int?         @map("assistant_message_id")
+  assistantMessage  AgentMessage? @relation("AssistantMessage", fields: [assistantMessageId], references: [id], onDelete: SetNull)
+  toolCallId        String?       @map("tool_call_id")
+  toolName          String        @map("tool_name")
+  argumentsJson     String        @map("arguments_json")
+  status            String
+  resultJson        String?       @map("result_json")
+  errorMessage      String?       @map("error_message")
+  startedAt         DateTime      @default(now()) @map("started_at")
+  completedAt       DateTime?     @map("completed_at")
+
+  @@index([sessionId, startedAt, id], map: "idx_agent_tool_calls_session_started")
+  @@map("agent_tool_calls")
+}
+
+model TrackAnalysisJob {
+  id                   Int      @id @default(autoincrement())
+  operation            String
+  status               String
+  payloadJson          String   @map("payload_json")
+  resultJson           String?  @map("result_json")
+  errorMessage         String?  @map("error_message")
+  attemptCount         Int      @default(0) @map("attempt_count")
+  maxAttempts          Int      @default(3) @map("max_attempts")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
+  completedAt          DateTime? @map("completed_at")
+  notificationReadAt   DateTime? @map("notification_read_at")
+  resolvedAt           DateTime? @map("resolved_at")
+
+  @@index([status, createdAt, id], map: "idx_track_analysis_jobs_status_created")
+  @@index([resolvedAt, completedAt, id], map: "idx_track_analysis_jobs_unresolved")
+  @@map("track_analysis_jobs")
+}

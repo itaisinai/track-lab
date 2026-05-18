@@ -1,32 +1,11 @@
 import { existsSync } from "node:fs";
+import { DatabaseSync } from "node:sqlite";
 import { pathToFileURL } from "node:url";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "./prisma-client.ts";
+import { createPrismaDatastoreClient, type PrismaDatastoreClient } from "./prisma-datastore-client.ts";
 import { getDefaultDatabasePath } from "./db-path.ts";
-import { TrackResultStore } from "./track-result-store.ts";
+import type { TrackResultRow } from "./types.ts";
 
-type SqliteTrackResultRow = {
-  id: number;
-  title: string;
-  artists: string;
-  album: string | null;
-  title_key: string;
-  artists_key: string;
-  bpm: number | null;
-  genre: string | null;
-  sub_genre: string | null;
-  track_key: string | null;
-  summary: string | null;
-  status: string;
-  providers_used_json: string;
-  errors_json: string;
-  response_json: string;
-  raw_response: string;
-  created_at: string;
-  updated_at: string;
-};
-
-type TrackResultMigrationClient = {
+type TrackResultMigrationClient = PrismaDatastoreClient & {
   trackResult: {
     upsert(args: {
       where: {
@@ -35,8 +14,8 @@ type TrackResultMigrationClient = {
           artistsKey: string;
         };
       };
-      create: Record<string, unknown>;
-      update: Record<string, unknown>;
+      create: any;
+      update: any;
     }): Promise<unknown>;
   };
   $disconnect?: () => Promise<void>;
@@ -66,38 +45,37 @@ export async function migrateTrackResults(
     };
   }
 
-  const sourceStore = new TrackResultStore(sourcePath);
-  const client =
-    options.prismaClient ?? createTrackResultMigrationClient();
+  const sourceDb = new DatabaseSync(sourcePath, {
+    readOnly: true,
+  });
+  const client = options.prismaClient ?? createPrismaDatastoreClient();
   let importedCount = 0;
   let skippedCount = 0;
 
   try {
-    const rows = sourceStore.db.prepare(
-      "SELECT * FROM track_results ORDER BY id ASC",
-    ).all() as SqliteTrackResultRow[];
-
-    if (rows.length === 0) {
-      return {
-        sourcePath,
-        importedCount: 0,
-        skippedCount: 0,
-      };
-    }
+    const rows = readRows<TrackResultRow>(sourceDb, "track_results");
 
     for (const row of rows) {
-      await client.trackResult.upsert({
-        where: {
-          titleKey_artistsKey: {
-            titleKey: row.title_key,
-            artistsKey: row.artists_key,
+      try {
+        await client.trackResult.upsert({
+          where: {
+            titleKey_artistsKey: {
+              titleKey: row.title_key,
+              artistsKey: row.artists_key,
+            },
           },
-        },
-        create: toPrismaTrackResultData(row),
-        update: toPrismaTrackResultData(row, false),
-      });
+          create: toPrismaTrackResultData(row, true) as any,
+          update: toPrismaTrackResultData(row, false) as any,
+        });
 
-      importedCount += 1;
+        importedCount += 1;
+      } catch (error) {
+        skippedCount += 1;
+        console.warn("[track-results-migrate] skipped row", {
+          id: row.id,
+          error: error instanceof Error ? error.message : "Unknown migration error",
+        });
+      }
     }
 
     return {
@@ -106,7 +84,7 @@ export async function migrateTrackResults(
       skippedCount,
     };
   } finally {
-    sourceStore.db.close();
+    sourceDb.close();
 
     if (!options.prismaClient) {
       await client.$disconnect?.();
@@ -114,23 +92,21 @@ export async function migrateTrackResults(
   }
 }
 
-function createTrackResultMigrationClient(): TrackResultMigrationClient {
-  const databaseUrl = process.env.DATABASE_URL;
+function readRows<T>(sourceDb: DatabaseSync, tableName: string): T[] {
+  try {
+    return sourceDb.prepare(`SELECT * FROM ${tableName} ORDER BY id ASC`).all() as T[];
+  } catch (error) {
+    if (error instanceof Error && error.message.includes("no such table")) {
+      return [];
+    }
 
-  if (!databaseUrl) {
-    throw new Error("DATABASE_URL is required to migrate track results.");
+    throw error;
   }
-
-  const adapter = new PrismaPg({
-    connectionString: databaseUrl,
-  });
-
-  return new PrismaClient({ adapter }) as unknown as TrackResultMigrationClient;
 }
 
 function toPrismaTrackResultData(
-  row: SqliteTrackResultRow,
-  includeId = true,
+  row: TrackResultRow,
+  includeId: boolean,
 ): Record<string, unknown> {
   const data: Record<string, unknown> = {
     title: row.title,

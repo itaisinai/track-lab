@@ -82,7 +82,7 @@ export function createResultsRouter(
         return;
       }
 
-      const job = orchestrator.enqueue({
+      const job = await orchestrator.enqueue({
         operation: "enrich",
         track: {
           title: saved.title,

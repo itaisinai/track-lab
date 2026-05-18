@@ -4,12 +4,15 @@ import type {
   AgentToolCall,
   AgentTrackReference,
 } from "@track-lab/api-types";
-import { ChatOpenAI } from "@langchain/openai";
 import { AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
-import { AgentSessionStore } from "@track-lab/datastore";
+import { ChatOpenAI } from "@langchain/openai";
+import { createAgent } from "langchain";
+import {
+  createAgentSessionRepository,
+  type AgentSessionRepository,
+} from "@track-lab/datastore";
 import { createScopedLogger } from "@track-lab/logger";
 import { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
-import { createAgent } from "langchain";
 import { AGENT_SYSTEM_PROMPT } from "./prompts/system-prompt.ts";
 import {
   buildAssistantMetadata,
@@ -24,7 +27,7 @@ import {
 
 export type AgentOrchestratorOptions = {
   modelName?: string;
-  store?: AgentSessionStore;
+  store?: AgentSessionRepository;
   trackAnalysis?: TrackAnalysisOrchestrator;
 };
 
@@ -34,7 +37,10 @@ type AgentInvocation = {
 };
 
 type AgentMessageInterpretation = {
-  action: "continue_current_session" | "start_new_session" | "ask_clarifying_question";
+  action:
+    | "continue_current_session"
+    | "start_new_session"
+    | "ask_clarifying_question";
   tool: "analyze_track" | "search_remixes" | "none";
   requestedTrack: AgentTrackReference | null;
   requestedGenre: string | null;
@@ -47,7 +53,7 @@ const RELEVANT_TOOL_RESULT_LIMIT = 4;
 const logAgentOrchestrator = createScopedLogger("agent-orchestrator");
 
 export class AgentOrchestrator {
-  private readonly store: AgentSessionStore;
+  private readonly store: AgentSessionRepository;
   private readonly trackAnalysis: TrackAnalysisOrchestrator;
   private readonly toolExecutor: AgentToolExecutor;
   private readonly modelName: string;
@@ -59,19 +65,16 @@ export class AgentOrchestrator {
       throw new Error("OPENAI_API_KEY is required for the agent orchestrator.");
     }
 
-    this.store = options.store ?? new AgentSessionStore();
+    this.store = options.store ?? createAgentSessionRepository();
     this.trackAnalysis =
       options.trackAnalysis ?? new TrackAnalysisOrchestrator();
-    this.toolExecutor = new AgentToolExecutor(
-      this.store,
-      this.trackAnalysis,
-    );
+    this.toolExecutor = new AgentToolExecutor(this.store, this.trackAnalysis);
     this.modelName = options.modelName ?? "gpt-5-nano";
     this.apiKey = apiKey;
   }
 
   async sendMessage(sessionId: number, content: string) {
-    const session = this.store.getSession(sessionId);
+    const session = await this.store.getSession(sessionId);
 
     if (!session) {
       throw new Error("Agent session was not found.");
@@ -83,7 +86,7 @@ export class AgentOrchestrator {
     }
 
     const interpretation = await this.interpretMessage(session, trimmed);
-    const targetSession = this.resolveSessionForMessage(
+    const targetSession = await this.resolveSessionForMessage(
       session,
       trimmed,
       interpretation,
@@ -95,9 +98,9 @@ export class AgentOrchestrator {
       createdNewSession: targetSessionId !== sessionId,
       content: trimmed,
       interpretation,
-      context: this.buildLogContext(targetSessionId),
+      context: await this.buildLogContext(targetSessionId),
     });
-    const requestMessage = this.store.addMessage({
+    const requestMessage = await this.store.addMessage({
       sessionId: targetSessionId,
       role: "user",
       content: trimmed,
@@ -117,26 +120,26 @@ export class AgentOrchestrator {
         status: call.status,
         arguments: call.arguments,
       })),
-      context: this.buildLogContext(targetSessionId),
+      context: await this.buildLogContext(targetSessionId),
     });
 
     const metadata = buildAssistantMetadata(invocation.toolCalls);
-    const assistantMessage = this.store.addMessage({
+    const assistantMessage = await this.store.addMessage({
       sessionId: targetSessionId,
       role: "assistant",
       content: invocation.content,
       metadata,
     });
-    this.store.attachToolCallsToAssistantMessage(
+    await this.store.attachToolCallsToAssistantMessage(
       invocation.toolCalls.map(({ call }) => call.id),
       assistantMessage.id,
     );
 
     return {
       message: assistantMessage,
-      session: this.store.getSession(targetSessionId),
-      messages: this.store.listMessages(targetSessionId),
-      toolCalls: this.store.listToolCalls(targetSessionId),
+      session: await this.store.getSession(targetSessionId),
+      messages: await this.store.listMessages(targetSessionId),
+      toolCalls: await this.store.listToolCalls(targetSessionId),
     };
   }
 
@@ -153,8 +156,8 @@ export class AgentOrchestrator {
       executions: toolCalls,
       requestContext: interpretationToToolRequestContext(interpretation),
     });
-    const systemPrompt = this.buildSystemPrompt(sessionId);
-    const messages = this.buildLlmMessages(sessionId);
+    const systemPrompt = await this.buildSystemPrompt(sessionId);
+    const messages = await this.buildLlmMessages(sessionId);
     logAgentOrchestrator("llm agent prompt", {
       sessionId,
       requestMessageId: requestMessage.id,
@@ -163,7 +166,7 @@ export class AgentOrchestrator {
         type: message.getType(),
         content: message.content,
       })),
-      context: this.buildLogContext(sessionId),
+      context: await this.buildLogContext(sessionId),
     });
     const agent = createAgent({
       model: new ChatOpenAI({ model: this.modelName, apiKey: this.apiKey }),
@@ -192,7 +195,7 @@ export class AgentOrchestrator {
         requestMessageId: requestMessage.id,
         content,
         error: error instanceof Error ? error.message : "Unknown LLM agent error",
-        context: this.buildLogContext(sessionId),
+        context: await this.buildLogContext(sessionId),
       });
       return {
         content:
@@ -223,20 +226,20 @@ If the user refers to this track, it, same song, or asks a follow-up about the c
 For remix searches, extract requestedGenre from natural language when present, such as bass, house, techno, dubstep, drum and bass, trance, melodic, hardstyle, or similar style words.
 If the request cannot be satisfied with these tools, return tool "none".
 Do not infer provider-specific tools.`;
+      const recentMessages = (await this.store.listMessages(session.id))
+        .slice(-RECENT_MESSAGE_LIMIT)
+        .map((message) => ({
+          role: message.role,
+          content: message.content,
+          metadata: message.metadata,
+        }));
       const payload = {
         currentSession: {
           id: session.id,
           title: session.title,
           metadata: session.metadata,
         },
-        recentMessages: this.store
-          .listMessages(session.id)
-          .slice(-RECENT_MESSAGE_LIMIT)
-          .map((message) => ({
-            role: message.role,
-            content: message.content,
-            metadata: message.metadata,
-          })),
+        recentMessages,
         userMessage: content,
         requiredShape: {
           action:
@@ -283,7 +286,7 @@ Do not infer provider-specific tools.`;
     }
   }
 
-  private resolveSessionForMessage(
+  private async resolveSessionForMessage(
     session: AgentSession,
     content: string,
     interpretation: AgentMessageInterpretation,
@@ -329,7 +332,7 @@ Do not infer provider-specific tools.`;
       return session;
     }
 
-    const nextSession = this.store.createSession(
+    const nextSession = await this.store.createSession(
       `${requestedTrack.title} by ${requestedTrack.artists}`,
     );
     logAgentOrchestrator("session routing split", {
@@ -344,10 +347,9 @@ Do not infer provider-specific tools.`;
     return nextSession;
   }
 
-  private buildSystemPrompt(sessionId: number) {
-    const session = this.store.getSession(sessionId);
-    const relevantToolResults = this.store
-      .listToolCalls(sessionId)
+  private async buildSystemPrompt(sessionId: number) {
+    const session = await this.store.getSession(sessionId);
+    const relevantToolResults = (await this.store.listToolCalls(sessionId))
       .filter((call) => call.status === "completed")
       .slice(-RELEVANT_TOOL_RESULT_LIMIT)
       .map(summarizeToolCallForContext);
@@ -365,18 +367,16 @@ ${JSON.stringify(
 )}`;
   }
 
-  private buildLogContext(sessionId: number) {
-    const session = this.store.getSession(sessionId);
-    const recentMessages = this.store
-      .listMessages(sessionId)
+  private async buildLogContext(sessionId: number) {
+    const session = await this.store.getSession(sessionId);
+    const recentMessages = (await this.store.listMessages(sessionId))
       .slice(-RECENT_MESSAGE_LIMIT)
       .map((message) => ({
         role: message.role,
         content: message.content,
         metadata: message.metadata,
       }));
-    const relevantToolResults = this.store
-      .listToolCalls(sessionId)
+    const relevantToolResults = (await this.store.listToolCalls(sessionId))
       .filter((call) => call.status === "completed")
       .slice(-RELEVANT_TOOL_RESULT_LIMIT)
       .map(summarizeToolCallForContext);
@@ -394,9 +394,8 @@ ${JSON.stringify(
     };
   }
 
-  private buildLlmMessages(sessionId: number) {
-    return this.store
-      .listMessages(sessionId)
+  private async buildLlmMessages(sessionId: number) {
+    return (await this.store.listMessages(sessionId))
       .slice(-RECENT_MESSAGE_LIMIT)
       .map((message) =>
         message.role === "assistant"
@@ -404,7 +403,6 @@ ${JSON.stringify(
           : new HumanMessage(message.content),
       );
   }
-
 }
 
 function sameTrack(
@@ -419,120 +417,66 @@ function normalizeTrackText(value: string) {
   return value.toLowerCase().replace(/\s+/g, " ").trim();
 }
 
-function summarizeToolCallForContext(call: AgentToolCall) {
-  if (call.toolName === "analyze_track") {
-    return {
-      toolName: call.toolName,
-      arguments: call.arguments,
-      result: summarizeAnalysisResult(call.result),
-    };
-  }
-
-  const result = call.result as
-    | { candidates?: unknown[]; originalTrack?: unknown; requestedGenre?: unknown; job?: unknown }
-    | null;
-
-  return {
-    toolName: call.toolName,
-    arguments: call.arguments,
-    result: {
-      originalTrack: result?.originalTrack,
-      requestedGenre: result?.requestedGenre ?? null,
-      candidateCount: result?.candidates?.length ?? 0,
-      job: result?.job,
-    },
-  };
-}
-
-function summarizeAnalysisResult(result: unknown) {
-  if (!result || typeof result !== "object" || Array.isArray(result)) {
-    return result;
-  }
-
-  const record = result as {
-    job?: { id?: unknown; status?: unknown; operation?: unknown };
-    summary?: unknown;
-    status?: unknown;
-  };
-
-  if (record.job) {
-    return { job: record.job };
-  }
-
-  return {
-    status: record.status,
-    summary: record.summary,
-  };
-}
-
-function normalizeInterpretation(value: unknown): AgentMessageInterpretation {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
-    return {
-      action: "continue_current_session",
-      tool: "none",
-      requestedTrack: null,
-      requestedGenre: null,
-      usesCurrentFocus: false,
-      reason: "LLM returned no parseable interpretation.",
-    };
-  }
-
-  const record = value as Record<string, unknown>;
-  const action = getInterpretationAction(record.action);
-  const tool = getInterpretationTool(record.tool);
-  const requestedTrack = getRequestedTrack(record.requestedTrack);
-
-  return {
-    action,
-    tool,
-    requestedTrack,
-    requestedGenre: getNonEmptyString(record.requestedGenre),
-    usesCurrentFocus: record.usesCurrentFocus === true,
-    reason:
-      typeof record.reason === "string" && record.reason.trim()
-        ? record.reason.trim()
-        : "No reason provided.",
-  };
-}
-
 function interpretationToToolRequestContext(
   interpretation: AgentMessageInterpretation,
 ): AgentToolRequestContext {
   return {
     requestedTrack: interpretation.requestedTrack,
-    requestedGenre:
-      interpretation.requestedGenre ?? interpretation.requestedTrack?.genre ?? null,
+    requestedGenre: interpretation.requestedGenre,
     usesCurrentFocus: interpretation.usesCurrentFocus,
     tool: interpretation.tool,
   };
 }
 
-function getInterpretationAction(
-  value: unknown,
-): AgentMessageInterpretation["action"] {
-  return value === "start_new_session" ||
-    value === "ask_clarifying_question" ||
-    value === "continue_current_session"
-    ? value
-    : "continue_current_session";
+function getErrorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "Unknown agent orchestrator error.";
 }
 
-function getInterpretationTool(value: unknown): AgentMessageInterpretation["tool"] {
-  return value === "analyze_track" ||
-    value === "search_remixes" ||
-    value === "none"
-    ? value
-    : "none";
+function getMessageContent(message: { content: unknown }) {
+  return typeof message.content === "string" ? message.content : "";
 }
 
-function getRequestedTrack(value: unknown): AgentTrackReference | null {
+function parseJsonObject(value: string) {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // ignore
+  }
+
+  throw new Error("LLM response was not valid JSON.");
+}
+
+function normalizeInterpretation(record: Record<string, unknown>): AgentMessageInterpretation {
+  const requestedTrack = normalizeRequestedTrack(record.requestedTrack);
+
+  return {
+    action: normalizeString(record.action, [
+      "continue_current_session",
+      "start_new_session",
+      "ask_clarifying_question",
+    ]) as AgentMessageInterpretation["action"] ?? "ask_clarifying_question",
+    tool: normalizeString(record.tool, ["analyze_track", "search_remixes", "none"]) as AgentMessageInterpretation["tool"] ?? "none",
+    requestedTrack,
+    requestedGenre: normalizeOptionalString(record.requestedGenre),
+    usesCurrentFocus: typeof record.usesCurrentFocus === "boolean"
+      ? record.usesCurrentFocus
+      : false,
+    reason: normalizeOptionalString(record.reason) ?? "",
+  };
+}
+
+function normalizeRequestedTrack(value: unknown): AgentTrackReference | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return null;
   }
 
   const record = value as Record<string, unknown>;
-  const title = getNonEmptyString(record.title);
-  const artists = getNonEmptyString(record.artists);
+  const title = normalizeOptionalString(record.title);
+  const artists = normalizeOptionalString(record.artists);
+
   if (!title || !artists) {
     return null;
   }
@@ -540,38 +484,38 @@ function getRequestedTrack(value: unknown): AgentTrackReference | null {
   return {
     title,
     artists,
-    spotifyUrl: getNonEmptyString(record.spotifyUrl),
-    genre: getNonEmptyString(record.genre),
+    spotifyUrl: normalizeNullableString(record.spotifyUrl),
+    genre: normalizeNullableString(record.genre),
   };
 }
 
-function parseJsonObject(value: string | null) {
-  if (!value) {
+function normalizeString(value: unknown, allowed: string[]) {
+  if (typeof value !== "string") {
     return null;
   }
 
-  const fencedJson = value.match(/```(?:json)?\s*([\s\S]*?)```/i)?.[1]?.trim();
-  const candidate = fencedJson ?? value;
-
-  try {
-    const parsed = JSON.parse(candidate);
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? parsed
-      : null;
-  } catch {
-    return null;
-  }
+  const trimmed = value.trim();
+  return allowed.includes(trimmed) ? trimmed : null;
 }
 
-function getMessageContent(message: unknown) {
-  if (!message || typeof message !== "object" || Array.isArray(message)) {
-    return null;
-  }
-
-  const content = (message as Record<string, unknown>).content;
-  return typeof content === "string" ? content : null;
-}
-
-function getNonEmptyString(value: unknown) {
+function normalizeOptionalString(value: unknown) {
   return typeof value === "string" && value.trim() ? value.trim() : null;
+}
+
+function normalizeNullableString(value: unknown) {
+  if (value === null || value === undefined) {
+    return null;
+  }
+
+  return normalizeOptionalString(value);
+}
+
+function summarizeToolCallForContext(call: AgentToolCall) {
+  return {
+    id: call.id,
+    toolName: call.toolName,
+    status: call.status,
+    result: call.result,
+    errorMessage: call.errorMessage,
+  };
 }

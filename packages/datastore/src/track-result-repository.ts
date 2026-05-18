@@ -1,6 +1,5 @@
 import type { SaveTrackResultInput, TrackResult } from "./types.ts";
-
-export type MaybePromise<T> = T | Promise<T>;
+import type { MaybePromise } from "./repository.ts";
 
 export interface TrackResultRepository {
   listResults(): MaybePromise<TrackResult[]>;

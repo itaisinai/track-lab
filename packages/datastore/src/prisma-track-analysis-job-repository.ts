@@ -1,0 +1,323 @@
+import { Prisma } from "./prisma-client.ts";
+import type {
+  EnqueueTrackAnalysisJobInput,
+  TrackAnalysisJob,
+  TrackAnalysisJobStatus,
+  TrackAnalysisPayload,
+} from "./types.ts";
+import { parseJson } from "./lib/json.ts";
+import type { TrackAnalysisJobRepository } from "./track-analysis-job-repository.ts";
+import { createPrismaDatastoreClient, type PrismaDatastoreClient } from "./prisma-datastore-client.ts";
+
+type PrismaTrackAnalysisJobRow = {
+  id: number;
+  operation: string;
+  status: string;
+  payloadJson: string;
+  resultJson: string | null;
+  errorMessage: string | null;
+  attemptCount: number;
+  maxAttempts: number;
+  createdAt: Date;
+  updatedAt: Date;
+  completedAt: Date | null;
+  notificationReadAt: Date | null;
+  resolvedAt: Date | null;
+};
+
+type PrismaTrackAnalysisJobDelegate = {
+  create(args: {
+    data: Record<string, unknown>;
+  }): Promise<PrismaTrackAnalysisJobRow>;
+  findMany(args: {
+    where?: Record<string, unknown>;
+    orderBy: Array<Record<string, unknown>>;
+  }): Promise<PrismaTrackAnalysisJobRow[]>;
+  findUnique(args: {
+    where: { id: number };
+  }): Promise<PrismaTrackAnalysisJobRow | null>;
+  update(args: {
+    where: { id: number };
+    data: Record<string, unknown>;
+  }): Promise<PrismaTrackAnalysisJobRow>;
+};
+
+type PrismaTrackAnalysisJobTransactionClient = PrismaDatastoreClient & {
+  trackAnalysisJob: PrismaTrackAnalysisJobDelegate;
+};
+
+export type PrismaTrackAnalysisJobClient = PrismaDatastoreClient & {
+  trackAnalysisJob: PrismaTrackAnalysisJobDelegate;
+  $transaction<T>(callback: (client: PrismaTrackAnalysisJobTransactionClient) => Promise<T>): Promise<T>;
+};
+
+export type PrismaTrackAnalysisJobRepositoryOptions = {
+  client?: PrismaTrackAnalysisJobClient;
+};
+
+const TERMINAL_STATUSES = new Set<TrackAnalysisJobStatus>([
+  "completed",
+  "failed",
+  "dead_lettered",
+]);
+
+export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobRepository {
+  private readonly client: PrismaTrackAnalysisJobClient;
+
+  constructor(options: PrismaTrackAnalysisJobRepositoryOptions = {}) {
+    this.client = options.client ?? (createPrismaDatastoreClient() as PrismaTrackAnalysisJobClient);
+  }
+
+  async enqueue(input: EnqueueTrackAnalysisJobInput): Promise<TrackAnalysisJob> {
+    const now = new Date();
+    const row = await this.client.trackAnalysisJob.create({
+      data: {
+        operation: input.operation,
+        status: "queued",
+        payloadJson: JSON.stringify(input.payload),
+        resultJson: null,
+        errorMessage: null,
+        attemptCount: 0,
+        maxAttempts: input.maxAttempts ?? 3,
+        createdAt: now,
+        updatedAt: now,
+        completedAt: null,
+        notificationReadAt: null,
+        resolvedAt: null,
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
+  async listJobs(options: {
+    statuses?: TrackAnalysisJobStatus[];
+    unresolvedOnly?: boolean;
+    unreadOnly?: boolean;
+  } = {}): Promise<TrackAnalysisJob[]> {
+    const filters: Record<string, unknown>[] = [];
+
+    if (options.statuses?.length) {
+      filters.push({
+        status: {
+          in: options.statuses,
+        },
+      });
+    }
+
+    if (options.unresolvedOnly) {
+      filters.push({
+        resolvedAt: null,
+      });
+      filters.push({
+        status: {
+          in: ["completed", "failed", "dead_lettered"],
+        },
+      });
+    }
+
+    if (options.unreadOnly) {
+      filters.push({
+        notificationReadAt: null,
+      });
+      filters.push({
+        status: {
+          in: ["completed", "failed", "dead_lettered"],
+        },
+      });
+    }
+
+    const rows = await this.client.trackAnalysisJob.findMany({
+      where: filters.length ? { AND: filters } : undefined,
+      orderBy: [{ updatedAt: "desc" }, { id: "desc" }],
+    });
+
+    return rows.map(mapRowToTrackAnalysisJob);
+  }
+
+  async getJob(id: number): Promise<TrackAnalysisJob | null> {
+    const row = await this.client.trackAnalysisJob.findUnique({ where: { id } });
+    return row ? mapRowToTrackAnalysisJob(row) : null;
+  }
+
+  async claimNextJob(): Promise<TrackAnalysisJob | null> {
+    return this.client.$transaction(
+      async (tx) => {
+      const rows = await tx.$queryRaw<Array<{
+        id: number;
+        operation: string;
+        status: string;
+        payload_json: string;
+        result_json: string | null;
+        error_message: string | null;
+        attempt_count: number;
+        max_attempts: number;
+        created_at: Date;
+        updated_at: Date;
+        completed_at: Date | null;
+        notification_read_at: Date | null;
+        resolved_at: Date | null;
+      }>>(Prisma.sql`
+        SELECT
+          id,
+          operation,
+          status,
+          payload_json,
+          result_json,
+          error_message,
+          attempt_count,
+          max_attempts,
+          created_at,
+          updated_at,
+          completed_at,
+          notification_read_at,
+          resolved_at
+        FROM track_analysis_jobs
+        WHERE status = 'queued'
+        ORDER BY created_at ASC, id ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      `);
+
+      const row = rows[0];
+      if (!row) {
+        return null;
+      }
+
+      const updated = await tx.trackAnalysisJob.update({
+        where: { id: row.id },
+        data: {
+          status: "processing",
+          attemptCount: {
+            increment: 1,
+          },
+          errorMessage: null,
+          updatedAt: new Date(),
+        },
+      });
+
+      return mapRowToTrackAnalysisJob(updated);
+      },
+      {
+        maxWait: 20_000,
+        timeout: 60_000,
+      },
+    );
+  }
+
+  async completeJob(id: number, result: unknown): Promise<TrackAnalysisJob | null> {
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        status: "completed",
+        resultJson: JSON.stringify(result),
+        errorMessage: null,
+        updatedAt: new Date(),
+        completedAt: new Date(),
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
+  async failJob(id: number, errorMessage: string): Promise<TrackAnalysisJob | null> {
+    const job = await this.getJob(id);
+
+    if (!job) {
+      return null;
+    }
+
+    const now = new Date();
+    const status: TrackAnalysisJobStatus =
+      job.attemptCount >= job.maxAttempts ? "dead_lettered" : "queued";
+    const completedAt = TERMINAL_STATUSES.has(status) ? now : null;
+
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        status,
+        errorMessage,
+        updatedAt: now,
+        completedAt,
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
+  async retryJob(id: number): Promise<TrackAnalysisJob | null> {
+    const job = await this.getJob(id);
+
+    if (!job || (job.status !== "failed" && job.status !== "dead_lettered")) {
+      return null;
+    }
+
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        status: "queued",
+        errorMessage: null,
+        completedAt: null,
+        updatedAt: new Date(),
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
+  async markNotificationRead(id: number): Promise<TrackAnalysisJob | null> {
+    const job = await this.getJob(id);
+
+    if (!job) {
+      return null;
+    }
+
+    const now = new Date();
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        notificationReadAt: job.notificationReadAt ? new Date(job.notificationReadAt) : now,
+        updatedAt: now,
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
+  async resolveJob(id: number): Promise<TrackAnalysisJob | null> {
+    const job = await this.getJob(id);
+
+    if (!job) {
+      return null;
+    }
+
+    const now = new Date();
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        resolvedAt: job.resolvedAt ? new Date(job.resolvedAt) : now,
+        updatedAt: now,
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+}
+
+function mapRowToTrackAnalysisJob(row: PrismaTrackAnalysisJobRow): TrackAnalysisJob {
+  return {
+    id: row.id,
+    operation: row.operation as TrackAnalysisJob["operation"],
+    status: row.status as TrackAnalysisJobStatus,
+    payload: parseJson(row.payloadJson) as TrackAnalysisPayload,
+    result: row.resultJson ? parseJson(row.resultJson) : null,
+    errorMessage: row.errorMessage,
+    attemptCount: row.attemptCount,
+    maxAttempts: row.maxAttempts,
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    completedAt: row.completedAt ? row.completedAt.toISOString() : null,
+    notificationReadAt: row.notificationReadAt ? row.notificationReadAt.toISOString() : null,
+    resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+  };
+}

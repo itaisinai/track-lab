@@ -1,6 +1,7 @@
 import { invokeMetadataEnrichment } from "@track-lab/metadata-enrichment";
 import {
-  TrackAnalysisJobStore,
+  createTrackAnalysisJobRepository,
+  type TrackAnalysisJobRepository,
   type TrackAnalysisJob,
   type TrackAnalysisPayload,
 } from "@track-lab/datastore";
@@ -19,11 +20,11 @@ export type TrackAnalysisWorkerOptions = {
 
 export class TrackAnalysisWorker {
   private stopped = false;
-  private readonly jobs: TrackAnalysisJobStore;
+  private readonly jobs: TrackAnalysisJobRepository;
   private readonly options: TrackAnalysisWorkerOptions;
 
   constructor(
-    jobs = new TrackAnalysisJobStore(),
+    jobs = createTrackAnalysisJobRepository(),
     options: TrackAnalysisWorkerOptions = {},
   ) {
     this.jobs = jobs;
@@ -31,7 +32,7 @@ export class TrackAnalysisWorker {
   }
 
   async processNextJob(): Promise<TrackAnalysisJob | null> {
-    const job = this.jobs.claimNextJob();
+    const job = await this.jobs.claimNextJob();
 
     if (!job) {
       return null;
@@ -41,9 +42,9 @@ export class TrackAnalysisWorker {
       const result = await (this.options.processor ?? processTrackAnalysisPayload)(
         job.payload as TrackAnalysisPayload,
       );
-      return this.jobs.completeJob(job.id, result);
+      return await this.jobs.completeJob(job.id, result);
     } catch (error) {
-      const failed = this.jobs.failJob(job.id, getErrorMessage(error));
+      const failed = await this.jobs.failJob(job.id, getErrorMessage(error));
       this.options.onError?.(error);
       return failed;
     }

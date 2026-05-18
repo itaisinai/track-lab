@@ -49,11 +49,11 @@ export function executeSearchRemixesTool(
     request: input,
   });
 
-  return {
+  return Promise.resolve(job).then((queued) => ({
     job: {
-      id: job.id,
-      status: job.status,
-      operation: job.operation,
+      id: queued.id,
+      status: queued.status,
+      operation: queued.operation,
     },
-  };
+  }));
 }

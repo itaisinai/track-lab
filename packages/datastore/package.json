@@ -8,6 +8,7 @@
   },
   "scripts": {
     "migrate:track-results": "node src/migrate-track-results.ts",
+    "migrate:datastore": "node src/migrate-datastore.ts",
     "test": "node --test src/__tests__/*.test.ts",
     "typecheck": "tsc -p tsconfig.json"
   },
