@@ -1,3 +1,12 @@
+import type { TrackResultRepository } from "@track-lab/datastore";
 import { createTrackResultRepository } from "@track-lab/datastore";
 
-export const enrichmentTrackResultRepository = createTrackResultRepository();
+let repository: TrackResultRepository | null = null;
+
+export function getEnrichmentTrackResultRepository(): TrackResultRepository {
+  if (!repository) {
+    repository = createTrackResultRepository();
+  }
+
+  return repository;
+}

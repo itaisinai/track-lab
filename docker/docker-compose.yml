@@ -10,14 +10,7 @@ services:
     environment:
       DATASTORE_PROVIDER: prisma
       DATABASE_URL: ${DATABASE_URL}
-    command:
-      [
-        "sh",
-        "-lc",
-        "yarn prisma:migrate:deploy && yarn migrate:datastore",
-      ]
-    volumes:
-      - ../data:/app/data
+    command: ["sh", "-lc", "yarn prisma:migrate:deploy"]
     restart: "no"
 
   api:
@@ -32,7 +25,6 @@ services:
       DATASTORE_PROVIDER: prisma
       DATABASE_URL: ${DATABASE_URL}
     volumes:
-      - ../data:/app/data
       - ${HOME}/.aws:/root/.aws:ro
     depends_on:
       migrate:
@@ -53,7 +45,6 @@ services:
       DATASTORE_PROVIDER: prisma
       DATABASE_URL: ${DATABASE_URL}
     volumes:
-      - ../data:/app/data
       - ${HOME}/.aws:/root/.aws:ro
     depends_on:
       migrate:

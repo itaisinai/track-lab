@@ -6,7 +6,7 @@ This is the canonical architecture diagram in Mermaid form.
 flowchart TD
   U[User] --> W[apps/web]
   W --> A[apps/api]
-  A --> Q[SQLite job queue]
+  A --> Q[SQS job queue]
   Q --> R[apps/worker]
   R --> D[Datastore provider]
 
@@ -51,6 +51,6 @@ flowchart TD
 - The LLM plans, judges, or synthesizes; it does not autonomously call tools.
 - Beatport and SoundCloud are the EDM optional provider group.
 - Remix search separates deterministic provider search from LLM judging.
-- The datastore provider defaults to SQLite and can switch to Prisma/PostgreSQL for the datastore tables that have Prisma support.
+- Prisma/PostgreSQL is the datastore provider.
 - Terminology rules are documented in [`ai-terminology.md`](./ai-terminology.md).
 - The agent orchestrator flow is documented in [`agent-workflow.md`](./agent-workflow.md).

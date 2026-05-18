@@ -22,8 +22,6 @@ That command starts the API, worker, and web containers through
   the API and worker at PostgreSQL. Use your RDS URL with `sslmode=no-verify`
   when connecting to Amazon RDS.
 - Compose runs the Prisma migration service before the API and worker start.
-- That migration service also copies the existing SQLite datastore into
-  PostgreSQL when the SQLite file is present.
 
 ## Direct compose command
 
