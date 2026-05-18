@@ -89,11 +89,38 @@ test("prisma track analysis job repository claims queued remix searches", async 
   assert.equal((await repository.claimNextJob())?.id, queued.id);
 });
 
+test("prisma track analysis job repository reclaims stale processing jobs", async () => {
+  const memoryClient = createMemoryClient();
+  const repository = new PrismaTrackAnalysisJobRepository({
+    client: memoryClient as never,
+  });
+
+  const queued = await repository.enqueue({
+    operation: "remix_search",
+    payload: {
+      operation: "remix_search",
+      request: {
+        title: "The Less I Know The Better",
+        artists: "Tame Impala",
+        spotifyUrl: null,
+        genre: "remix",
+      },
+    },
+  });
+
+  const row = memoryClient._state.find((entry) => entry.id === queued.id);
+  row.status = "processing";
+  row.updatedAt = "2000-01-01T00:00:00.000Z";
+
+  assert.equal((await repository.claimNextJob())?.id, queued.id);
+});
+
 function createMemoryClient() {
   const state: Array<Record<string, unknown>> = [];
   let nextId = 1;
 
   return {
+    _state: state,
     trackAnalysisJob: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         const row = {
@@ -121,10 +148,25 @@ function createMemoryClient() {
       callback({
         $queryRaw: async () =>
           state
-            .filter((row) => row.status === "queued")
-            .sort((left, right) =>
-              new Date(String(left.createdAt)).valueOf() - new Date(String(right.createdAt)).valueOf(),
+            .filter(
+              (row) =>
+                row.status === "queued" ||
+                (row.status === "processing" &&
+                  new Date(String(row.updatedAt)).valueOf() <= Date.now() - 5 * 60 * 1000),
             )
+            .sort((left, right) => {
+              const leftPriority = left.status === "queued" ? 0 : 1;
+              const rightPriority = right.status === "queued" ? 0 : 1;
+
+              if (leftPriority !== rightPriority) {
+                return leftPriority - rightPriority;
+              }
+
+              return (
+                new Date(String(left.createdAt)).valueOf() -
+                new Date(String(right.createdAt)).valueOf()
+              );
+            })
             .slice(0, 1),
         trackAnalysisJob: {
           update: async ({ where, data }: { where: { id: number }; data: Record<string, unknown> }) => {

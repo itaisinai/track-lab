@@ -17,6 +17,7 @@ const TERMINAL_STATUSES = new Set<TrackAnalysisJobStatus>([
   "failed",
   "dead_lettered",
 ]);
+const CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
   readonly db: DatabaseSync;
@@ -177,6 +178,7 @@ export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
 
   claimNextJob(): TrackAnalysisJob | null {
     const now = new Date().toISOString();
+    const staleCutoff = new Date(Date.now() - CLAIM_LEASE_MS).toISOString();
 
     this.db.exec("BEGIN IMMEDIATE");
     try {
@@ -184,10 +186,14 @@ export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
         .prepare(`
           SELECT * FROM track_analysis_jobs
           WHERE status = 'queued'
-          ORDER BY created_at ASC, id ASC
+             OR (status = 'processing' AND updated_at <= ?)
+          ORDER BY
+            CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
+            created_at ASC,
+            id ASC
           LIMIT 1
         `)
-        .get() as TrackAnalysisJobRow | undefined;
+        .get(staleCutoff) as TrackAnalysisJobRow | undefined;
 
       if (!row) {
         this.db.exec("COMMIT");
@@ -259,7 +265,14 @@ export class TrackAnalysisJobStore implements TrackAnalysisJobRepository {
   retryJob(id: number): TrackAnalysisJob | null {
     const job = this.getJob(id);
 
-    if (!job || (job.status !== "failed" && job.status !== "dead_lettered")) {
+    if (
+      !job ||
+      !(
+        job.status === "failed" ||
+        job.status === "dead_lettered" ||
+        (job.status === "processing" && isLeaseExpired(job.updatedAt))
+      )
+    ) {
       return null;
     }
 
@@ -323,4 +336,8 @@ function mapRowToTrackAnalysisJob(row: TrackAnalysisJobRow): TrackAnalysisJob {
     notificationReadAt: row.notification_read_at,
     resolvedAt: row.resolved_at,
   };
+}
+
+function isLeaseExpired(updatedAt: string): boolean {
+  return new Date(updatedAt).valueOf() <= Date.now() - CLAIM_LEASE_MS;
 }

@@ -60,6 +60,7 @@ const TERMINAL_STATUSES = new Set<TrackAnalysisJobStatus>([
   "failed",
   "dead_lettered",
 ]);
+const CLAIM_LEASE_MS = 5 * 60 * 1000;
 
 export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobRepository {
   private readonly client: PrismaTrackAnalysisJobClient;
@@ -141,6 +142,8 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
   }
 
   async claimNextJob(): Promise<TrackAnalysisJob | null> {
+    const staleCutoff = new Date(Date.now() - CLAIM_LEASE_MS);
+
     return this.client.$transaction(
       async (tx) => {
       const rows = await tx.$queryRaw<Array<{
@@ -169,14 +172,18 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
           max_attempts,
           created_at,
           updated_at,
-          completed_at,
-          notification_read_at,
-          resolved_at
-        FROM track_analysis_jobs
-        WHERE status = 'queued'
-        ORDER BY created_at ASC, id ASC
-        FOR UPDATE SKIP LOCKED
-        LIMIT 1
+        completed_at,
+        notification_read_at,
+        resolved_at
+      FROM track_analysis_jobs
+      WHERE status = 'queued'
+         OR (status = 'processing' AND updated_at <= ${staleCutoff})
+      ORDER BY
+        CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
+        created_at ASC,
+        id ASC
+      FOR UPDATE SKIP LOCKED
+      LIMIT 1
       `);
 
       const row = rows[0];
@@ -248,7 +255,14 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
   async retryJob(id: number): Promise<TrackAnalysisJob | null> {
     const job = await this.getJob(id);
 
-    if (!job || (job.status !== "failed" && job.status !== "dead_lettered")) {
+    if (
+      !job ||
+      !(
+        job.status === "failed" ||
+        job.status === "dead_lettered" ||
+        (job.status === "processing" && isLeaseExpired(job.updatedAt))
+      )
+    ) {
       return null;
     }
 
@@ -302,6 +316,10 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
 
     return mapRowToTrackAnalysisJob(row);
   }
+}
+
+function isLeaseExpired(updatedAt: string): boolean {
+  return new Date(updatedAt).valueOf() <= Date.now() - CLAIM_LEASE_MS;
 }
 
 function mapRowToTrackAnalysisJob(row: PrismaTrackAnalysisJobRow): TrackAnalysisJob {

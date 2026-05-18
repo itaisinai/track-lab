@@ -86,6 +86,35 @@ test("job store enqueues remix search jobs in the shared queue", () => {
   assert.equal(store.claimNextJob()?.id, queued.id);
 });
 
+test("job store reclaims stale processing jobs", () => {
+  const store = createStore();
+  const queued = store.enqueue({
+    operation: "remix_search",
+    payload: {
+      operation: "remix_search",
+      request: {
+        title: "The Less I Know The Better",
+        artists: "Tame Impala",
+        spotifyUrl: null,
+        genre: "remix",
+      },
+    },
+  });
+
+  store.db
+    .prepare(
+      `
+        UPDATE track_analysis_jobs
+        SET status = 'processing',
+            updated_at = ?
+        WHERE id = ?
+      `,
+    )
+    .run("2000-01-01T00:00:00.000Z", queued.id);
+
+  assert.equal(store.claimNextJob()?.id, queued.id);
+});
+
 function createStore() {
   const directory = mkdtempSync(join(tmpdir(), "track-lab-jobs-"));
   return new TrackAnalysisJobStore(join(directory, "test.sqlite"));
