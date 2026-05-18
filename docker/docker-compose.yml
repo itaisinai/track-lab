@@ -62,12 +62,6 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile.web
-      args:
-        DATABASE_URL: ${DATABASE_URL}
-    env_file:
-      - ../.env
-    environment:
-      DATABASE_URL: ${DATABASE_URL}
     ports:
       - "5173:5173"
     depends_on:
