@@ -42,6 +42,22 @@ type PrismaTrackAnalysisJobDelegate = {
   }): Promise<PrismaTrackAnalysisJobRow>;
 };
 
+type PrismaTrackAnalysisJobClaimRow = {
+  id: number;
+  operation: string;
+  status: string;
+  payload_json: string;
+  result_json: string | null;
+  error_message: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  created_at: Date;
+  updated_at: Date;
+  completed_at: Date | null;
+  notification_read_at: Date | null;
+  resolved_at: Date | null;
+};
+
 type PrismaTrackAnalysisJobTransactionClient = PrismaDatastoreClient & {
   trackAnalysisJob: PrismaTrackAnalysisJobDelegate;
 };
@@ -146,64 +162,44 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
 
     return this.client.$transaction(
       async (tx) => {
-      const rows = await tx.$queryRaw<Array<{
-        id: number;
-        operation: string;
-        status: string;
-        payload_json: string;
-        result_json: string | null;
-        error_message: string | null;
-        attempt_count: number;
-        max_attempts: number;
-        created_at: Date;
-        updated_at: Date;
-        completed_at: Date | null;
-        notification_read_at: Date | null;
-        resolved_at: Date | null;
-      }>>(Prisma.sql`
-        SELECT
-          id,
-          operation,
-          status,
-          payload_json,
-          result_json,
-          error_message,
-          attempt_count,
-          max_attempts,
-          created_at,
-          updated_at,
-        completed_at,
-        notification_read_at,
-        resolved_at
-      FROM track_analysis_jobs
-      WHERE status = 'queued'
-         OR (status = 'processing' AND updated_at <= ${staleCutoff})
-      ORDER BY
-        CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
-        created_at ASC,
-        id ASC
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
-      `);
+        const rows = await tx.$queryRaw<Array<PrismaTrackAnalysisJobClaimRow>>(Prisma.sql`
+          WITH next_job AS (
+            SELECT id
+            FROM track_analysis_jobs
+            WHERE status = 'queued'
+               OR (status = 'processing' AND updated_at <= ${staleCutoff})
+            ORDER BY
+              CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
+              created_at ASC,
+              id ASC
+            FOR UPDATE SKIP LOCKED
+            LIMIT 1
+          )
+          UPDATE track_analysis_jobs AS job
+          SET status = 'processing',
+              attempt_count = job.attempt_count + 1,
+              error_message = NULL,
+              updated_at = NOW()
+          FROM next_job
+          WHERE job.id = next_job.id
+          RETURNING
+            job.id,
+            job.operation,
+            job.status,
+            job.payload_json,
+            job.result_json,
+            job.error_message,
+            job.attempt_count,
+            job.max_attempts,
+            job.created_at,
+            job.updated_at,
+            job.completed_at,
+            job.notification_read_at,
+            job.resolved_at
+        `);
 
-      const row = rows[0];
-      if (!row) {
-        return null;
-      }
-
-      const updated = await tx.trackAnalysisJob.update({
-        where: { id: row.id },
-        data: {
-          status: "processing",
-          attemptCount: {
-            increment: 1,
-          },
-          errorMessage: null,
-          updatedAt: new Date(),
-        },
-      });
-
-      return mapRowToTrackAnalysisJob(updated);
+        const row = rows[0];
+        return row ? mapClaimRowToTrackAnalysisJob(row) : null;
       },
       {
         maxWait: 20_000,
@@ -337,5 +333,27 @@ function mapRowToTrackAnalysisJob(row: PrismaTrackAnalysisJobRow): TrackAnalysis
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
     notificationReadAt: row.notificationReadAt ? row.notificationReadAt.toISOString() : null,
     resolvedAt: row.resolvedAt ? row.resolvedAt.toISOString() : null,
+  };
+}
+
+function mapClaimRowToTrackAnalysisJob(
+  row: PrismaTrackAnalysisJobClaimRow,
+): TrackAnalysisJob {
+  return {
+    id: row.id,
+    operation: row.operation as TrackAnalysisJob["operation"],
+    status: row.status as TrackAnalysisJobStatus,
+    payload: parseJson(row.payload_json) as TrackAnalysisPayload,
+    result: row.result_json ? parseJson(row.result_json) : null,
+    errorMessage: row.error_message,
+    attemptCount: row.attempt_count,
+    maxAttempts: row.max_attempts,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString(),
+    completedAt: row.completed_at ? row.completed_at.toISOString() : null,
+    notificationReadAt: row.notification_read_at
+      ? row.notification_read_at.toISOString()
+      : null,
+    resolvedAt: row.resolved_at ? row.resolved_at.toISOString() : null,
   };
 }

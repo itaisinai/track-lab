@@ -114,7 +114,7 @@ test("prisma track analysis job repository reclaims stale processing jobs", asyn
   }
 
   row.status = "processing";
-  row.updatedAt = "2000-01-01T00:00:00.000Z";
+  row.updatedAt = new Date("2000-01-01T00:00:00.000Z");
 
   assert.equal((await repository.claimNextJob())?.id, queued.id);
 });
@@ -150,8 +150,8 @@ function createMemoryClient() {
     },
     $transaction: async <T>(callback: (client: any) => Promise<T>) =>
       callback({
-        $queryRaw: async () =>
-          state
+        $queryRaw: async () => {
+          const candidate = [...state]
             .filter(
               (row) =>
                 row.status === "queued" ||
@@ -170,8 +170,35 @@ function createMemoryClient() {
                 new Date(String(left.createdAt)).valueOf() -
                 new Date(String(right.createdAt)).valueOf()
               );
-            })
-            .slice(0, 1),
+            })[0];
+
+          if (!candidate) {
+            return [];
+          }
+
+          candidate.status = "processing";
+          candidate.attemptCount = Number(candidate.attemptCount ?? 0) + 1;
+          candidate.errorMessage = null;
+          candidate.updatedAt = new Date();
+
+          return [
+            {
+              id: candidate.id,
+              operation: candidate.operation,
+              status: candidate.status,
+              payload_json: candidate.payloadJson,
+              result_json: candidate.resultJson,
+              error_message: candidate.errorMessage,
+              attempt_count: candidate.attemptCount,
+              max_attempts: candidate.maxAttempts,
+              created_at: candidate.createdAt,
+              updated_at: candidate.updatedAt,
+              completed_at: candidate.completedAt,
+              notification_read_at: candidate.notificationReadAt,
+              resolved_at: candidate.resolvedAt,
+            },
+          ];
+        },
         trackAnalysisJob: {
           update: async ({ where, data }: { where: { id: number }; data: Record<string, unknown> }) => {
             const row = state.find((entry) => entry.id === where.id);
