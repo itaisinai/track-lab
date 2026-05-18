@@ -1,6 +1,6 @@
+import { PrismaTrackAnalysisJobRepository } from "../prisma-track-analysis-job-repository.ts";
 import assert from "node:assert/strict";
 import test from "node:test";
-import { PrismaTrackAnalysisJobRepository } from "../prisma-track-analysis-job-repository.ts";
 
 test("prisma track analysis job repository enqueues and processes jobs", async () => {
   const repository = new PrismaTrackAnalysisJobRepository({
@@ -109,6 +109,10 @@ test("prisma track analysis job repository reclaims stale processing jobs", asyn
   });
 
   const row = memoryClient._state.find((entry) => entry.id === queued.id);
+  if (!row) {
+    throw new Error("test row not found");
+  }
+
   row.status = "processing";
   row.updatedAt = "2000-01-01T00:00:00.000Z";
 
