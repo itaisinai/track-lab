@@ -11,6 +11,7 @@ COPY packages ./packages
 COPY scripts ./scripts
 COPY prisma.config.ts ./
 COPY nx.json ./
+COPY docker/nginx.web.conf /etc/nginx/conf.d/default.conf
 
 RUN yarn install --immutable
 RUN yarn workspace @track-lab/web build
