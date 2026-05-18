@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "yarn workspace @track-lab/api start",
-    "dev:docker": "docker compose --env-file .env -f docker/docker-compose.yml up --build --force-recreate",
+    "dev:docker": "docker compose --env-file .env -f docker/docker-compose.yml up --build",
     "dev:web": "yarn workspace @track-lab/web dev",
     "prisma:generate": "prisma generate --config prisma.config.ts",
     "prisma:migrate:dev": "prisma migrate dev --config prisma.config.ts",

@@ -13,9 +13,6 @@ COPY scripts ./scripts
 COPY prisma.config.ts ./
 COPY nx.json ./
 
-ARG DATABASE_URL
-ENV DATABASE_URL=${DATABASE_URL}
-
 RUN yarn install --immutable
 
 CMD ["yarn", "workspace", "@track-lab/api", "start:docker"]
