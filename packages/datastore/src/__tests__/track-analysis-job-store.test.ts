@@ -86,6 +86,20 @@ test("job store enqueues remix search jobs in the shared queue", () => {
   assert.equal(store.claimNextJob()?.id, queued.id);
 });
 
+test("job store claims a specific job safely", () => {
+  const store = createStore();
+  const queued = store.enqueue({
+    operation: "analyze",
+    payload: {
+      operation: "analyze",
+      track: { title: "Strobe", artists: "deadmau5" },
+      source: "manual",
+    },
+  });
+
+  assert.equal(store.claimJob(queued.id)?.status, "processing");
+});
+
 test("job store reclaims stale processing jobs", () => {
   const store = createStore();
   const queued = store.enqueue({

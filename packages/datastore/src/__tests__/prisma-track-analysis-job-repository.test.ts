@@ -89,6 +89,23 @@ test("prisma track analysis job repository claims queued remix searches", async 
   assert.equal((await repository.claimNextJob())?.id, queued.id);
 });
 
+test("prisma track analysis job repository claims a specific job safely", async () => {
+  const repository = new PrismaTrackAnalysisJobRepository({
+    client: createMemoryClient() as never,
+  });
+
+  const queued = await repository.enqueue({
+    operation: "analyze",
+    payload: {
+      operation: "analyze",
+      track: { title: "Strobe", artists: "deadmau5" },
+      source: "manual",
+    },
+  });
+
+  assert.equal((await repository.claimJob(queued.id))?.status, "processing");
+});
+
 test("prisma track analysis job repository reclaims stale processing jobs", async () => {
   const memoryClient = createMemoryClient();
   const repository = new PrismaTrackAnalysisJobRepository({

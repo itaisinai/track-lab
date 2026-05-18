@@ -9,6 +9,12 @@ export type { RemixResultRepository } from "./remix-result-repository.ts";
 export { TrackAnalysisJobStore } from "./track-analysis-job-store.ts";
 export { createTrackAnalysisJobRepository } from "./track-analysis-job-repository-factory.ts";
 export type { TrackAnalysisJobRepository } from "./track-analysis-job-repository.ts";
+export { createTrackAnalysisQueueProvider } from "./track-analysis-queue-provider-factory.ts";
+export type {
+  TrackAnalysisQueueMessage,
+  TrackAnalysisQueueProvider,
+  TrackAnalysisQueueProviderMode,
+} from "./track-analysis-queue-provider.ts";
 export { RemixResultStore } from "./remix-result-store.ts";
 export { createTrackResultRepository } from "./track-result-repository-factory.ts";
 export { TrackResultStore } from "./track-result-store.ts";

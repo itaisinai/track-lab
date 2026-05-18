@@ -31,13 +31,14 @@ services:
     environment:
       DATASTORE_PROVIDER: prisma
       DATABASE_URL: ${DATABASE_URL}
-    ports:
-      - "3000:3000"
     volumes:
       - ../data:/app/data
+      - ${HOME}/.aws:/root/.aws:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
+    ports:
+      - "3000:3000"
     restart: unless-stopped
 
   worker:
@@ -53,6 +54,7 @@ services:
       DATABASE_URL: ${DATABASE_URL}
     volumes:
       - ../data:/app/data
+      - ${HOME}/.aws:/root/.aws:ro
     depends_on:
       migrate:
         condition: service_completed_successfully
