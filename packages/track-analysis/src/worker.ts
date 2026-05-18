@@ -1,4 +1,5 @@
 import { invokeMetadataEnrichment } from "@track-lab/metadata-enrichment";
+import { createScopedLogger } from "@track-lab/logger";
 import {
   createTrackAnalysisJobRepository,
   createTrackAnalysisQueueProvider,
@@ -26,6 +27,7 @@ export class TrackAnalysisWorker {
   private readonly jobs: TrackAnalysisJobRepository;
   private readonly queue: TrackAnalysisQueueProvider;
   private readonly options: TrackAnalysisWorkerOptions;
+  private readonly log = createScopedLogger("track-analysis-worker");
 
   constructor(
     jobs = createTrackAnalysisJobRepository(),
@@ -49,12 +51,28 @@ export class TrackAnalysisWorker {
     }
 
     try {
+      this.log("processing queued job", {
+        jobId: job.id,
+        operation: job.operation,
+        status: job.status,
+      });
+
       const result = await (this.options.processor ?? processTrackAnalysisPayload)(
         job.payload as TrackAnalysisPayload,
       );
-      return await this.jobs.completeJob(job.id, result);
+      const completed = await this.jobs.completeJob(job.id, result);
+      this.log("completed queued job", {
+        jobId: job.id,
+        operation: job.operation,
+      });
+      return completed;
     } catch (error) {
       const failed = await this.jobs.failJob(job.id, getErrorMessage(error));
+      this.log("failed queued job", {
+        jobId: job.id,
+        operation: job.operation,
+        error: getErrorMessage(error),
+      });
       this.options.onError?.(error);
       return failed;
     }
@@ -67,10 +85,17 @@ export class TrackAnalysisWorker {
       return null;
     }
 
+    this.log("received sqs message", {
+      messageId: message.messageId,
+    });
+
     const jobId = parseJobIdFromMessage(message);
 
     if (jobId === null) {
       this.options.onError?.(new Error("Invalid SQS job message body."));
+      this.log("discarded invalid sqs message", {
+        messageId: message.messageId,
+      });
       return null;
     }
 
@@ -78,35 +103,75 @@ export class TrackAnalysisWorker {
 
     if (!currentJob) {
       await this.queue.deleteMessage(message);
+      this.log("deleted sqs message for missing job", {
+        messageId: message.messageId,
+        jobId,
+      });
       return null;
     }
 
     if (currentJob.status === "completed" || currentJob.status === "dead_lettered") {
       await this.queue.deleteMessage(message);
+      this.log("deleted sqs message for terminal job", {
+        messageId: message.messageId,
+        jobId,
+        status: currentJob.status,
+      });
       return currentJob;
     }
 
     const claimed = await this.jobs.claimJob(jobId);
 
     if (!claimed) {
+      this.log("skipped unclaimable sqs job", {
+        messageId: message.messageId,
+        jobId,
+      });
       return null;
     }
+
+    this.log("claimed sqs job", {
+      messageId: message.messageId,
+      jobId: claimed.id,
+      operation: claimed.operation,
+      status: claimed.status,
+    });
 
     try {
       const result = await (this.options.processor ?? processTrackAnalysisPayload)(
         claimed.payload as TrackAnalysisPayload,
       );
       const completed = await this.jobs.completeJob(claimed.id, result);
+      this.log("completed sqs job", {
+        messageId: message.messageId,
+        jobId: claimed.id,
+        operation: claimed.operation,
+      });
 
       try {
         await this.queue.deleteMessage(message);
+        this.log("deleted sqs message after success", {
+          messageId: message.messageId,
+          jobId: claimed.id,
+        });
       } catch (deleteError) {
         this.options.onError?.(deleteError);
+        this.log("failed to delete sqs message after success", {
+          messageId: message.messageId,
+          jobId: claimed.id,
+          error: getErrorMessage(deleteError),
+        });
       }
 
       return completed;
     } catch (error) {
       const failed = await this.jobs.failJob(claimed.id, getErrorMessage(error));
+      this.log("failed sqs job", {
+        messageId: message.messageId,
+        jobId: claimed.id,
+        operation: claimed.operation,
+        error: getErrorMessage(error),
+      });
       this.options.onError?.(error);
       return failed;
     }

@@ -1,6 +1,8 @@
 import { TrackAnalysisWorker } from "@track-lab/track-analysis";
+import { createScopedLogger } from "@track-lab/logger";
 
 const pollIntervalMs = Number(process.env.TRACK_ANALYSIS_WORKER_POLL_MS ?? 1500);
+const log = createScopedLogger("worker");
 const worker = new TrackAnalysisWorker(undefined, {
   pollIntervalMs,
   onError(error) {
@@ -11,10 +13,10 @@ const worker = new TrackAnalysisWorker(undefined, {
 process.on("SIGINT", stop);
 process.on("SIGTERM", stop);
 
-console.log(`Track analysis worker started. Polling every ${pollIntervalMs}ms.`);
+log("track analysis worker started", { pollIntervalMs });
 await worker.start();
 
 function stop() {
-  console.log("Stopping track analysis worker.");
+  log("stopping track analysis worker");
   worker.stop();
 }
