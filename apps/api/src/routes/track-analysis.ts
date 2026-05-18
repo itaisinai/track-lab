@@ -1,7 +1,7 @@
 import {
-  type AgentSessionStore,
+  type AgentSessionRepository,
   type TrackAnalysisJobStatus,
-  type TrackAnalysisJobStore,
+  type TrackAnalysisJobRepository,
 } from "@track-lab/datastore";
 import { Router, type Request, type Response } from "express";
 
@@ -14,40 +14,40 @@ const VALID_STATUSES = new Set<TrackAnalysisJobStatus>([
 ]);
 
 export function createTrackAnalysisRouter(
-  jobs: TrackAnalysisJobStore,
-  agentSessions?: AgentSessionStore,
+  jobs: TrackAnalysisJobRepository,
+  agentSessions?: AgentSessionRepository,
 ) {
   const router = Router();
 
-  router.get("/track-analysis/jobs", (req: Request, res: Response) => {
+  router.get("/track-analysis/jobs", async (req: Request, res: Response) => {
     const statuses = getStatuses(req);
 
-    const listedJobs = jobs.listJobs({
-        statuses,
-        unresolvedOnly: req.query.unresolved === "true",
-        unreadOnly: req.query.unread === "true",
-      });
+    const listedJobs = await jobs.listJobs({
+      statuses,
+      unresolvedOnly: req.query.unresolved === "true",
+      unreadOnly: req.query.unread === "true",
+    });
     for (const job of listedJobs) {
-      agentSessions?.syncCompletedAnalysisJob(job);
+      await agentSessions?.syncCompletedAnalysisJob(job);
     }
 
     res.json({ jobs: listedJobs });
   });
 
-  router.get("/track-analysis/jobs/:id", (req: Request, res: Response) => {
-    const job = jobs.getJob(Number(req.params.id));
+  router.get("/track-analysis/jobs/:id", async (req: Request, res: Response) => {
+    const job = await jobs.getJob(Number(req.params.id));
 
     if (!job) {
       res.status(404).json({ error: "Job not found." });
       return;
     }
 
-    agentSessions?.syncCompletedAnalysisJob(job);
+    await agentSessions?.syncCompletedAnalysisJob(job);
     res.json({ job });
   });
 
-  router.post("/track-analysis/jobs/:id/retry", (req: Request, res: Response) => {
-    const job = jobs.retryJob(Number(req.params.id));
+  router.post("/track-analysis/jobs/:id/retry", async (req: Request, res: Response) => {
+    const job = await jobs.retryJob(Number(req.params.id));
 
     if (!job) {
       res.status(404).json({ error: "Retryable job not found." });
@@ -57,8 +57,8 @@ export function createTrackAnalysisRouter(
     res.json({ job });
   });
 
-  router.post("/track-analysis/jobs/:id/resolve", (req: Request, res: Response) => {
-    const job = jobs.resolveJob(Number(req.params.id));
+  router.post("/track-analysis/jobs/:id/resolve", async (req: Request, res: Response) => {
+    const job = await jobs.resolveJob(Number(req.params.id));
 
     if (!job) {
       res.status(404).json({ error: "Job not found." });
@@ -70,8 +70,8 @@ export function createTrackAnalysisRouter(
 
   router.post(
     "/track-analysis/jobs/:id/notification-read",
-    (req: Request, res: Response) => {
-      const job = jobs.markNotificationRead(Number(req.params.id));
+    async (req: Request, res: Response) => {
+      const job = await jobs.markNotificationRead(Number(req.params.id));
 
       if (!job) {
         res.status(404).json({ error: "Job not found." });

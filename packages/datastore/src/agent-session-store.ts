@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
+import type { AgentSessionRepository } from "./agent-session-repository.ts";
 import { getDefaultDatabasePath } from "./db-path.ts";
 import { parseJson } from "./lib/json.ts";
 import type {
@@ -19,7 +20,7 @@ import type {
   TrackAnalysisJob,
 } from "./types.ts";
 
-export class AgentSessionStore {
+export class AgentSessionStore implements AgentSessionRepository {
   readonly db: DatabaseSync;
 
   constructor(databasePath = getDefaultDatabasePath()) {

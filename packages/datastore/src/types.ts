@@ -91,6 +91,8 @@ export type TrackResultRow = {
   title: string;
   artists: string;
   album: string | null;
+  title_key: string;
+  artists_key: string;
   bpm: number | null;
   genre: string | null;
   sub_genre: string | null;

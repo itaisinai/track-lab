@@ -6,15 +6,15 @@ import test from "node:test";
 import { TrackAnalysisJobStore } from "@track-lab/datastore";
 import { TrackAnalysisOrchestrator, TrackAnalysisWorker } from "../index.ts";
 
-test("orchestrator validates and enqueues analyze and enrich requests", () => {
+test("orchestrator validates and enqueues analyze and enrich requests", async () => {
   const store = createStore();
   const orchestrator = new TrackAnalysisOrchestrator(store);
 
-  const analyze = orchestrator.enqueue({
+  const analyze = await orchestrator.enqueue({
     operation: "analyze",
     track: { title: " Strobe ", artists: " deadmau5 " },
   });
-  const enrich = orchestrator.enqueue({
+  const enrich = await orchestrator.enqueue({
     operation: "enrich",
     track: { title: "Hot Honey", artists: "LIAD MEIR, Eden Derso" },
     knownMetadata: { bpm: 126 },
@@ -34,7 +34,7 @@ test("orchestrator validates and enqueues analyze and enrich requests", () => {
 test("worker completes successful jobs", async () => {
   const store = createStore();
   const orchestrator = new TrackAnalysisOrchestrator(store);
-  const queued = orchestrator.enqueue({
+  const queued = await orchestrator.enqueue({
     operation: "analyze",
     track: { title: "Strobe", artists: "deadmau5" },
   });
@@ -81,11 +81,11 @@ test("worker retries failures and dead letters exhausted jobs", async () => {
   assert.equal(dead?.attemptCount, 2);
 });
 
-test("orchestrator validates and enqueues remix search requests", () => {
+test("orchestrator validates and enqueues remix search requests", async () => {
   const store = createStore();
   const orchestrator = new TrackAnalysisOrchestrator(store);
 
-  const queued = orchestrator.enqueue({
+  const queued = await orchestrator.enqueue({
     operation: "remix_search",
     request: {
       title: " Babatunde ",

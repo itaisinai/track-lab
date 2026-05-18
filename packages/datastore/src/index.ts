@@ -1,6 +1,14 @@
 export { AgentSessionStore } from "./agent-session-store.ts";
+export { createAgentSessionRepository } from "./agent-session-repository-factory.ts";
+export type { AgentSessionRepository } from "./agent-session-repository.ts";
 export { extractEnrichmentResponse } from "./enrichment-response.ts";
+export { migrateDatastore } from "./migrate-datastore.ts";
+export { migrateTrackResults } from "./migrate-track-results.ts";
+export { createRemixResultRepository } from "./remix-result-repository-factory.ts";
+export type { RemixResultRepository } from "./remix-result-repository.ts";
 export { TrackAnalysisJobStore } from "./track-analysis-job-store.ts";
+export { createTrackAnalysisJobRepository } from "./track-analysis-job-repository-factory.ts";
+export type { TrackAnalysisJobRepository } from "./track-analysis-job-repository.ts";
 export { RemixResultStore } from "./remix-result-store.ts";
 export { createTrackResultRepository } from "./track-result-repository-factory.ts";
 export { TrackResultStore } from "./track-result-store.ts";

@@ -82,8 +82,8 @@ yarn dev:docker
 ```
 
 This starts the API, worker, web app, PostgreSQL, and the one-shot migration
-service that applies Prisma migrations and copies existing `track_results`
-from SQLite into PostgreSQL when present.
+service that applies Prisma migrations and copies the existing SQLite
+datastore into PostgreSQL when present.
 
 Useful checks:
 
@@ -100,8 +100,8 @@ Create `.env` in the repo root from [.env.example](.env.example).
 cp .env.example .env
 ```
 
-Set `DATABASE_URL` to the local Docker Postgres URL or to your RDS URL with
-`sslmode=no-verify` for container access.
+Set `DATABASE_URL` to the real connection string you want everywhere, such as
+your RDS URL with `sslmode=no-verify`.
 
 Provider credentials are optional for local wiring, but real enrichment quality
 depends on them.
@@ -135,20 +135,19 @@ To use the Prisma/PostgreSQL repository instead of SQLite:
 
 ```sh
 DATASTORE_PROVIDER=prisma
-DATABASE_URL=postgresql://track_lab:track_lab@localhost:5432/track_lab?sslmode=no-verify
+DATABASE_URL=postgresql://track_lab:track_lab@your-rds-endpoint:5432/track_lab?sslmode=no-verify
 ```
 
-To copy existing `track_results` rows from the SQLite database into
-PostgreSQL:
+To copy the existing SQLite datastore into PostgreSQL:
 
 ```sh
-yarn migrate:track-results
+yarn migrate:datastore
 ```
 
 ## Worker Jobs
 
-Background work is stored in the `track_analysis_jobs` SQLite table and exposed
-as `TrackAnalysisJob` API objects.
+Background work is stored in the `track_analysis_jobs` datastore table and
+exposed as `TrackAnalysisJob` API objects.
 
 Job operations:
 

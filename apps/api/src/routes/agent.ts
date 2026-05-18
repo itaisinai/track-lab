@@ -1,11 +1,11 @@
-import type { AgentSessionStore } from "@track-lab/datastore";
+import type { AgentSessionRepository } from "@track-lab/datastore";
 import { AgentOrchestrator } from "@track-lab/agent-chat";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import type { Request, Response } from "express";
 import { Router } from "express";
 
 export function createAgentRouter(
-  store: AgentSessionStore,
+  store: AgentSessionRepository,
   orchestrator: TrackAnalysisOrchestrator,
 ) {
   const router = Router();
@@ -14,18 +14,18 @@ export function createAgentRouter(
     trackAnalysis: orchestrator,
   });
 
-  router.get("/agent/sessions", (_req: Request, res: Response) => {
-    res.json({ sessions: store.listSessions() });
+  router.get("/agent/sessions", async (_req: Request, res: Response) => {
+    res.json({ sessions: await store.listSessions() });
   });
 
-  router.post("/agent/sessions", (_req: Request, res: Response) => {
-    const session = store.createSession();
+  router.post("/agent/sessions", async (_req: Request, res: Response) => {
+    const session = await store.createSession();
     res.status(201).json({ session });
   });
 
-  router.get("/agent/sessions/:sessionId", (req: Request, res: Response) => {
+  router.get("/agent/sessions/:sessionId", async (req: Request, res: Response) => {
     const sessionId = Number(req.params.sessionId);
-    const session = store.getSession(sessionId);
+    const session = await store.getSession(sessionId);
 
     if (!session) {
       res.status(404).json({ error: "Agent session was not found." });
@@ -34,12 +34,12 @@ export function createAgentRouter(
 
     res.json({
       session,
-      messages: store.listMessages(sessionId),
-      toolCalls: store.listToolCalls(sessionId),
+      messages: await store.listMessages(sessionId),
+      toolCalls: await store.listToolCalls(sessionId),
     });
   });
 
-  router.delete("/agent/sessions/:sessionId", (req: Request, res: Response) => {
+  router.delete("/agent/sessions/:sessionId", async (req: Request, res: Response) => {
     const sessionId = Number(req.params.sessionId);
 
     if (!Number.isInteger(sessionId)) {
@@ -47,7 +47,7 @@ export function createAgentRouter(
       return;
     }
 
-    const deleted = store.deleteSession(sessionId);
+    const deleted = await store.deleteSession(sessionId);
     if (!deleted) {
       res.status(404).json({ error: "Agent session was not found." });
       return;

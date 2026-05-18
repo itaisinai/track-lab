@@ -1,8 +1,7 @@
-import { TrackAnalysisJobStore } from "@track-lab/datastore";
 import { TrackAnalysisWorker } from "@track-lab/track-analysis";
 
 const pollIntervalMs = Number(process.env.TRACK_ANALYSIS_WORKER_POLL_MS ?? 1500);
-const worker = new TrackAnalysisWorker(new TrackAnalysisJobStore(), {
+const worker = new TrackAnalysisWorker(undefined, {
   pollIntervalMs,
   onError(error) {
     console.error("Track analysis job failed:", error);

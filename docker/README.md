@@ -7,7 +7,7 @@ yarn dev:docker
 ```
 
 That command starts the API, worker, and web containers through
-`docker/docker-compose.yml`.
+`docker/docker-compose.yml`, plus the one-shot migration service.
 
 ## Notes
 
@@ -15,12 +15,12 @@ That command starts the API, worker, and web containers through
 - Local `.env` values are passed into containers through compose and are the
   single source of truth for the Docker runtime.
 - Container entrypoints use the `start:docker` and `dev:docker` scripts.
-- The PostgreSQL service is available for the Prisma datastore path.
 - Set `DATASTORE_PROVIDER=prisma` and define `DATABASE_URL` in `.env` to point
-  the API and worker at PostgreSQL inside Docker.
+  the API and worker at PostgreSQL. Use your RDS URL with `sslmode=no-verify`
+  when connecting to Amazon RDS.
 - Compose runs the Prisma migration service before the API and worker start.
-- That migration service also copies existing `track_results` rows from the
-  mounted SQLite database into PostgreSQL when the SQLite file is present.
+- That migration service also copies the existing SQLite datastore into
+  PostgreSQL when the SQLite file is present.
 
 ## Direct compose command
 

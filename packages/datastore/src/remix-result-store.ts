@@ -2,6 +2,7 @@ import { mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { DatabaseSync } from "node:sqlite";
 import type { RemixSearchCandidate } from "@track-lab/api-types";
+import type { RemixResultRepository } from "./remix-result-repository.ts";
 import { getDefaultDatabasePath } from "./db-path.ts";
 import { parseJson } from "./lib/json.ts";
 import type {
@@ -10,7 +11,7 @@ import type {
   SaveRemixCandidateRequest,
 } from "./types.ts";
 
-export class RemixResultStore {
+export class RemixResultStore implements RemixResultRepository {
   readonly db: DatabaseSync;
 
   constructor(databasePath = getDefaultDatabasePath()) {

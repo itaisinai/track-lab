@@ -5,7 +5,7 @@ import type {
   AnalyzeTrackToolInput,
   SearchRemixesToolInput,
 } from "@track-lab/api-types";
-import type { AgentSessionStore } from "@track-lab/datastore";
+import type { AgentSessionRepository } from "@track-lab/datastore";
 import type { TrackAnalysisOrchestrator } from "@track-lab/track-analysis";
 import type { ToolExecution } from "./tool-execution-types.ts";
 import {
@@ -30,11 +30,11 @@ export type AgentToolRequestContext = {
 };
 
 export class AgentToolExecutor {
-  private readonly store: AgentSessionStore;
+  private readonly store: AgentSessionRepository;
   private readonly trackAnalysis: TrackAnalysisOrchestrator;
 
   constructor(
-    store: AgentSessionStore,
+    store: AgentSessionRepository,
     trackAnalysis: TrackAnalysisOrchestrator,
   ) {
     this.store = store;
@@ -78,7 +78,7 @@ export class AgentToolExecutor {
     arguments: AgentToolInput;
     requestContext?: AgentToolRequestContext;
   }): Promise<ToolExecution> {
-    const resolvedArguments = this.resolveToolArguments(
+    const resolvedArguments = await this.resolveToolArguments(
       input.sessionId,
       input.toolName,
       input.arguments,
@@ -89,7 +89,7 @@ export class AgentToolExecutor {
       arguments: resolvedArguments,
     });
 
-    const call = this.store.startToolCall({
+    const call = await this.store.startToolCall({
       sessionId: input.sessionId,
       requestMessageId: input.requestMessageId,
       toolName: input.toolName,
@@ -107,8 +107,8 @@ export class AgentToolExecutor {
               resolvedArguments as SearchRemixesToolInput,
               this.trackAnalysis,
             );
-      const completed = this.store.completeToolCall(call.id, result) ?? call;
-      this.updateSessionContext(input.sessionId, input.toolName, resolvedArguments, result);
+      const completed = (await this.store.completeToolCall(call.id, result)) ?? call;
+      await this.updateSessionContext(input.sessionId, input.toolName, resolvedArguments, result);
       logToolCallCompleted({
         sessionId: input.sessionId,
         requestMessageId: input.requestMessageId,
@@ -122,7 +122,7 @@ export class AgentToolExecutor {
       };
     } catch (error) {
       const failed =
-        this.store.failToolCall(call.id, getErrorMessage(error)) ?? call;
+        (await this.store.failToolCall(call.id, getErrorMessage(error))) ?? call;
       logToolCallFailed({
         sessionId: input.sessionId,
         requestMessageId: input.requestMessageId,
@@ -138,12 +138,12 @@ export class AgentToolExecutor {
     }
   }
 
-  private resolveToolArguments(
+  private async resolveToolArguments(
     sessionId: number,
     toolName: AgentToolName,
     input: AgentToolInput,
     requestContext?: AgentToolRequestContext,
-  ): AgentToolInput {
+  ): Promise<AgentToolInput> {
     if (toolName !== "search_remixes") {
       return input;
     }
@@ -163,7 +163,7 @@ export class AgentToolExecutor {
       };
     }
 
-    const focusTrack = this.store.getSession(sessionId)?.metadata.currentFocusTrack;
+    const focusTrack = (await this.store.getSession(sessionId))?.metadata.currentFocusTrack;
     if (!focusTrack) {
       return searchInput;
     }
@@ -190,7 +190,7 @@ export class AgentToolExecutor {
     };
   }
 
-  private updateSessionContext(
+  private async updateSessionContext(
     sessionId: number,
     toolName: AgentToolName,
     input: AgentToolInput,
@@ -205,13 +205,13 @@ export class AgentToolExecutor {
         genre: analysisInput.knownMetadata?.genre ?? null,
       };
 
-      this.store.updateSessionMetadata(sessionId, (current) => ({
+      await this.store.updateSessionMetadata(sessionId, (current) => ({
         ...current,
         currentFocusTrack: track,
         latestAnalyzedTrack: track,
         latestAnalysisResult: result,
       }));
-      this.updateDefaultSessionTitle(sessionId, track);
+      await this.updateDefaultSessionTitle(sessionId, track);
       return;
     }
 
@@ -227,7 +227,7 @@ export class AgentToolExecutor {
       return;
     }
 
-    this.store.updateSessionMetadata(sessionId, (current) => ({
+    await this.store.updateSessionMetadata(sessionId, (current) => ({
       ...current,
       currentFocusTrack: track,
       latestRemixSearchContext: {
@@ -238,13 +238,16 @@ export class AgentToolExecutor {
     }));
   }
 
-  private updateDefaultSessionTitle(sessionId: number, track: AgentTrackReference) {
-    const session = this.store.getSession(sessionId);
+  private async updateDefaultSessionTitle(
+    sessionId: number,
+    track: AgentTrackReference,
+  ) {
+    const session = await this.store.getSession(sessionId);
     if (!session || session.title !== "New chat") {
       return;
     }
 
-    this.store.updateSessionTitle(sessionId, `${track.title} by ${track.artists}`);
+    await this.store.updateSessionTitle(sessionId, `${track.title} by ${track.artists}`);
   }
 }
 
