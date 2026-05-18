@@ -1,8 +1,7 @@
-FROM node:22-alpine
+FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# TODO(production): split into build/runtime stages and copy compiled dist output.
 RUN corepack enable
 
 COPY package.json yarn.lock .yarnrc.yml ./
@@ -14,7 +13,12 @@ COPY prisma.config.ts ./
 COPY nx.json ./
 
 RUN yarn install --immutable
+RUN yarn workspace @track-lab/web build
 
-EXPOSE 5173
+FROM nginx:alpine
 
-CMD ["yarn", "workspace", "@track-lab/web", "dev:docker"]
+COPY --from=builder /app/apps/web/dist /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
