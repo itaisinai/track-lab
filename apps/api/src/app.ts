@@ -25,6 +25,9 @@ export function createApp(trackResultRepository = createTrackResultRepository())
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
   app.use(createCorsMiddleware());
+  app.get("/health", (_req, res) => {
+    res.status(200).json({ status: "ok" });
+  });
   app.use(createAgentRouter(agentStore, orchestrator));
   app.use(createTrackAnalysisEnqueueRouter(orchestrator));
   app.use(createRemixSearchRouter(orchestrator, remixStore));
