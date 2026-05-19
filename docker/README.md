@@ -1,6 +1,6 @@
 # Docker Setup
 
-Run the app stack with Docker from the repo root:
+Run the web app with Docker from the repo root:
 
 ```sh
 yarn dev:docker
