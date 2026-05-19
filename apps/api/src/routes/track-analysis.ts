@@ -1,5 +1,6 @@
 import {
   type AgentSessionRepository,
+  type TrackAnalysisQueueProvider,
   type TrackAnalysisJobStatus,
   type TrackAnalysisJobRepository,
 } from "@track-lab/datastore";
@@ -16,6 +17,7 @@ const VALID_STATUSES = new Set<TrackAnalysisJobStatus>([
 export function createTrackAnalysisRouter(
   jobs: TrackAnalysisJobRepository,
   agentSessions?: AgentSessionRepository,
+  queue?: TrackAnalysisQueueProvider,
 ) {
   const router = Router();
 
@@ -54,6 +56,7 @@ export function createTrackAnalysisRouter(
       return;
     }
 
+    await queue?.enqueue(job.id);
     res.json({ job });
   });
 

@@ -18,6 +18,7 @@ export type TrackAnalysisProcessor = (
 
 export type TrackAnalysisWorkerOptions = {
   pollIntervalMs?: number;
+  jobTimeoutMs?: number;
   processor?: TrackAnalysisProcessor;
   onError?: (error: unknown) => void;
 };
@@ -44,6 +45,10 @@ export class TrackAnalysisWorker {
       return this.processNextQueueMessage();
     }
 
+    return this.processNextDatabaseJob();
+  }
+
+  private async processNextDatabaseJob(): Promise<TrackAnalysisJob | null> {
     const job = await this.jobs.claimNextJob();
 
     if (!job) {
@@ -57,9 +62,7 @@ export class TrackAnalysisWorker {
         status: job.status,
       });
 
-      const result = await (this.options.processor ?? processTrackAnalysisPayload)(
-        job.payload as TrackAnalysisPayload,
-      );
+      const result = await this.processPayload(job.payload as TrackAnalysisPayload);
       const completed = await this.jobs.completeJob(job.id, result);
       this.log("completed queued job", {
         jobId: job.id,
@@ -67,10 +70,11 @@ export class TrackAnalysisWorker {
       });
       return completed;
     } catch (error) {
-      const failed = await this.jobs.failJob(job.id, getErrorMessage(error));
+      const failed = await this.jobs.deadLetterJob(job.id, getErrorMessage(error));
       this.log("failed queued job", {
         jobId: job.id,
         operation: job.operation,
+        status: failed?.status,
         error: getErrorMessage(error),
       });
       this.options.onError?.(error);
@@ -82,7 +86,7 @@ export class TrackAnalysisWorker {
     const message = await this.queue.receiveNextMessage();
 
     if (!message) {
-      return null;
+      return this.processNextDatabaseJob();
     }
 
     this.log("received sqs message", {
@@ -96,6 +100,7 @@ export class TrackAnalysisWorker {
       this.log("discarded invalid sqs message", {
         messageId: message.messageId,
       });
+      await this.queue.deleteMessage(message);
       return null;
     }
 
@@ -138,9 +143,7 @@ export class TrackAnalysisWorker {
     });
 
     try {
-      const result = await (this.options.processor ?? processTrackAnalysisPayload)(
-        claimed.payload as TrackAnalysisPayload,
-      );
+      const result = await this.processPayload(claimed.payload as TrackAnalysisPayload);
       const completed = await this.jobs.completeJob(claimed.id, result);
       this.log("completed sqs job", {
         messageId: message.messageId,
@@ -165,15 +168,62 @@ export class TrackAnalysisWorker {
 
       return completed;
     } catch (error) {
-      const failed = await this.jobs.failJob(claimed.id, getErrorMessage(error));
+      const failed = await this.jobs.deadLetterJob(claimed.id, getErrorMessage(error));
       this.log("failed sqs job", {
         messageId: message.messageId,
         jobId: claimed.id,
         operation: claimed.operation,
+        status: failed?.status,
         error: getErrorMessage(error),
       });
+
+      await this.handleFailedSqsMessage(message, claimed.id, failed);
       this.options.onError?.(error);
       return failed;
+    }
+  }
+
+  private async processPayload(payload: TrackAnalysisPayload): Promise<unknown> {
+    const processor = this.options.processor ?? processTrackAnalysisPayload;
+    const timeoutMs = this.options.jobTimeoutMs ?? 4 * 60 * 1000;
+
+    if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
+      return processor(payload);
+    }
+
+    return withTimeout(
+      processor(payload),
+      timeoutMs,
+      `Track analysis job timed out after ${timeoutMs}ms.`,
+    );
+  }
+
+  private async handleFailedSqsMessage(
+    message: TrackAnalysisQueueMessage,
+    jobId: number,
+    failed: TrackAnalysisJob | null,
+  ) {
+    if (!failed) {
+      return;
+    }
+
+    if (failed.status === "dead_lettered" || failed.status === "failed") {
+      try {
+        await this.queue.deleteMessage(message);
+        this.log("deleted sqs message after terminal failure", {
+          messageId: message.messageId,
+          jobId,
+          status: failed.status,
+        });
+      } catch (deleteError) {
+        this.options.onError?.(deleteError);
+        this.log("failed to delete sqs message after terminal failure", {
+          messageId: message.messageId,
+          jobId,
+          status: failed.status,
+          error: getErrorMessage(deleteError),
+        });
+      }
     }
   }
 
@@ -211,6 +261,20 @@ export async function processTrackAnalysisPayload(payload: TrackAnalysisPayload)
 
 function delay(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  let timeout: NodeJS.Timeout | undefined;
+
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+  });
+
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+  });
 }
 
 function getErrorMessage(error: unknown) {

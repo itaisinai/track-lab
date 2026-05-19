@@ -32,7 +32,7 @@ export function createApp(trackResultRepository = createTrackResultRepository())
   app.use(createTrackAnalysisEnqueueRouter(orchestrator));
   app.use(createRemixSearchRouter(orchestrator, remixStore));
   app.use(createResultsRouter(trackResultRepository, orchestrator));
-  app.use(createTrackAnalysisRouter(jobStore, agentStore));
+  app.use(createTrackAnalysisRouter(jobStore, agentStore, queue));
 
   return app;
 }

@@ -33,9 +33,15 @@ export function createTrackAnalysisQueueProvider(
     return new SqsTrackAnalysisQueueProvider({
       region,
       queueUrl,
+      visibilityTimeoutSeconds: getSqsVisibilityTimeoutSeconds(),
       clientFactory: options.sqs?.clientFactory,
     });
   }
 
   return new DatabaseTrackAnalysisQueueProvider();
+}
+
+function getSqsVisibilityTimeoutSeconds() {
+  const value = Number(process.env.SQS_TRACK_ANALYSIS_VISIBILITY_TIMEOUT_SECONDS ?? 300);
+  return Number.isFinite(value) && value > 0 ? value : 300;
 }
