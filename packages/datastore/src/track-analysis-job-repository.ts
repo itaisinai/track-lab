@@ -17,6 +17,7 @@ export interface TrackAnalysisJobRepository {
   claimJob(id: number): MaybePromise<TrackAnalysisJob | null>;
   completeJob(id: number, result: unknown): MaybePromise<TrackAnalysisJob | null>;
   failJob(id: number, errorMessage: string): MaybePromise<TrackAnalysisJob | null>;
+  deadLetterJob(id: number, errorMessage: string): MaybePromise<TrackAnalysisJob | null>;
   retryJob(id: number): MaybePromise<TrackAnalysisJob | null>;
   markNotificationRead(id: number): MaybePromise<TrackAnalysisJob | null>;
   resolveJob(id: number): MaybePromise<TrackAnalysisJob | null>;

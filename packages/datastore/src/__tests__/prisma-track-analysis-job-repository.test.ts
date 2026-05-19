@@ -68,6 +68,32 @@ test("prisma track analysis job repository retries until dead lettered", async (
   assert.equal(retried?.errorMessage, null);
 });
 
+test("prisma track analysis job repository dead letters jobs immediately", async () => {
+  const repository = new PrismaTrackAnalysisJobRepository({
+    client: createMemoryClient() as never,
+  });
+
+  const queued = await repository.enqueue({
+    operation: "analyze",
+    payload: {
+      operation: "analyze",
+      track: { title: "Strobe", artists: "deadmau5" },
+      source: "manual",
+    },
+  });
+
+  await repository.claimNextJob();
+  const dead = await repository.deadLetterJob(queued.id, "provider timed out");
+
+  assert.equal(dead?.status, "dead_lettered");
+  assert.equal(dead?.errorMessage, "provider timed out");
+  assert.equal(dead?.completedAt !== null, true);
+
+  const retried = await repository.retryJob(queued.id);
+  assert.equal(retried?.status, "queued");
+  assert.equal(retried?.errorMessage, null);
+});
+
 test("prisma track analysis job repository claims queued remix searches", async () => {
   const repository = new PrismaTrackAnalysisJobRepository({
     client: createMemoryClient() as never,

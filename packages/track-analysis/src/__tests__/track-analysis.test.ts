@@ -108,7 +108,37 @@ test("worker processes sqs messages and deletes them after success", async () =>
   assert.deepEqual(queue.deletedReceipts, ["receipt-1"]);
 });
 
-test("worker retries failures and dead letters exhausted jobs", async () => {
+test("worker falls back to queued database jobs when sqs has no message", async () => {
+  const store = createStore();
+  const queue = createQueue();
+  const orchestrator = new TrackAnalysisOrchestrator(store, queue);
+  const queued = await orchestrator.enqueue({
+    operation: "analyze",
+    track: { title: "Strobe", artists: "deadmau5" },
+  });
+
+  const worker = new TrackAnalysisWorker(
+    store,
+    {
+      processor: async (payload) => {
+        if (payload.operation !== "analyze") {
+          throw new Error("unexpected remix search payload");
+        }
+
+        return { title: payload.track.title, repaired: true };
+      },
+    },
+    queue,
+  );
+
+  const completed = await worker.processNextJob();
+
+  assert.equal(completed?.id, queued.id);
+  assert.equal(completed?.status, "completed");
+  assert.deepEqual(completed?.result, { title: "Strobe", repaired: true });
+});
+
+test("worker dead letters failures for user retry", async () => {
   const store = createStore();
   const queued = await store.enqueue({
     operation: "analyze",
@@ -128,14 +158,42 @@ test("worker retries failures and dead letters exhausted jobs", async () => {
     createDatabaseQueue(),
   );
 
-  const retryable = await worker.processNextJob();
-  assert.equal(retryable?.status, "queued");
-  assert.equal(retryable?.errorMessage, "lookup failed");
-
   const dead = await worker.processNextJob();
   assert.equal(dead?.id, queued.id);
   assert.equal(dead?.status, "dead_lettered");
-  assert.equal(dead?.attemptCount, 2);
+  assert.equal(dead?.attemptCount, 1);
+  assert.equal(dead?.errorMessage, "lookup failed");
+});
+
+test("worker deletes sqs messages after dead lettering failures", async () => {
+  const store = createStore();
+  const queue = createQueue({
+    messages: [{ body: JSON.stringify({ jobId: 1 }), receiptHandle: "receipt-1" }],
+  });
+
+  const orchestrator = new TrackAnalysisOrchestrator(store, queue);
+  const queued = await orchestrator.enqueue({
+    operation: "analyze",
+    track: { title: "Strobe", artists: "deadmau5" },
+  });
+
+  const worker = new TrackAnalysisWorker(
+    store,
+    {
+      processor: async () => {
+        throw new Error("provider failed");
+      },
+    },
+    queue,
+  );
+
+  const dead = await worker.processNextJob();
+
+  assert.equal(dead?.id, queued.id);
+  assert.equal(dead?.status, "dead_lettered");
+  assert.equal(dead?.errorMessage, "provider failed");
+  assert.deepEqual(queue.deletedReceipts, ["receipt-1"]);
+  assert.deepEqual(queue.enqueuedJobIds, [queued.id]);
 });
 
 test("orchestrator validates and enqueues remix search requests", async () => {

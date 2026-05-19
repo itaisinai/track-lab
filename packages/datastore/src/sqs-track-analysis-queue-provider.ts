@@ -13,6 +13,7 @@ import type {
 export type SqsTrackAnalysisQueueProviderOptions = {
   region: string;
   queueUrl: string;
+  visibilityTimeoutSeconds?: number;
   clientFactory?: () => Promise<SqsClientAdapter> | SqsClientAdapter;
 };
 
@@ -44,7 +45,7 @@ export class SqsTrackAnalysisQueueProvider implements TrackAnalysisQueueProvider
         QueueUrl: this.options.queueUrl,
         MaxNumberOfMessages: 1,
         WaitTimeSeconds: 20,
-        VisibilityTimeout: 60,
+        VisibilityTimeout: this.options.visibilityTimeoutSeconds ?? 300,
       }),
     )) as { Messages?: Array<Message> };
 

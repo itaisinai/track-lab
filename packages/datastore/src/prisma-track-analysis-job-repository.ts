@@ -297,6 +297,27 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
     return mapRowToTrackAnalysisJob(row);
   }
 
+  async deadLetterJob(id: number, errorMessage: string): Promise<TrackAnalysisJob | null> {
+    const job = await this.getJob(id);
+
+    if (!job) {
+      return null;
+    }
+
+    const now = new Date();
+    const row = await this.client.trackAnalysisJob.update({
+      where: { id },
+      data: {
+        status: "dead_lettered",
+        errorMessage,
+        updatedAt: now,
+        completedAt: now,
+      },
+    });
+
+    return mapRowToTrackAnalysisJob(row);
+  }
+
   async retryJob(id: number): Promise<TrackAnalysisJob | null> {
     const job = await this.getJob(id);
 
