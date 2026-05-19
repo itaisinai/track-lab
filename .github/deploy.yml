@@ -1,0 +1,92 @@
+name: Deploy to ECS
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: us-west-2
+  AWS_ACCOUNT_ID: "669424048162"
+  ECS_CLUSTER: track-lab
+
+jobs:
+  deploy-api-worker:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build and push API image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.api \
+            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-api:${{ github.sha }} \
+            --push .
+
+      - name: Build and push Worker image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.worker \
+            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-worker:${{ github.sha }} \
+            --push .
+
+      - name: Deploy API to ECS
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition track-lab-api \
+            --query taskDefinition > api-task-def.json
+
+          jq \
+            --arg IMAGE "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-api:${{ github.sha }}" \
+            '.containerDefinitions[0].image = $IMAGE
+             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            api-task-def.json > api-task-def-new.json
+
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file://api-task-def-new.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service track-lab-api \
+            --task-definition $NEW_TASK_DEF
+
+      - name: Deploy Worker to ECS
+        run: |
+          aws ecs describe-task-definition \
+            --task-definition track-lab-worker \
+            --query taskDefinition > worker-task-def.json
+
+          jq \
+            --arg IMAGE "$AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-worker:${{ github.sha }}" \
+            '.containerDefinitions[0].image = $IMAGE
+             | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)' \
+            worker-task-def.json > worker-task-def-new.json
+
+          NEW_TASK_DEF=$(aws ecs register-task-definition \
+            --cli-input-json file://worker-task-def-new.json \
+            --query 'taskDefinition.taskDefinitionArn' \
+            --output text)
+
+          aws ecs update-service \
+            --cluster $ECS_CLUSTER \
+            --service track-lab-worker \
+            --task-definition $NEW_TASK_DEF
