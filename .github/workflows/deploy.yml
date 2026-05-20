@@ -1,4 +1,4 @@
-name: Deploy to ECS
+name: Deploy to Production
 
 on:
   push:
@@ -12,11 +12,46 @@ permissions:
 env:
   AWS_REGION: us-west-2
   AWS_ACCOUNT_ID: "669424048162"
+  AWS_ROLE_ARN: arn:aws:iam::669424048162:role/track-lab-github-actions-deploy-role
   ECS_CLUSTER: track-lab
+  WEB_BUCKET: track-lab-web-prod
+  WEB_CLOUDFRONT_DISTRIBUTION_ID: EO27WZ7P2VBSB
+  VITE_API_BASE_URL: https://api.trackylab.com
+  NODE_VERSION: "24"
+  YARN_VERSION: 4.9.2
 
 jobs:
-  deploy-api-worker:
+  build-test:
+    name: Build and test
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Typecheck
+        run: yarn typecheck
+
+      - name: Test
+        run: yarn test
+
+  deploy-api:
+    name: Deploy API
+    runs-on: ubuntu-latest
+    needs: build-test
 
     steps:
       - name: Checkout
@@ -25,7 +60,7 @@ jobs:
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || env.AWS_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       - name: Login to Amazon ECR
@@ -40,14 +75,6 @@ jobs:
             --platform linux/amd64 \
             -f docker/Dockerfile.api \
             -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-api:${{ github.sha }} \
-            --push .
-
-      - name: Build and push Worker image
-        run: |
-          docker buildx build \
-            --platform linux/amd64 \
-            -f docker/Dockerfile.worker \
-            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-worker:${{ github.sha }} \
             --push .
 
       - name: Deploy API to ECS
@@ -72,6 +99,39 @@ jobs:
             --service track-lab-api \
             --task-definition $NEW_TASK_DEF
 
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services track-lab-api
+
+  deploy-worker:
+    name: Deploy Worker
+    runs-on: ubuntu-latest
+    needs: deploy-api
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push Worker image
+        run: |
+          docker buildx build \
+            --platform linux/amd64 \
+            -f docker/Dockerfile.worker \
+            -t $AWS_ACCOUNT_ID.dkr.ecr.$AWS_REGION.amazonaws.com/track-lab-worker:${{ github.sha }} \
+            --push .
+
       - name: Deploy Worker to ECS
         run: |
           aws ecs describe-task-definition \
@@ -93,3 +153,59 @@ jobs:
             --cluster $ECS_CLUSTER \
             --service track-lab-worker \
             --task-definition $NEW_TASK_DEF
+
+          aws ecs wait services-stable \
+            --cluster $ECS_CLUSTER \
+            --services track-lab-worker
+
+  deploy-web:
+    name: Deploy Web
+    runs-on: ubuntu-latest
+    needs: deploy-worker
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Enable Corepack
+        run: |
+          corepack enable
+          corepack prepare yarn@${{ env.YARN_VERSION }} --activate
+
+      - name: Install dependencies
+        run: yarn install --immutable
+
+      - name: Build web
+        run: yarn workspace @track-lab/web build
+        env:
+          VITE_API_BASE_URL: ${{ env.VITE_API_BASE_URL }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN || env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Upload static assets
+        run: |
+          aws s3 sync apps/web/dist s3://$WEB_BUCKET \
+            --delete \
+            --exclude "index.html" \
+            --cache-control "public,max-age=31536000,immutable"
+
+      - name: Upload index.html
+        run: |
+          aws s3 cp apps/web/dist/index.html s3://$WEB_BUCKET/index.html \
+            --cache-control "no-cache,no-store,must-revalidate" \
+            --content-type "text/html"
+
+      - name: Invalidate CloudFront
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id $WEB_CLOUDFRONT_DISTRIBUTION_ID \
+            --paths "/*"
