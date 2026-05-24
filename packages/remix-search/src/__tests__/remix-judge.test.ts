@@ -143,6 +143,51 @@ test("remix judge input excludes originals without remix evidence", () => {
   assert.equal(scored[0]?.title, "PEEKABOO - Want It (House Edit)");
 });
 
+test("remix judge input keeps genre decisions for the llm", () => {
+  const scored = scoreRemixCandidates(
+    [
+      candidate(0, {
+        title: "Black Eyed Peas - Pump It (House Remix)",
+        artists: "Black Eyed Peas",
+        genre: "House",
+      }),
+      candidate(1, {
+        title: "Black Eyed Peas - Pump It (DNB Bootleg)",
+        artists: "Black Eyed Peas",
+        genre: "Drum & Bass",
+      }),
+      candidate(2, {
+        title: "Black Eyed Peas - Pump It (Liam V Remix)",
+        artists: "Black Eyed Peas",
+        genre: "146bpm",
+      }),
+    ],
+    {
+      title: "Pump It",
+      artists: "Black Eyed Peas",
+      genre: "bass",
+      spotifyUrl: null,
+    },
+  );
+
+  assert.deepEqual(
+    scored.map((candidate) => candidate.title).sort(),
+    [
+      "Black Eyed Peas - Pump It (DNB Bootleg)",
+      "Black Eyed Peas - Pump It (House Remix)",
+      "Black Eyed Peas - Pump It (Liam V Remix)",
+    ],
+  );
+  assert.equal(
+    scored.find((candidate) => candidate.title.includes("House"))?.genre,
+    "House",
+  );
+  assert.equal(
+    scored.find((candidate) => candidate.title.includes("Liam V"))?.genre,
+    "146bpm",
+  );
+});
+
 function candidate(
   index: number,
   overrides: Partial<RemixSearchCandidate> = {},
