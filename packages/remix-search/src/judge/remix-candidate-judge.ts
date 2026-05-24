@@ -2,12 +2,12 @@ import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import { ChatOpenAI } from "@langchain/openai";
 import type { RemixSearchCandidate } from "@track-lab/api-types";
 import { logRemixSearch } from "@track-lab/logger";
-import type { NormalizedRemixSearchRequest } from "../types.ts";
-import { selectDeterministicRemixCandidates, scoreRemixCandidates } from "../selection/remix-candidate-selection.ts";
 import {
   MAX_LLM_JUDGE_ATTEMPTS,
   createLlmJudgeCandidateBatches,
 } from "../selection/remix-candidate-selection.ts";
+import { scoreRemixCandidates, selectDeterministicRemixCandidates } from "../selection/remix-candidate-selection.ts";
+import type { NormalizedRemixSearchRequest } from "../types.ts";
 import { toRemixJudgeCandidateInput } from "./remix-judge-input.ts";
 
 type LlmRankedCandidate = {
@@ -113,10 +113,22 @@ async function judgeCandidateBatch(
 Return only strict JSON.
 Accept only candidates that are likely remixes, edits, flips, bootlegs, VIPs, reworks, or unofficial remixes of the requested original track.
 The candidate must match the requested title and at least one requested original artist or a well-known remix naming pattern that clearly points to the requested original.
+If requestedGenre is provided, judge semantic genre fit, not keyword overlap.
+SoundCloud genre/subGenre fields may come from uploader tags. Use those tags as evidence, but first infer what each tag is for:
+- Genre/style signal: names or strongly implies a musical style. Use it as genre evidence.
+- Tempo signal: BPM or tempo-like value. Use it as BPM/context only, not genre evidence.
+- Release/context signal: examples include free download, official, remix, edit, bootleg, VIP, radio, or upload context. Use it for remix/context only, not genre evidence.
+- Unknown/noisy signal: made-up or ambiguous tag with no clear musical meaning. Treat genre as unknown rather than forcing a match.
+A candidate's genre/style signals must be musically compatible with requestedGenre.
+Do not treat broad electronic tags as automatically compatible: for example house is not bass, techno is not bass, trap is not house, and dance/EDM alone is too broad to satisfy bass.
+Do recognize real subgenre relationships: for example drum and bass/dnb is bass-related, bass house is bass-related, future bass is bass-related, and dubstep is bass-related.
+Requested genres may be user-made or informal. Interpret them musically from the candidate title, remix label, artist context, genre, subGenre, and deterministicReason. Reject candidates whose explicit metadata clearly conflicts with the requested style.
+Unknown genre is acceptable only when remixFit is strong and there is no conflicting genre/style signal.
+For returned genre/subGenre fields, keep only values that are valid musical genre/style signals. Return null for tags that are tempo, release/context metadata, or unknown/noisy signals.
 Do not invent URLs or candidates. Use only the provided indexes.
 Return confidence with meaningful spread, not the copied deterministic score.
 Use remixFit for how clearly this is a remix/edit/flip of the requested track.
-Use genreFit for how strongly the candidate matches requestedGenre. If no requestedGenre was provided, genreFit should reflect broad DJ usefulness and metadata quality.
+Use genreFit for semantic compatibility with requestedGenre, where 0 means incompatible, 50 means unknown/unclear, and 100 means strong musical fit. If no requestedGenre was provided, genreFit should reflect broad DJ usefulness and metadata quality.
 Return only indexes from the provided batch.`),
     new HumanMessage(
       JSON.stringify({
@@ -195,9 +207,9 @@ function mapRankedCandidate(
 
   return {
     ...candidate,
-    remixArtist: getNullableString(ranked.remixArtist) ?? candidate.remixArtist,
-    genre: getNullableString(ranked.genre) ?? candidate.genre,
-    subGenre: getNullableString(ranked.subGenre) ?? candidate.subGenre,
+    remixArtist: applyOptionalNullableString(ranked, "remixArtist", candidate.remixArtist),
+    genre: applyOptionalNullableString(ranked, "genre", candidate.genre),
+    subGenre: applyOptionalNullableString(ranked, "subGenre", candidate.subGenre),
     confidence,
     relevanceReason:
       getNullableString(ranked.relevanceReason) ?? candidate.relevanceReason,
@@ -249,6 +261,32 @@ function getScore(value: unknown) {
 
 function getNullableString(value: unknown) {
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function getOptionalNullableString(
+  value: Record<string, unknown>,
+  key: keyof LlmRankedCandidate,
+) {
+  if (!Object.hasOwn(value, key)) {
+    return undefined;
+  }
+
+  const field = value[key];
+
+  if (field === null) {
+    return null;
+  }
+
+  return getNullableString(field);
+}
+
+function applyOptionalNullableString(
+  value: Record<string, unknown>,
+  key: keyof LlmRankedCandidate,
+  fallback: string | null | undefined,
+) {
+  const parsed = getOptionalNullableString(value, key);
+  return parsed === undefined ? (fallback ?? null) : parsed;
 }
 
 function getMessageContent(message: unknown) {
