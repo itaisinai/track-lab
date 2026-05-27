@@ -1,18 +1,26 @@
 # Track Lab
 
-Track Lab enriches music track metadata with a metadata enrichment pipeline,
-stores saved results in Prisma/PostgreSQL by default, and reuses saved results
-before calling external providers.
+Track Lab is an AI-powered music intelligence workstation for DJs, producers,
+and music researchers. It enriches track metadata, searches for remix candidates,
+and keeps each investigation grounded in provider evidence from sources such as
+Spotify, GetSongBPM, Beatport, SoundCloud, Wikipedia, and saved results.
+
+The system combines deterministic provider pipelines with focused LLM judgement:
+providers fetch evidence, application code owns orchestration and persistence,
+and AI helps classify ambiguous dance-music signals, synthesize metadata, judge
+remix relevance, and drive the track-focused chat assistant.
 
 ## Structure
 
 - `apps/api` - Express API.
 - `apps/web` - React/Vite UI.
-- `packages/agent-chat` - track-focused agent orchestration, session routing, and tool execution.
+- `packages/agent-chat` - AI chat orchestration, session routing, and
+  user-facing tool execution for track analysis and remix search.
 - `packages/metadata-enrichment` - metadata enrichment strategy, provider planning,
-  provider evidence merging, and metadata synthesis.
+  provider evidence merging, and AI-assisted metadata synthesis.
 - `packages/providers` - external data providers. Providers fetch evidence only.
-- `packages/remix-search` - Remix discovery providers and ranking.
+- `packages/remix-search` - Remix discovery providers, deterministic scoring,
+  and compact LLM judging.
 - `packages/datastore` - Prisma/PostgreSQL datastore repositories for track results, remix results, agent sessions, and jobs.
 
 ## Architecture
@@ -62,6 +70,11 @@ flowchart TD
   W --> X
 ```
 
+The LLM appears only at decision points where deterministic code is not enough:
+ambiguous EDM provider planning, metadata synthesis from evidence, remix
+candidate judging, and the conversational agent's user-facing tool selection.
+Provider-specific calls remain inside application code.
+
 ## Run
 
 ```sh
@@ -109,6 +122,9 @@ directory into the `api` and `worker` containers and set `AWS_PROFILE` in
 
 Provider credentials are optional for local wiring, but real enrichment quality
 depends on them.
+`OPENAI_API_KEY` enables the AI-backed chat assistant, ambiguous EDM planning,
+metadata synthesis, and remix judging. Without it, deterministic wiring can
+still run locally, but AI-backed paths will be unavailable or degraded.
 Beatport currently uses public web search only and may be blocked by Cloudflare.
 SoundCloud remix discovery can use SoundCloud's public search fallback directly.
 `SEARXNG_SEARCH_URL` is optional and can provide another free search source.
@@ -205,9 +221,19 @@ success, and requeues failures until `attempt_count >= max_attempts`.
 
 ## Behavior
 
+- The chat assistant can understand natural language requests such as
+  "analyze Strobe by deadmau5", "find bass remixes for this track", or "analyze
+  Levels by Avicii". It keeps follow-ups in the current track-focused session
+  and starts a new session when the user explicitly names a different track.
 - The metadata enrichment pipeline returns `Title`, `Artists`, `Album`, `BPM`,
   `Genre`, `SubGenre`, `Key`, summary, provider status, provider URLs, and
   errors.
+- AI-assisted synthesis turns provider evidence into a concise final metadata
+  result while deterministic code keeps provider execution, dedupe, and storage
+  predictable.
+- Remix search combines provider candidates, deterministic scoring, and compact
+  LLM judging to identify likely remixes, edits, bootlegs, VIPs, flips, and
+  reworks.
 - By default, enrichment checks saved results first.
 - The UI can skip saved results to force a fresh enrichment.
 - Saved results can be viewed, re-enriched, saved again, or removed.
