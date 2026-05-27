@@ -1,14 +1,24 @@
+import { randomUUID } from "node:crypto";
 import { invokeMetadataEnrichment } from "@track-lab/metadata-enrichment";
 import { createScopedLogger } from "@track-lab/logger";
 import {
+  createEventLogRepository,
   createTrackAnalysisJobRepository,
   createTrackAnalysisQueueProvider,
+  type EventLogRepository,
   type TrackAnalysisJobRepository,
   type TrackAnalysisJob,
   type TrackAnalysisPayload,
   type TrackAnalysisQueueMessage,
   type TrackAnalysisQueueProvider,
 } from "@track-lab/datastore";
+import type {
+  AnalyzeTrackCommand,
+  TrackAnalysisCompletedEvent,
+  TrackAnalysisDomainEvent,
+  TrackAnalysisFailedEvent,
+  TrackAnalysisStartedEvent,
+} from "@track-lab/api-types";
 import { RemixSearchOrchestrator } from "@track-lab/remix-search";
 import { createTrackAnalysisPrompt } from "./prompts/track-analysis-prompt.ts";
 
@@ -27,6 +37,7 @@ export class TrackAnalysisWorker {
   private stopped = false;
   private readonly jobs: TrackAnalysisJobRepository;
   private readonly queue: TrackAnalysisQueueProvider;
+  private readonly events: EventLogRepository;
   private readonly options: TrackAnalysisWorkerOptions;
   private readonly log = createScopedLogger("track-analysis-worker");
 
@@ -34,10 +45,12 @@ export class TrackAnalysisWorker {
     jobs = createTrackAnalysisJobRepository(),
     options: TrackAnalysisWorkerOptions = {},
     queue = createTrackAnalysisQueueProvider(),
+    events: EventLogRepository = createEventLogRepository(),
   ) {
     this.jobs = jobs;
     this.options = options;
     this.queue = queue;
+    this.events = events;
   }
 
   async processNextJob(): Promise<TrackAnalysisJob | null> {
@@ -62,7 +75,9 @@ export class TrackAnalysisWorker {
         status: job.status,
       });
 
+      await this.emitTrackAnalysisStarted(job);
       const result = await this.processPayload(job.payload as TrackAnalysisPayload);
+      await this.emitTrackAnalysisCompleted(job);
       const completed = await this.jobs.completeJob(job.id, result);
       this.log("completed queued job", {
         jobId: job.id,
@@ -70,6 +85,7 @@ export class TrackAnalysisWorker {
       });
       return completed;
     } catch (error) {
+      await this.emitTrackAnalysisFailed(job, error);
       const failed = await this.jobs.deadLetterJob(job.id, getErrorMessage(error));
       this.log("failed queued job", {
         jobId: job.id,
@@ -93,7 +109,8 @@ export class TrackAnalysisWorker {
       messageId: message.messageId,
     });
 
-    const jobId = parseJobIdFromMessage(message);
+    const command = parseAnalyzeTrackCommandFromMessage(message);
+    const jobId = command?.payload.jobId ?? parseJobIdFromMessage(message);
 
     if (jobId === null) {
       this.options.onError?.(new Error("Invalid SQS job message body."));
@@ -115,7 +132,11 @@ export class TrackAnalysisWorker {
       return null;
     }
 
-    if (currentJob.status === "completed" || currentJob.status === "dead_lettered") {
+    if (
+      currentJob.status === "completed" ||
+      currentJob.status === "failed" ||
+      currentJob.status === "dead_lettered"
+    ) {
       await this.queue.deleteMessage(message);
       this.log("deleted sqs message for terminal job", {
         messageId: message.messageId,
@@ -143,7 +164,9 @@ export class TrackAnalysisWorker {
     });
 
     try {
+      await this.emitTrackAnalysisStarted(claimed, command);
       const result = await this.processPayload(claimed.payload as TrackAnalysisPayload);
+      await this.emitTrackAnalysisCompleted(claimed, command);
       const completed = await this.jobs.completeJob(claimed.id, result);
       this.log("completed sqs job", {
         messageId: message.messageId,
@@ -168,6 +191,7 @@ export class TrackAnalysisWorker {
 
       return completed;
     } catch (error) {
+      await this.emitTrackAnalysisFailed(claimed, error, command);
       const failed = await this.jobs.deadLetterJob(claimed.id, getErrorMessage(error));
       this.log("failed sqs job", {
         messageId: message.messageId,
@@ -225,6 +249,85 @@ export class TrackAnalysisWorker {
         });
       }
     }
+  }
+
+  private async emitTrackAnalysisStarted(
+    job: TrackAnalysisJob,
+    command?: AnalyzeTrackCommand | null,
+  ) {
+    if (job.payload.operation !== "analyze") {
+      return;
+    }
+
+    await this.appendEvent({
+      eventId: randomUUID(),
+      eventType: "TrackAnalysisStarted",
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      correlationId: getCorrelationId(job, command),
+      causationId: getCausationId(job, command),
+      producer: "apps/worker",
+      idempotencyKey: `track-analysis-job:${job.id}:attempt:${job.attemptCount}:started`,
+      payload: {
+        jobId: job.id,
+        track: job.payload.track,
+        status: "analyzing",
+      },
+    } satisfies TrackAnalysisStartedEvent);
+  }
+
+  private async emitTrackAnalysisCompleted(
+    job: TrackAnalysisJob,
+    command?: AnalyzeTrackCommand | null,
+  ) {
+    if (job.payload.operation !== "analyze") {
+      return;
+    }
+
+    await this.appendEvent({
+      eventId: randomUUID(),
+      eventType: "TrackAnalysisCompleted",
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      correlationId: getCorrelationId(job, command),
+      causationId: getCausationId(job, command),
+      producer: "apps/worker",
+      idempotencyKey: `track-analysis-job:${job.id}:attempt:${job.attemptCount}:completed`,
+      payload: {
+        jobId: job.id,
+        status: "completed",
+      },
+    } satisfies TrackAnalysisCompletedEvent);
+  }
+
+  private async emitTrackAnalysisFailed(
+    job: TrackAnalysisJob,
+    error: unknown,
+    command?: AnalyzeTrackCommand | null,
+  ) {
+    if (job.payload.operation !== "analyze") {
+      return;
+    }
+
+    await this.appendEvent({
+      eventId: randomUUID(),
+      eventType: "TrackAnalysisFailed",
+      version: 1,
+      occurredAt: new Date().toISOString(),
+      correlationId: getCorrelationId(job, command),
+      causationId: getCausationId(job, command),
+      producer: "apps/worker",
+      idempotencyKey: `track-analysis-job:${job.id}:attempt:${job.attemptCount}:failed`,
+      payload: {
+        jobId: job.id,
+        status: "failed",
+        errorMessage: getErrorMessage(error),
+      },
+    } satisfies TrackAnalysisFailedEvent);
+  }
+
+  private async appendEvent(event: TrackAnalysisDomainEvent) {
+    await this.events.append(event);
   }
 
   async start() {
@@ -293,4 +396,40 @@ function parseJobIdFromMessage(message: TrackAnalysisQueueMessage): number | nul
   } catch {
     return null;
   }
+}
+
+function parseAnalyzeTrackCommandFromMessage(
+  message: TrackAnalysisQueueMessage,
+): AnalyzeTrackCommand | null {
+  try {
+    const parsed = JSON.parse(message.body) as Partial<AnalyzeTrackCommand>;
+    if (
+      parsed.commandType === "AnalyzeTrackCommand" &&
+      typeof parsed.commandId === "string" &&
+      typeof parsed.correlationId === "string" &&
+      parsed.payload &&
+      typeof parsed.payload === "object" &&
+      typeof (parsed.payload as { jobId?: unknown }).jobId === "number"
+    ) {
+      return parsed as AnalyzeTrackCommand;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function getCorrelationId(
+  job: TrackAnalysisJob,
+  command?: AnalyzeTrackCommand | null,
+): string {
+  return command?.correlationId ?? job.correlationId ?? randomUUID();
+}
+
+function getCausationId(
+  job: TrackAnalysisJob,
+  command?: AnalyzeTrackCommand | null,
+): string | undefined {
+  return command?.commandId ?? job.commandId ?? undefined;
 }

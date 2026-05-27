@@ -58,6 +58,7 @@ export function useAgentChat() {
       queryFn: () => getTrackAnalysisJob(jobId),
       refetchInterval: (query: { state: { data?: TrackAnalysisJob } }) =>
         query.state.data?.status === "queued" ||
+        query.state.data?.status === "analyzing" ||
         query.state.data?.status === "processing"
           ? 1000
           : false,

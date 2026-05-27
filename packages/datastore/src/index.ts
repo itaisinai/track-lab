@@ -2,6 +2,9 @@ export { createAgentSessionRepository } from "./agent-session-repository-factory
 export { PrismaAgentSessionRepository } from "./prisma-agent-session-repository.ts";
 export type { AgentSessionRepository } from "./agent-session-repository.ts";
 export { extractEnrichmentResponse } from "./enrichment-response.ts";
+export { createEventLogRepository } from "./event-log-repository-factory.ts";
+export { PrismaEventLogRepository } from "./prisma-event-log-repository.ts";
+export type { EventLogRepository } from "./event-log-repository.ts";
 export { createRemixResultRepository } from "./remix-result-repository-factory.ts";
 export { PrismaRemixResultRepository } from "./prisma-remix-result-repository.ts";
 export type { RemixResultRepository } from "./remix-result-repository.ts";
@@ -11,6 +14,7 @@ export type { TrackAnalysisJobRepository } from "./track-analysis-job-repository
 export { createTrackAnalysisQueueProvider } from "./track-analysis-queue-provider-factory.ts";
 export type {
   TrackAnalysisQueueMessage,
+  TrackAnalysisQueueCommand,
   TrackAnalysisQueueProvider,
   TrackAnalysisQueueProviderMode,
 } from "./track-analysis-queue-provider.ts";
@@ -27,6 +31,8 @@ export type {
   AgentToolInput,
   AgentToolName,
   EnqueueTrackAnalysisJobInput,
+  EventLogEntry,
+  EventLogRow,
   ResultError,
   ResultStatus,
   SavedRemix,

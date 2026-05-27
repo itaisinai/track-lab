@@ -18,6 +18,8 @@ type PrismaTrackAnalysisJobRow = {
   errorMessage: string | null;
   attemptCount: number;
   maxAttempts: number;
+  commandId: string | null;
+  correlationId: string | null;
   createdAt: Date;
   updatedAt: Date;
   completedAt: Date | null;
@@ -51,6 +53,8 @@ type PrismaTrackAnalysisJobClaimRow = {
   error_message: string | null;
   attempt_count: number;
   max_attempts: number;
+  command_id: string | null;
+  correlation_id: string | null;
   created_at: Date;
   updated_at: Date;
   completed_at: Date | null;
@@ -96,6 +100,8 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
         errorMessage: null,
         attemptCount: 0,
         maxAttempts: input.maxAttempts ?? 3,
+        commandId: input.commandId ?? null,
+        correlationId: input.correlationId ?? null,
         createdAt: now,
         updatedAt: now,
         completedAt: null,
@@ -167,7 +173,7 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
             SELECT id
             FROM track_analysis_jobs
             WHERE status = 'queued'
-               OR (status = 'processing' AND updated_at <= ${staleCutoff})
+               OR (status IN ('analyzing', 'processing') AND updated_at <= ${staleCutoff})
             ORDER BY
               CASE WHEN status = 'queued' THEN 0 ELSE 1 END,
               created_at ASC,
@@ -176,7 +182,7 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
             LIMIT 1
           )
           UPDATE track_analysis_jobs AS job
-          SET status = 'processing',
+          SET status = 'analyzing',
               attempt_count = job.attempt_count + 1,
               error_message = NULL,
               updated_at = NOW()
@@ -191,6 +197,8 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
             job.error_message,
             job.attempt_count,
             job.max_attempts,
+            job.command_id,
+            job.correlation_id,
             job.created_at,
             job.updated_at,
             job.completed_at,
@@ -220,12 +228,12 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
             WHERE id = ${id}
               AND (
                 status = 'queued'
-                OR (status = 'processing' AND updated_at <= ${staleCutoff})
+                OR (status IN ('analyzing', 'processing') AND updated_at <= ${staleCutoff})
               )
             FOR UPDATE SKIP LOCKED
           )
           UPDATE track_analysis_jobs AS job
-          SET status = 'processing',
+          SET status = 'analyzing',
               attempt_count = job.attempt_count + 1,
               error_message = NULL,
               updated_at = NOW()
@@ -240,6 +248,8 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
             job.error_message,
             job.attempt_count,
             job.max_attempts,
+            job.command_id,
+            job.correlation_id,
             job.created_at,
             job.updated_at,
             job.completed_at,
@@ -308,7 +318,7 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
     const row = await this.client.trackAnalysisJob.update({
       where: { id },
       data: {
-        status: "dead_lettered",
+        status: "failed",
         errorMessage,
         updatedAt: now,
         completedAt: now,
@@ -326,7 +336,8 @@ export class PrismaTrackAnalysisJobRepository implements TrackAnalysisJobReposit
       !(
         job.status === "failed" ||
         job.status === "dead_lettered" ||
-        (job.status === "processing" && isLeaseExpired(job.updatedAt))
+        ((job.status === "analyzing" || job.status === "processing") &&
+          isLeaseExpired(job.updatedAt))
       )
     ) {
       return null;
@@ -398,6 +409,8 @@ function mapRowToTrackAnalysisJob(row: PrismaTrackAnalysisJobRow): TrackAnalysis
     errorMessage: row.errorMessage,
     attemptCount: row.attemptCount,
     maxAttempts: row.maxAttempts,
+    commandId: row.commandId ?? null,
+    correlationId: row.correlationId ?? null,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
     completedAt: row.completedAt ? row.completedAt.toISOString() : null,
@@ -418,6 +431,8 @@ function mapClaimRowToTrackAnalysisJob(
     errorMessage: row.error_message,
     attemptCount: row.attempt_count,
     maxAttempts: row.max_attempts,
+    commandId: row.command_id ?? null,
+    correlationId: row.correlation_id ?? null,
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString(),
     completedAt: row.completed_at ? row.completed_at.toISOString() : null,

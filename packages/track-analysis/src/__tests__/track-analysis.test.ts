@@ -1,9 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  type EventLogRepository,
   PrismaTrackAnalysisJobRepository,
+  type TrackAnalysisQueueCommand,
   type TrackAnalysisQueueProvider,
 } from "@track-lab/datastore";
+import type { DomainEvent } from "@track-lab/api-types";
 import { TrackAnalysisOrchestrator, TrackAnalysisWorker } from "../index.ts";
 
 test("orchestrator validates and enqueues analyze and enrich requests", async () => {
@@ -30,10 +33,11 @@ test("orchestrator validates and enqueues analyze and enrich requests", async ()
   });
   assert.equal(enrich.operation, "enrich");
   assert.equal((await store.listJobs()).length, 2);
-  assert.deepEqual(queue.enqueuedJobIds, [analyze.id, enrich.id]);
+  assert.equal(getCommandJobId(queue.enqueuedCommands[0]), analyze.id);
+  assert.equal(queue.enqueuedCommands[1], enrich.id);
 });
 
-test("orchestrator enqueues job ids to the configured queue provider", async () => {
+test("orchestrator enqueues analyze commands to the configured queue provider", async () => {
   const store = createStore();
   const queue = createQueue();
   const orchestrator = new TrackAnalysisOrchestrator(store, queue);
@@ -43,11 +47,12 @@ test("orchestrator enqueues job ids to the configured queue provider", async () 
     track: { title: "Strobe", artists: "deadmau5" },
   });
 
-  assert.deepEqual(queue.enqueuedJobIds, [queued.id]);
+  assert.equal(getCommandJobId(queue.enqueuedCommands[0]), queued.id);
 });
 
 test("worker completes successful jobs", async () => {
   const store = createStore();
+  const events = createEventStore();
   const orchestrator = new TrackAnalysisOrchestrator(store);
   const queued = await orchestrator.enqueue({
     operation: "analyze",
@@ -65,6 +70,7 @@ test("worker completes successful jobs", async () => {
       },
     },
     createDatabaseQueue(),
+    events,
   );
 
   const completed = await worker.processNextJob();
@@ -72,10 +78,16 @@ test("worker completes successful jobs", async () => {
   assert.equal(completed?.id, queued.id);
   assert.equal(completed?.status, "completed");
   assert.deepEqual(completed?.result, { title: "Strobe", ok: true });
+  assert.deepEqual(events.eventTypes(), [
+    "TrackAnalysisStarted",
+    "TrackAnalysisCompleted",
+  ]);
+  assert.equal((events.events[0]?.payload as { status?: string }).status, "analyzing");
 });
 
 test("worker processes sqs messages and deletes them after success", async () => {
   const store = createStore();
+  const events = createEventStore();
   const queue = createQueue({
     messages: [{ body: JSON.stringify({ jobId: 1 }), receiptHandle: "receipt-1" }],
   });
@@ -98,6 +110,7 @@ test("worker processes sqs messages and deletes them after success", async () =>
       },
     },
     queue,
+    events,
   );
 
   const completed = await worker.processNextJob();
@@ -106,10 +119,15 @@ test("worker processes sqs messages and deletes them after success", async () =>
   assert.equal(completed?.status, "completed");
   assert.deepEqual(completed?.result, { title: "Strobe", ok: true });
   assert.deepEqual(queue.deletedReceipts, ["receipt-1"]);
+  assert.deepEqual(events.eventTypes(), [
+    "TrackAnalysisStarted",
+    "TrackAnalysisCompleted",
+  ]);
 });
 
 test("worker falls back to queued database jobs when sqs has no message", async () => {
   const store = createStore();
+  const events = createEventStore();
   const queue = createQueue();
   const orchestrator = new TrackAnalysisOrchestrator(store, queue);
   const queued = await orchestrator.enqueue({
@@ -129,6 +147,7 @@ test("worker falls back to queued database jobs when sqs has no message", async 
       },
     },
     queue,
+    events,
   );
 
   const completed = await worker.processNextJob();
@@ -136,10 +155,15 @@ test("worker falls back to queued database jobs when sqs has no message", async 
   assert.equal(completed?.id, queued.id);
   assert.equal(completed?.status, "completed");
   assert.deepEqual(completed?.result, { title: "Strobe", repaired: true });
+  assert.deepEqual(events.eventTypes(), [
+    "TrackAnalysisStarted",
+    "TrackAnalysisCompleted",
+  ]);
 });
 
 test("worker dead letters failures for user retry", async () => {
   const store = createStore();
+  const events = createEventStore();
   const queued = await store.enqueue({
     operation: "analyze",
     maxAttempts: 2,
@@ -156,17 +180,27 @@ test("worker dead letters failures for user retry", async () => {
       },
     },
     createDatabaseQueue(),
+    events,
   );
 
   const dead = await worker.processNextJob();
   assert.equal(dead?.id, queued.id);
-  assert.equal(dead?.status, "dead_lettered");
+  assert.equal(dead?.status, "failed");
   assert.equal(dead?.attemptCount, 1);
   assert.equal(dead?.errorMessage, "lookup failed");
+  assert.deepEqual(events.eventTypes(), [
+    "TrackAnalysisStarted",
+    "TrackAnalysisFailed",
+  ]);
+  assert.equal(
+    (events.events[1]?.payload as { errorMessage?: string }).errorMessage,
+    "lookup failed",
+  );
 });
 
 test("worker deletes sqs messages after dead lettering failures", async () => {
   const store = createStore();
+  const events = createEventStore();
   const queue = createQueue({
     messages: [{ body: JSON.stringify({ jobId: 1 }), receiptHandle: "receipt-1" }],
   });
@@ -185,15 +219,20 @@ test("worker deletes sqs messages after dead lettering failures", async () => {
       },
     },
     queue,
+    events,
   );
 
   const dead = await worker.processNextJob();
 
   assert.equal(dead?.id, queued.id);
-  assert.equal(dead?.status, "dead_lettered");
+  assert.equal(dead?.status, "failed");
   assert.equal(dead?.errorMessage, "provider failed");
   assert.deepEqual(queue.deletedReceipts, ["receipt-1"]);
-  assert.deepEqual(queue.enqueuedJobIds, [queued.id]);
+  assert.equal(getCommandJobId(queue.enqueuedCommands[0]), queued.id);
+  assert.deepEqual(events.eventTypes(), [
+    "TrackAnalysisStarted",
+    "TrackAnalysisFailed",
+  ]);
 });
 
 test("orchestrator validates and enqueues remix search requests", async () => {
@@ -230,19 +269,19 @@ function createStore() {
 function createQueue(initial: {
   messages?: Array<{ body: string; receiptHandle: string }>;
 } = {}): TrackAnalysisQueueProvider & {
-  enqueuedJobIds: number[];
+  enqueuedCommands: TrackAnalysisQueueCommand[];
   deletedReceipts: string[];
 } {
   const messages = [...(initial.messages ?? [])];
-  const enqueuedJobIds: number[] = [];
+  const enqueuedCommands: TrackAnalysisQueueCommand[] = [];
   const deletedReceipts: string[] = [];
 
   return {
     mode: "sqs",
-    enqueuedJobIds,
+    enqueuedCommands,
     deletedReceipts,
-    async enqueue(jobId: number) {
-      enqueuedJobIds.push(jobId);
+    async enqueue(command: TrackAnalysisQueueCommand) {
+      enqueuedCommands.push(command);
     },
     async receiveNextMessage() {
       const message = messages.shift();
@@ -265,6 +304,41 @@ function createDatabaseQueue(): TrackAnalysisQueueProvider {
     },
     async deleteMessage() {},
   };
+}
+
+function createEventStore(): EventLogRepository & {
+  events: DomainEvent[];
+  eventTypes: () => string[];
+} {
+  const events: DomainEvent[] = [];
+
+  return {
+    events,
+    eventTypes: () => events.map((event) => event.eventType),
+    async append(event: DomainEvent) {
+      if (
+        events.some(
+          (existing) => existing.idempotencyKey === event.idempotencyKey,
+        )
+      ) {
+        return { inserted: false };
+      }
+
+      events.push(event);
+      return { inserted: true };
+    },
+    async listByCorrelationId(correlationId: string) {
+      return events.filter((event) => event.correlationId === correlationId);
+    },
+  };
+}
+
+function getCommandJobId(command: TrackAnalysisQueueCommand | undefined) {
+  if (typeof command === "number") {
+    return command;
+  }
+
+  return command?.payload.jobId;
 }
 
 function createMemoryClient() {
@@ -309,7 +383,7 @@ function createMemoryClient() {
             .filter(
               (row) =>
                 row.status === "queued" ||
-                (row.status === "processing" &&
+                ((row.status === "analyzing" || row.status === "processing") &&
                   new Date(String(row.updatedAt)).valueOf() <= Date.now() - 5 * 60 * 1000),
             )
             .sort((left, right) => {
@@ -330,7 +404,7 @@ function createMemoryClient() {
             return [];
           }
 
-          candidate.status = "processing";
+          candidate.status = "analyzing";
           candidate.attemptCount = Number(candidate.attemptCount ?? 0) + 1;
           candidate.errorMessage = null;
           candidate.updatedAt = new Date();
@@ -345,6 +419,8 @@ function createMemoryClient() {
               error_message: candidate.errorMessage,
               attempt_count: candidate.attemptCount,
               max_attempts: candidate.maxAttempts,
+              command_id: candidate.commandId ?? null,
+              correlation_id: candidate.correlationId ?? null,
               created_at: candidate.createdAt,
               updated_at: candidate.updatedAt,
               completed_at: candidate.completedAt,

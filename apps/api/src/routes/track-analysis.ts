@@ -8,6 +8,7 @@ import { Router, type Request, type Response } from "express";
 
 const VALID_STATUSES = new Set<TrackAnalysisJobStatus>([
   "queued",
+  "analyzing",
   "processing",
   "completed",
   "failed",

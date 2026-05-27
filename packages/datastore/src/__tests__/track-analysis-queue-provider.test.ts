@@ -41,6 +41,38 @@ test("sqs queue provider enqueues and deletes job ids", async () => {
   assert.deepEqual(fakeModule.state.deletedReceipts, ["receipt-1"]);
 });
 
+test("sqs queue provider enqueues analyze commands", async () => {
+  const fakeModule = createFakeSqsModule();
+  const provider = createTrackAnalysisQueueProvider({
+    provider: "sqs",
+    sqs: {
+      region: "us-west-2",
+      queueUrl: "https://sqs.us-west-2.amazonaws.com/123456789012/track-lab",
+      clientFactory: () => fakeModule.client,
+    },
+  });
+  const command = {
+    commandId: "00000000-0000-0000-0000-000000000001",
+    commandType: "AnalyzeTrackCommand",
+    version: 1,
+    requestedAt: "2026-05-25T10:00:00.000Z",
+    correlationId: "00000000-0000-0000-0000-000000000002",
+    producer: "apps/api",
+    idempotencyKey: "track-analysis-job:138:command:analyze",
+    payload: {
+      jobId: 138,
+      track: {
+        title: "Strobe",
+        artists: "deadmau5",
+      },
+    },
+  } as const;
+
+  await provider.enqueue(command);
+
+  assert.deepEqual(fakeModule.state.sentBodies, [JSON.stringify(command)]);
+});
+
 function createFakeSqsModule() {
   const state = {
     sentBodies: [] as string[],

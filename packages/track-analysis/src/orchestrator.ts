@@ -1,4 +1,8 @@
-import type { EnqueueTrackAnalysisRequest } from "@track-lab/api-types";
+import { randomUUID } from "node:crypto";
+import type {
+  AnalyzeTrackCommand,
+  EnqueueTrackAnalysisRequest,
+} from "@track-lab/api-types";
 import {
   createTrackAnalysisJobRepository,
   createTrackAnalysisQueueProvider,
@@ -23,16 +27,44 @@ export class TrackAnalysisOrchestrator {
 
   async enqueue(request: EnqueueTrackAnalysisRequest): Promise<TrackAnalysisJob> {
     const payload = validateRequest(request);
+    const commandMetadata =
+      payload.operation === "analyze"
+        ? {
+            commandId: randomUUID(),
+            correlationId: randomUUID(),
+          }
+        : {};
 
     const job = await this.jobs.enqueue({
       operation: payload.operation,
       payload,
+      ...commandMetadata,
     });
 
-    await this.queue.enqueue(job.id);
+    await this.queue.enqueue(createQueueCommand(job));
 
     return job;
   }
+}
+
+function createQueueCommand(job: TrackAnalysisJob) {
+  if (job.payload.operation !== "analyze" || !job.commandId || !job.correlationId) {
+    return job.id;
+  }
+
+  return {
+    commandId: job.commandId,
+    commandType: "AnalyzeTrackCommand",
+    version: 1,
+    requestedAt: job.createdAt,
+    correlationId: job.correlationId,
+    producer: "apps/api",
+    idempotencyKey: `track-analysis-job:${job.id}:command:analyze`,
+    payload: {
+      jobId: job.id,
+      track: job.payload.track,
+    },
+  } satisfies AnalyzeTrackCommand;
 }
 
 function validateRequest(request: EnqueueTrackAnalysisRequest): TrackAnalysisPayload {

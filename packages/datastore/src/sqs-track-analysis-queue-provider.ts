@@ -6,6 +6,7 @@ import {
   type Message,
 } from "@aws-sdk/client-sqs";
 import type {
+  TrackAnalysisQueueCommand,
   TrackAnalysisQueueMessage,
   TrackAnalysisQueueProvider,
 } from "./track-analysis-queue-provider.ts";
@@ -26,13 +27,13 @@ export class SqsTrackAnalysisQueueProvider implements TrackAnalysisQueueProvider
     this.options = options;
   }
 
-  async enqueue(jobId: number): Promise<void> {
+  async enqueue(command: TrackAnalysisQueueCommand): Promise<void> {
     const client = await this.getClient();
 
     await client.send(
       new SendMessageCommand({
         QueueUrl: this.options.queueUrl,
-        MessageBody: JSON.stringify({ jobId }),
+        MessageBody: JSON.stringify(toQueueMessageBody(command)),
       }),
     );
   }
@@ -91,3 +92,7 @@ export class SqsTrackAnalysisQueueProvider implements TrackAnalysisQueueProvider
 }
 
 type SqsClientAdapter = Pick<SQSClient, "send">;
+
+function toQueueMessageBody(command: TrackAnalysisQueueCommand) {
+  return typeof command === "number" ? { jobId: command } : command;
+}

@@ -21,7 +21,10 @@ export function useRemixSearchState(initialJobId: number | null = null) {
     enabled: jobId !== null,
     refetchInterval: (query) => {
       const job = query.state.data;
-      return job && (job.status === "queued" || job.status === "processing")
+      return job &&
+        (job.status === "queued" ||
+          job.status === "analyzing" ||
+          job.status === "processing")
         ? 1500
         : false;
     },
@@ -81,7 +84,9 @@ export function useRemixSearchState(initialJobId: number | null = null) {
 
   const activeJob = jobQuery.data;
   const isJobActive =
-    activeJob?.status === "queued" || activeJob?.status === "processing";
+    activeJob?.status === "queued" ||
+    activeJob?.status === "analyzing" ||
+    activeJob?.status === "processing";
 
   return {
     activeJob,

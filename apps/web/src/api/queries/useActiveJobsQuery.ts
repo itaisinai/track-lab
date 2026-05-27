@@ -15,7 +15,7 @@ export function useActiveJobsQuery() {
 
 async function listActiveJobs() {
   const data = await request<{ jobs: TrackAnalysisJob[] }>(
-    apiRoutes.trackAnalysisJobs({ statuses: ["queued", "processing"] }),
+    apiRoutes.trackAnalysisJobs({ statuses: ["queued", "analyzing", "processing"] }),
   );
   return data.jobs;
 }

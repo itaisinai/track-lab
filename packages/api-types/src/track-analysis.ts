@@ -4,6 +4,7 @@ export type TrackAnalysisOperation = "analyze" | "enrich" | "remix_search";
 
 export type TrackAnalysisJobStatus =
   | "queued"
+  | "analyzing"
   | "processing"
   | "completed"
   | "failed"
@@ -51,6 +52,8 @@ export type TrackAnalysisJob = {
   errorMessage: string | null;
   attemptCount: number;
   maxAttempts: number;
+  commandId: string | null;
+  correlationId: string | null;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;
@@ -61,7 +64,7 @@ export type TrackAnalysisJob = {
 export type EnqueueTrackAnalysisRequest = TrackAnalysisPayload;
 
 export type EnqueueTrackAnalysisResponse = {
-  job: Pick<TrackAnalysisJob, "id" | "status">;
+  job: Pick<TrackAnalysisJob, "id" | "status" | "commandId" | "correlationId">;
 };
 
 export type EnqueueRemixSearchResponse = EnqueueTrackAnalysisResponse;

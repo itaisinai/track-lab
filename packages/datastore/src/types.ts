@@ -16,6 +16,7 @@ import type {
   SaveTrackResultInput,
   SavedRemixCandidate,
   SavedTrackResult,
+  DomainEvent,
   TrackAnalysisJob,
   TrackAnalysisJobStatus,
   TrackAnalysisKnownMetadata,
@@ -42,6 +43,7 @@ export type {
   SaveTrackResultInput,
   SavedRemixCandidate,
   SavedTrackResult,
+  DomainEvent,
   TrackAnalysisJob,
   TrackAnalysisJobStatus,
   TrackAnalysisKnownMetadata,
@@ -111,6 +113,8 @@ export type EnqueueTrackAnalysisJobInput = {
   operation: TrackAnalysisOperation;
   payload: TrackAnalysisPayload;
   maxAttempts?: number;
+  commandId?: string | null;
+  correlationId?: string | null;
 };
 
 export type TrackAnalysisJobRow = {
@@ -122,11 +126,28 @@ export type TrackAnalysisJobRow = {
   error_message: string | null;
   attempt_count: number;
   max_attempts: number;
+  command_id: string | null;
+  correlation_id: string | null;
   created_at: string;
   updated_at: string;
   completed_at: string | null;
   notification_read_at: string | null;
   resolved_at: string | null;
+};
+
+export type EventLogEntry = DomainEvent;
+
+export type EventLogRow = {
+  id: string;
+  event_type: string;
+  version: number;
+  occurred_at: string;
+  correlation_id: string;
+  causation_id: string | null;
+  producer: string;
+  idempotency_key: string;
+  payload: unknown;
+  created_at: string;
 };
 
 export type SavedRemixRow = {

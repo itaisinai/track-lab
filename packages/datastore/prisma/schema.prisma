@@ -113,6 +113,8 @@ model TrackAnalysisJob {
   errorMessage         String?  @map("error_message")
   attemptCount         Int      @default(0) @map("attempt_count")
   maxAttempts          Int      @default(3) @map("max_attempts")
+  commandId            String?  @map("command_id") @db.Uuid
+  correlationId        String?  @map("correlation_id") @db.Uuid
   createdAt            DateTime @default(now()) @map("created_at")
   updatedAt            DateTime @default(now()) @updatedAt @map("updated_at")
   completedAt          DateTime? @map("completed_at")
@@ -120,6 +122,24 @@ model TrackAnalysisJob {
   resolvedAt           DateTime? @map("resolved_at")
 
   @@index([status, createdAt, id], map: "idx_track_analysis_jobs_status_created")
+  @@index([correlationId], map: "idx_track_analysis_jobs_correlation_id")
   @@index([resolvedAt, completedAt, id], map: "idx_track_analysis_jobs_unresolved")
   @@map("track_analysis_jobs")
+}
+
+model EventLog {
+  id             String   @id @db.Uuid
+  eventType      String   @map("event_type")
+  version        Int
+  occurredAt     DateTime @map("occurred_at") @db.Timestamptz
+  correlationId  String   @map("correlation_id") @db.Uuid
+  causationId    String?  @map("causation_id") @db.Uuid
+  producer       String
+  idempotencyKey String   @unique @map("idempotency_key")
+  payload        Json
+  createdAt      DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  @@index([correlationId], map: "idx_event_log_correlation_id")
+  @@index([eventType, occurredAt], map: "idx_event_log_event_type_occurred")
+  @@map("event_log")
 }

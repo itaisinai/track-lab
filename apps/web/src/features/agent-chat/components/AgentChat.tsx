@@ -313,7 +313,7 @@ function getQueuedJobCopy(operation: string, status: string) {
     };
   }
 
-  if (status === "processing") {
+  if (status === "analyzing" || status === "processing") {
     return {
       label: isRemixSearch
         ? "Remix search in progress"

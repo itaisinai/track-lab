@@ -100,6 +100,8 @@ test("prisma agent session repository syncs completed analysis jobs", async () =
     errorMessage: null,
     attemptCount: 1,
     maxAttempts: 3,
+    commandId: null,
+    correlationId: null,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     completedAt: new Date().toISOString(),

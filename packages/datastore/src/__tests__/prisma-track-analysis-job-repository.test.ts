@@ -22,7 +22,7 @@ test("prisma track analysis job repository enqueues and processes jobs", async (
 
   const claimed = await repository.claimNextJob();
   assert.equal(claimed?.id, queued.id);
-  assert.equal(claimed?.status, "processing");
+  assert.equal(claimed?.status, "analyzing");
   assert.equal(claimed?.attemptCount, 1);
 
   const completed = await repository.completeJob(queued.id, { ok: true });
@@ -85,7 +85,7 @@ test("prisma track analysis job repository dead letters jobs immediately", async
   await repository.claimNextJob();
   const dead = await repository.deadLetterJob(queued.id, "provider timed out");
 
-  assert.equal(dead?.status, "dead_lettered");
+  assert.equal(dead?.status, "failed");
   assert.equal(dead?.errorMessage, "provider timed out");
   assert.equal(dead?.completedAt !== null, true);
 
@@ -129,10 +129,10 @@ test("prisma track analysis job repository claims a specific job safely", async 
     },
   });
 
-  assert.equal((await repository.claimJob(queued.id))?.status, "processing");
+  assert.equal((await repository.claimJob(queued.id))?.status, "analyzing");
 });
 
-test("prisma track analysis job repository reclaims stale processing jobs", async () => {
+test("prisma track analysis job repository reclaims stale analyzing jobs", async () => {
   const memoryClient = createMemoryClient();
   const repository = new PrismaTrackAnalysisJobRepository({
     client: memoryClient as never,
@@ -156,7 +156,7 @@ test("prisma track analysis job repository reclaims stale processing jobs", asyn
     throw new Error("test row not found");
   }
 
-  row.status = "processing";
+  row.status = "analyzing";
   row.updatedAt = new Date("2000-01-01T00:00:00.000Z");
 
   assert.equal((await repository.claimNextJob())?.id, queued.id);
@@ -198,7 +198,7 @@ function createMemoryClient() {
             .filter(
               (row) =>
                 row.status === "queued" ||
-                (row.status === "processing" &&
+                ((row.status === "analyzing" || row.status === "processing") &&
                   new Date(String(row.updatedAt)).valueOf() <= Date.now() - 5 * 60 * 1000),
             )
             .sort((left, right) => {
@@ -219,7 +219,7 @@ function createMemoryClient() {
             return [];
           }
 
-          candidate.status = "processing";
+          candidate.status = "analyzing";
           candidate.attemptCount = Number(candidate.attemptCount ?? 0) + 1;
           candidate.errorMessage = null;
           candidate.updatedAt = new Date();
@@ -234,6 +234,8 @@ function createMemoryClient() {
               error_message: candidate.errorMessage,
               attempt_count: candidate.attemptCount,
               max_attempts: candidate.maxAttempts,
+              command_id: candidate.commandId ?? null,
+              correlation_id: candidate.correlationId ?? null,
               created_at: candidate.createdAt,
               updated_at: candidate.updatedAt,
               completed_at: candidate.completedAt,

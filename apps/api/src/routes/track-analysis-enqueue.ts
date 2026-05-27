@@ -25,6 +25,8 @@ export function createTrackAnalysisEnqueueRouter(
         job: {
           id: job.id,
           status: job.status,
+          commandId: job.commandId,
+          correlationId: job.correlationId,
         },
       });
     } catch (error) {

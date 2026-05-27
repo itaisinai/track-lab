@@ -114,6 +114,12 @@ function getQueuedTrackAnalysisJob(result: unknown) {
   return {
     id: record.id,
     operation: record.operation as "analyze" | "enrich" | "remix_search",
-    status: record.status as "queued" | "processing" | "completed" | "failed" | "dead_lettered",
+    status: record.status as
+      | "queued"
+      | "analyzing"
+      | "processing"
+      | "completed"
+      | "failed"
+      | "dead_lettered",
   };
 }

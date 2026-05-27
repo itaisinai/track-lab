@@ -1,4 +1,21 @@
 export type {
+  AnalyzeTrackCommand,
+  AnalyzeTrackCommandPayload,
+  Command,
+} from "./commands.ts";
+
+export type {
+  DomainEvent,
+  TrackAnalysisCompletedEvent,
+  TrackAnalysisCompletedPayload,
+  TrackAnalysisDomainEvent,
+  TrackAnalysisFailedEvent,
+  TrackAnalysisFailedPayload,
+  TrackAnalysisStartedEvent,
+  TrackAnalysisStartedPayload,
+} from "./events.ts";
+
+export type {
   AgentMessage,
   AgentMessageMetadata,
   AgentMessageRole,
