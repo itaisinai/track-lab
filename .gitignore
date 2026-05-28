@@ -1,9 +1,97 @@
-node_modules
+# =========================
+# Node.js
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# =========================
+# Yarn / Package Managers
+# =========================
 .yarn/
+.pnp.*
+.pnpm-store/
+
+# =========================
+# Build outputs
+# =========================
+dist/
+build/
+out/
+coverage/
+.tmp/
+temp/
+
+# =========================
+# NX / Turborepo
+# =========================
 .nx/
-dist
+.turbo/
+
+# =========================
+# Environment variables
+# =========================
 .env
-.DS_Store
-coverage
-data/
+.env.*
+!.env.example
+
+# =========================
+# Prisma
+# =========================
 .prisma/
+
+# =========================
+# Runtime / local data
+# =========================
+data/
+logs/
+*.log
+
+# =========================
+# OS / Editor files
+# =========================
+.DS_Store
+Thumbs.db
+
+.vscode/
+.idea/
+
+# =========================
+# Terraform
+# =========================
+infra/terraform/.terraform/
+infra/terraform/terraform.tfstate
+infra/terraform/terraform.tfstate.*
+infra/terraform/*.tfvars
+infra/terraform/*.tfplan
+infra/terraform/crash.log
+
+# Terraform CLI config
+infra/terraform/.terraformrc
+infra/terraform/terraform.rc
+
+# Terraform override files
+infra/terraform/override.tf
+infra/terraform/override.tf.json
+infra/terraform/*_override.tf
+infra/terraform/*_override.tf.json
+
+# =========================
+# AWS / Credentials
+# =========================
+.aws/
+*.pem
+*.key
+
+# =========================
+# Docker
+# =========================
+docker-compose.override.yml
+
+# =========================
+# Misc
+# =========================
+.cache/
+.history/
