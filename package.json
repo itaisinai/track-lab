@@ -2,14 +2,13 @@
   "name": "track-lab",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "packageManager": "yarn@4.9.2",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
   "engines": {
-    "node": ">=22"
+    "node": "24.x"
   },
   "scripts": {
     "dev": "yarn workspace @track-lab/api start",
